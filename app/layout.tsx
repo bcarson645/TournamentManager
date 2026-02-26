@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
+import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'TournamentManager – Hello World',
-  description: 'Welcome to TournamentManager',
+  title: 'TournamentManager',
+  description: 'Manage teams and players across cricket tournaments',
 }
 
 export default function RootLayout({
@@ -12,7 +13,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <header className="header">
+          <div className="header-title">
+            Tournament<span>Manager</span>
+          </div>
+        </header>
+        {children}
+      </body>
     </html>
   )
 }
