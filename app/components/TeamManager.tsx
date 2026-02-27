@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { Team, Player } from '../data/teams'
-import { SquadPlayer, makePlaceholderSquad } from '../data/squad'
+import { SquadPlayer, BowlAction, makeSquadForTeam } from '../data/squad'
+import { PlayerDbEntry } from '../data/playerDatabase'
 import { GROUNDS, Ground } from '../data/grounds'
 import SquadTable from './SquadTable'
 import PlayerDetailPanel from './PlayerDetailPanel'
@@ -60,6 +61,8 @@ function hashStr(s: string): number {
   return Math.abs(h) || 1
 }
 
+const logoStore: Record<string, string> = {}
+
 interface TeamManagerProps {
   team: Team
   tournamentName: string
@@ -75,20 +78,26 @@ export default function TeamManager({
   topBatters,
   topBowlers,
 }: TeamManagerProps) {
-  const [teamLogo, setTeamLogo] = useState<string | null>(team.logo ?? null)
+  const [teamLogo, setTeamLogo] = useState<string | null>(logoStore[team.id] ?? team.logo ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [startingXI, setStartingXI] = useState<SquadPlayer[]>(() =>
-    makePlaceholderSquad(team.id, 11, 0),
-  )
-  const [reserves, setReserves] = useState<SquadPlayer[]>(() =>
-    makePlaceholderSquad(team.id, 11, 11),
-  )
+  const [startingXI, setStartingXI] = useState<SquadPlayer[]>(() => makeSquadForTeam(team.id).startingXI)
+  const [reserves, setReserves] = useState<SquadPlayer[]>(() => makeSquadForTeam(team.id).reserves)
 
   const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
   const [selectedGround, setSelectedGround] = useState<Ground | null>(null)
   const [groundSearch, setGroundSearch] = useState('')
   const [groundDropdownOpen, setGroundDropdownOpen] = useState(false)
+
+  useEffect(() => {
+    const squad = makeSquadForTeam(team.id)
+    setStartingXI(squad.startingXI)
+    setReserves(squad.reserves)
+    setSelectedPlayer(null)
+    setTeamLogo(logoStore[team.id] ?? team.logo ?? null)
+    setSelectedGround(null)
+    setGroundSearch('')
+  }, [team.id])
 
   const avgFirstInnings = useMemo(() => generateAvgScore(team.id), [team.id])
   const last10 = useMemo(() => generateLast10(team.id), [team.id])
@@ -109,6 +118,20 @@ export default function TeamManager({
     setReserves(newReserves)
   }
 
+  function handleAddPlayer(name: string, dbEntry: PlayerDbEntry) {
+    const totalPlayers = startingXI.length + reserves.length
+    const newPlayer: SquadPlayer = {
+      id: `${team.id}-p${totalPlayers + 1}`,
+      playerId: dbEntry.id,
+      name: dbEntry.name,
+      btCaz: 0, raw: 0, sr: 0, fours: 0, sixes: 0, batRating: 0,
+      action: (dbEntry.role === 'BOWL' ? 'SEAM' : 'SEAM') as BowlAction,
+      wkts: 0, overs: 0, econ: 0, bowlSr: 0, bowlAvg: 0, bowlRating: 0,
+      locked: false,
+    }
+    setReserves((prev) => [...prev, newPlayer])
+  }
+
   function handleLogoClick() {
     fileInputRef.current?.click()
   }
@@ -118,7 +141,9 @@ export default function TeamManager({
     if (!file) return
     const reader = new FileReader()
     reader.onload = () => {
-      setTeamLogo(reader.result as string)
+      const dataUrl = reader.result as string
+      logoStore[team.id] = dataUrl
+      setTeamLogo(dataUrl)
     }
     reader.readAsDataURL(file)
   }
@@ -322,6 +347,7 @@ export default function TeamManager({
             onUpdate={handleUpdate}
             selectedPlayerId={selectedPlayer?.id ?? null}
             onSelectPlayer={(p) => setSelectedPlayer(p)}
+            onAddPlayer={handleAddPlayer}
           />
         </div>
         {selectedPlayer && (

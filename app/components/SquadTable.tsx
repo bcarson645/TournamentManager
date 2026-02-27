@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { SquadPlayer, BowlAction } from '../data/squad'
+import { searchPlayers, PlayerDbEntry } from '../data/playerDatabase'
 
 function PidCell({ playerId }: { playerId: string }) {
   const [visible, setVisible] = useState(false)
@@ -47,10 +48,13 @@ interface SquadTableProps {
   onUpdate: (startingXI: SquadPlayer[], reserves: SquadPlayer[]) => void
   selectedPlayerId?: string | null
   onSelectPlayer?: (player: SquadPlayer) => void
+  onAddPlayer?: (name: string, dbEntry: PlayerDbEntry) => void
 }
 
-export default function SquadTable({ startingXI, reserves, onUpdate, selectedPlayerId, onSelectPlayer }: SquadTableProps) {
+export default function SquadTable({ startingXI, reserves, onUpdate, selectedPlayerId, onSelectPlayer, onAddPlayer }: SquadTableProps) {
   const [swapSource, setSwapSource] = useState<{ section: 'starting' | 'reserves'; index: number } | null>(null)
+  const [addQuery, setAddQuery] = useState('')
+  const [addDropdownOpen, setAddDropdownOpen] = useState(false)
   const dragItem = useRef<{ section: 'starting' | 'reserves'; index: number } | null>(null)
   const dragOver = useRef<{ section: 'starting' | 'reserves'; index: number } | null>(null)
 
@@ -198,13 +202,12 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
     return (
       <tr
         key={player.id}
-        className={`squad-row ${isSwapSelected ? 'squad-row-swap-source' : ''} ${isSelected ? 'squad-row-selected' : ''}`}
+        className={`squad-row ${isSwapSelected ? 'squad-row-swap-source' : ''} ${isSelected ? 'squad-row-selected' : ''} ${player.locked ? 'squad-row-locked' : ''}`}
         draggable
         onDragStart={() => handleDragStart(section, index)}
         onDragEnter={() => handleDragEnter(section, index)}
         onDragEnd={handleDragEnd}
         onDragOver={(e) => e.preventDefault()}
-        onClick={() => onSelectPlayer?.(player)}
       >
         <td className="sq-swap">
           <button
@@ -222,8 +225,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
         <td className="sq-pid">
           <PidCell playerId={player.playerId} />
         </td>
-        <td className="sq-name">{player.name}</td>
-        {/* Batting editable: BT CAZ, Raw, SR */}
+        <td className="sq-name sq-name-clickable" onClick={() => onSelectPlayer?.(player)}>{player.name}</td>
         {BAT_EDITABLE.map((field) => {
           const colIdx = ALL_EDITABLE_FIELDS.indexOf(field)
           return (
@@ -232,6 +234,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
                 type="number"
                 className="cell-input"
                 value={player[field]}
+                disabled={player.locked}
                 data-section={section}
                 data-row={index}
                 data-col={colIdx}
@@ -247,11 +250,11 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
         <td className={`sq-num sq-rating ${player.batRating > 0 ? 'rating-pos' : player.batRating < 0 ? 'rating-neg' : ''}`}>
           {player.batRating}
         </td>
-        {/* Bowling: Action dropdown */}
         <td className="sq-action">
           <select
             className="action-select"
             value={player.action}
+            disabled={player.locked}
             onChange={(e) => {
               const list = section === 'starting' ? [...startingXI] : [...reserves]
               list[index] = { ...list[index], action: e.target.value as BowlAction }
@@ -262,7 +265,6 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             <option value="SPIN">SPIN</option>
           </select>
         </td>
-        {/* Bowling editable: WKTS, Overs */}
         {BOWL_EDITABLE.map((field) => {
           const colIdx = ALL_EDITABLE_FIELDS.indexOf(field)
           return (
@@ -271,6 +273,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
                 type="number"
                 className="cell-input"
                 value={player[field]}
+                disabled={player.locked}
                 data-section={section}
                 data-row={index}
                 data-col={colIdx}
@@ -288,7 +291,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
           {player.bowlRating}
         </td>
         <td className="sq-info">
-          <button className="info-btn" title="Player info" onClick={(e) => { e.stopPropagation(); onSelectPlayer?.(player) }}>i</button>
+          <button className="info-btn" title="Player info" onClick={() => onSelectPlayer?.(player)}>i</button>
         </td>
         <td className="sq-lock">
           <input
@@ -335,6 +338,22 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
     </>
   )
 
+  const existingNames = useMemo(
+    () => [...startingXI, ...reserves].map((p) => p.name),
+    [startingXI, reserves],
+  )
+
+  const addResults = useMemo(
+    () => searchPlayers(addQuery, existingNames),
+    [addQuery, existingNames],
+  )
+
+  function handleAddPlayer(entry: PlayerDbEntry) {
+    onAddPlayer?.(entry.name, entry)
+    setAddQuery('')
+    setAddDropdownOpen(false)
+  }
+
   return (
     <div className="squad-table-container">
       <div className="squad-section">
@@ -361,6 +380,45 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             </tbody>
           </table>
         </div>
+
+        {onAddPlayer && (
+          <div className="squad-add-player">
+            <div className="squad-add-search">
+              <input
+                type="text"
+                className="squad-add-input"
+                placeholder="Search player database to add..."
+                value={addQuery}
+                onChange={(e) => {
+                  setAddQuery(e.target.value)
+                  setAddDropdownOpen(true)
+                }}
+                onFocus={() => { if (addQuery.length >= 2) setAddDropdownOpen(true) }}
+                onBlur={() => setTimeout(() => setAddDropdownOpen(false), 200)}
+              />
+              {addDropdownOpen && addResults.length > 0 && (
+                <ul className="squad-add-dropdown">
+                  {addResults.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className="squad-add-option"
+                      onMouseDown={() => handleAddPlayer(entry)}
+                    >
+                      <span className="squad-add-name">{entry.name}</span>
+                      <span className="squad-add-meta">
+                        <span className={`squad-add-role role-${entry.role.toLowerCase()}`}>{entry.role}</span>
+                        <span className="squad-add-country">{entry.country}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {addDropdownOpen && addQuery.length >= 2 && addResults.length === 0 && (
+                <div className="squad-add-empty">No players found</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

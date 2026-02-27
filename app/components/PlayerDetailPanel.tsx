@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { SquadPlayer } from '../data/squad'
 import {
   PlayerProfile,
-  makeDefaultProfile,
+  getProfileForPlayer,
   CareerBatting,
   CareerBowling,
   RecentInnings,
@@ -22,8 +22,12 @@ export default function PlayerDetailPanel({
   tournamentName,
   onClose,
 }: PlayerDetailPanelProps) {
-  const [profile, setProfile] = useState<PlayerProfile>(makeDefaultProfile)
+  const [profile, setProfile] = useState<PlayerProfile>(() => getProfileForPlayer(player.name))
   const photoRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setProfile(getProfileForPlayer(player.name))
+  }, [player.id])
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]

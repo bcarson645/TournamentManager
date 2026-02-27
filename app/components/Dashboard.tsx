@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { CricketFormat, Gender, FORMATS, GENDERS, TOURNAMENTS } from '../data/tournaments'
 import { getTeamsByTournament, getTopBatters, getTopBowlers } from '../data/teams'
 import Sidebar from './Sidebar'
@@ -26,6 +26,14 @@ export default function Dashboard({
   onGoHome,
 }: DashboardProps) {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [selectedYear, setSelectedYear] = useState(2026)
+
+  const currentYear = 2026
+  const years = useMemo(() => {
+    const arr: number[] = []
+    for (let y = currentYear; y >= currentYear - 4; y--) arr.push(y)
+    return arr
+  }, [])
 
   const tournament = TOURNAMENTS[format][gender].find((t) => t.id === tournamentId)
   const formatInfo = FORMATS.find((f) => f.key === format)!
@@ -95,12 +103,34 @@ export default function Dashboard({
 
       <main className="dashboard-main">
         <div className="dashboard-header">
-          <h1 className="dashboard-title">
-            {tournament?.name ?? 'Tournament'}
-          </h1>
-          <div className="dashboard-breadcrumb">
-            {formatInfo.label} › {genderInfo.label} › {tournament?.name}
+          <div className="dashboard-header-top">
+            <div>
+              <h1 className="dashboard-title">
+                {tournament?.name ?? 'Tournament'}
+              </h1>
+              <div className="dashboard-breadcrumb">
+                {formatInfo.label} › {genderInfo.label} › {tournament?.name}
+              </div>
+            </div>
+            <div className="dashboard-year-selector">
+              {years.map((y) => (
+                <button
+                  key={y}
+                  className={`year-btn ${y === selectedYear ? 'year-btn-active' : ''} ${y !== currentYear ? 'year-btn-past' : ''}`}
+                  onClick={() => setSelectedYear(y)}
+                  title={y === currentYear ? 'Current edition' : `${y} edition (read-only)`}
+                >
+                  {y === currentYear && <span className="year-live-dot" />}
+                  {y}
+                </button>
+              ))}
+            </div>
           </div>
+          {selectedYear !== currentYear && (
+            <div className="year-archive-banner">
+              Viewing {tournament?.name} {selectedYear} — archived edition (read-only)
+            </div>
+          )}
         </div>
 
         <div className="dashboard-content">
