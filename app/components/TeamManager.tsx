@@ -7,6 +7,7 @@ import { PlayerDbEntry } from '../data/playerDatabase'
 import { GROUNDS, Ground } from '../data/grounds'
 import SquadTable from './SquadTable'
 import PlayerDetailPanel from './PlayerDetailPanel'
+import { getTeamLogo, setTeamLogo as storeTeamLogo } from '../data/logoStore'
 
 interface MatchResult {
   won: boolean
@@ -61,8 +62,6 @@ function hashStr(s: string): number {
   return Math.abs(h) || 1
 }
 
-const logoStore: Record<string, string> = {}
-
 interface TeamManagerProps {
   team: Team
   tournamentName: string
@@ -78,7 +77,7 @@ export default function TeamManager({
   topBatters,
   topBowlers,
 }: TeamManagerProps) {
-  const [teamLogo, setTeamLogo] = useState<string | null>(logoStore[team.id] ?? team.logo ?? null)
+  const [teamLogo, setTeamLogo] = useState<string | null>(getTeamLogo(team.id) ?? team.logo ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [startingXI, setStartingXI] = useState<SquadPlayer[]>(() => makeSquadForTeam(team.id).startingXI)
@@ -94,7 +93,7 @@ export default function TeamManager({
     setStartingXI(squad.startingXI)
     setReserves(squad.reserves)
     setSelectedPlayer(null)
-    setTeamLogo(logoStore[team.id] ?? team.logo ?? null)
+    setTeamLogo(getTeamLogo(team.id) ?? team.logo ?? null)
     setSelectedGround(null)
     setGroundSearch('')
   }, [team.id])
@@ -142,7 +141,7 @@ export default function TeamManager({
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result as string
-      logoStore[team.id] = dataUrl
+      storeTeamLogo(team.id, dataUrl)
       setTeamLogo(dataUrl)
     }
     reader.readAsDataURL(file)

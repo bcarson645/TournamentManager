@@ -1,6 +1,7 @@
 'use client'
 
 import { Team } from '../data/teams'
+import { getTeamLogo } from '../data/logoStore'
 
 interface TeamsTableProps {
   teams: Team[]
@@ -40,8 +41,8 @@ export default function TeamsTable({ teams, onSelectTeam }: TeamsTableProps) {
               onClick={() => onSelectTeam?.(team.id)}
             >
               <td className="td-logo">
-                {team.logo ? (
-                  <img src={team.logo} alt="" className="team-logo" />
+                {(getTeamLogo(team.id) || team.logo) ? (
+                  <img src={getTeamLogo(team.id) || team.logo!} alt="" className="team-logo" />
                 ) : (
                   <div className="team-logo-placeholder">
                     {team.name.charAt(0)}
