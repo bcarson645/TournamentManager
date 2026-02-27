@@ -1,16 +1,82 @@
 'use client'
 
-import { useState } from 'react'
-import { Team } from '../data/teams'
+import { useState, useRef, useMemo } from 'react'
+import { Team, Player } from '../data/teams'
 import { SquadPlayer, makePlaceholderSquad } from '../data/squad'
+import { GROUNDS, Ground } from '../data/grounds'
 import SquadTable from './SquadTable'
+
+interface MatchResult {
+  won: boolean
+  teamScore: number
+  teamWickets: number
+  oppName: string
+  oppScore: number
+  oppWickets: number
+}
+
+function seededRandom(seed: number) {
+  let s = seed
+  return () => {
+    s = (s * 16807 + 0) % 2147483647
+    return (s - 1) / 2147483646
+  }
+}
+
+function generateAvgScore(teamId: string): number {
+  const rand = seededRandom(hashStr(teamId + '-avg'))
+  return Math.round(140 + rand() * 40)
+}
+
+function generateLast10(teamId: string): MatchResult[] {
+  const rand = seededRandom(hashStr(teamId + '-results'))
+  const opponents = ['Team A', 'Team B', 'Team C', 'Team D', 'Team E',
+    'Team F', 'Team G', 'Team H', 'Team I', 'Team J']
+  return Array.from({ length: 10 }, (_, i) => {
+    const won = rand() > 0.45
+    const teamScore = Math.round(120 + rand() * 80)
+    const teamWickets = Math.round(3 + rand() * 7)
+    const oppScore = won
+      ? Math.round(teamScore - 5 - rand() * 40)
+      : Math.round(teamScore + 5 + rand() * 40)
+    const oppWickets = Math.round(3 + rand() * 7)
+    return {
+      won,
+      teamScore,
+      teamWickets: Math.min(teamWickets, 10),
+      oppName: opponents[i],
+      oppScore,
+      oppWickets: Math.min(oppWickets, 10),
+    }
+  })
+}
+
+function hashStr(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0
+  }
+  return Math.abs(h) || 1
+}
 
 interface TeamManagerProps {
   team: Team
   tournamentName: string
+  allTeams: Team[]
+  topBatters: Player[]
+  topBowlers: Player[]
 }
 
-export default function TeamManager({ team, tournamentName }: TeamManagerProps) {
+export default function TeamManager({
+  team,
+  tournamentName,
+  allTeams,
+  topBatters,
+  topBowlers,
+}: TeamManagerProps) {
+  const [teamLogo, setTeamLogo] = useState<string | null>(team.logo ?? null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [startingXI, setStartingXI] = useState<SquadPlayer[]>(() =>
     makePlaceholderSquad(team.id, 11, 0),
   )
@@ -18,45 +84,235 @@ export default function TeamManager({ team, tournamentName }: TeamManagerProps) 
     makePlaceholderSquad(team.id, 11, 11),
   )
 
+  const [selectedGround, setSelectedGround] = useState<Ground | null>(null)
+  const [groundSearch, setGroundSearch] = useState('')
+  const [groundDropdownOpen, setGroundDropdownOpen] = useState(false)
+
+  const avgFirstInnings = useMemo(() => generateAvgScore(team.id), [team.id])
+  const last10 = useMemo(() => generateLast10(team.id), [team.id])
+
+  const filteredGrounds = useMemo(() => {
+    const q = groundSearch.toLowerCase()
+    if (q.length === 0) return GROUNDS.slice(0, 15)
+    return GROUNDS.filter(
+      (g) =>
+        g.name.toLowerCase().includes(q) ||
+        g.city.toLowerCase().includes(q) ||
+        g.country.toLowerCase().includes(q),
+    ).slice(0, 15)
+  }, [groundSearch])
+
   function handleUpdate(newStarting: SquadPlayer[], newReserves: SquadPlayer[]) {
     setStartingXI(newStarting)
     setReserves(newReserves)
   }
 
+  function handleLogoClick() {
+    fileInputRef.current?.click()
+  }
+
+  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      setTeamLogo(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function handleSelectGround(ground: Ground) {
+    setSelectedGround(ground)
+    setGroundSearch('')
+    setGroundDropdownOpen(false)
+  }
+
   return (
     <div className="team-manager">
-      <div className="team-manager-header">
-        <div className="team-manager-identity">
-          {team.logo ? (
-            <img src={team.logo} alt="" className="team-manager-logo" />
-          ) : (
-            <div className="team-manager-logo-placeholder">
-              {team.name.charAt(0)}
+      {/* Fixed ribbon */}
+      <div className="tm-ribbon">
+        {/* Left: team identity + factors + ground + form */}
+        <div className="tm-ribbon-team">
+          <div className="tm-ribbon-identity">
+            <div className="team-logo-upload team-logo-upload-sm" onClick={handleLogoClick} title="Click to upload team logo">
+              {teamLogo ? (
+                <img src={teamLogo} alt="" className="tm-ribbon-logo" />
+              ) : (
+                <div className="tm-ribbon-logo-ph">
+                  {team.name.charAt(0)}
+                </div>
+              )}
+              <div className="team-logo-overlay">
+                <span>✎</span>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="team-logo-input"
+                onChange={handleLogoChange}
+              />
             </div>
-          )}
-          <div>
-            <h1 className="team-manager-name">{team.name}</h1>
-            <div className="team-manager-tournament">{tournamentName}</div>
+            <div>
+              <div className="tm-ribbon-name">{team.name}</div>
+              <div className="tm-ribbon-tournament">{tournamentName}</div>
+            </div>
+          </div>
+
+          <div className="tm-ribbon-factors">
+            <div className="factor-pill-sm">
+              <span className="factor-label-sm">Bat</span>
+              <span className="factor-value-sm">{team.battingFactor.toFixed(1)}</span>
+            </div>
+            <div className="factor-pill-sm">
+              <span className="factor-label-sm">Bowl</span>
+              <span className="factor-value-sm">{team.bowlingFactor.toFixed(1)}</span>
+            </div>
+            <div className="factor-pill-sm factor-pill-sm-total">
+              <span className="factor-label-sm">Total</span>
+              <span className="factor-value-sm">{team.totalFactor.toFixed(1)}</span>
+            </div>
+          </div>
+
+          {/* Home ground */}
+          <div className="tm-ground">
+            <div className="tm-ground-row">
+              <span className="tm-ground-label">Home Ground</span>
+              <span className="tm-ground-avg">Avg 1st Inn: {avgFirstInnings}</span>
+            </div>
+            <div className="tm-ground-selector">
+              <input
+                type="text"
+                className="tm-ground-input"
+                placeholder={selectedGround ? selectedGround.name : 'Search grounds...'}
+                value={groundSearch}
+                onChange={(e) => {
+                  setGroundSearch(e.target.value)
+                  setGroundDropdownOpen(true)
+                }}
+                onFocus={() => setGroundDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setGroundDropdownOpen(false), 200)}
+              />
+              {selectedGround && !groundSearch && (
+                <div className="tm-ground-selected">
+                  {selectedGround.name}, {selectedGround.city}
+                </div>
+              )}
+              {groundDropdownOpen && filteredGrounds.length > 0 && (
+                <ul className="tm-ground-dropdown">
+                  {filteredGrounds.map((g) => (
+                    <li
+                      key={g.id}
+                      className="tm-ground-option"
+                      onMouseDown={() => handleSelectGround(g)}
+                    >
+                      <span className="tm-ground-option-name">{g.name}</span>
+                      <span className="tm-ground-option-city">{g.city}, {g.country}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* Last 10 results */}
+          <div className="tm-form">
+            <span className="tm-form-label">Last 10</span>
+            <div className="tm-form-icons">
+              {last10.map((r, i) => (
+                <div key={i} className={`tm-form-icon ${r.won ? 'form-w' : 'form-l'}`}>
+                  {r.won ? 'W' : 'L'}
+                  <div className="tm-form-tooltip">
+                    <div className="tm-form-tooltip-line">
+                      {team.name}: {r.teamScore}/{r.teamWickets}
+                    </div>
+                    <div className="tm-form-tooltip-line">
+                      {r.oppName}: {r.oppScore}/{r.oppWickets}
+                    </div>
+                    <div className="tm-form-tooltip-result">
+                      {r.won ? 'Won' : 'Lost'} by {r.won
+                        ? `${r.teamScore - r.oppScore} runs`
+                        : `${r.oppScore - r.teamScore} runs`}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="team-manager-factors">
-          <div className="factor-pill">
-            <span className="factor-label">Bat</span>
-            <span className="factor-value">{team.battingFactor.toFixed(1)}</span>
+        {/* Centre: league table */}
+        <div className="tm-ribbon-league">
+          <div className="tm-ribbon-section-label">League Table</div>
+          <div className="tm-ribbon-league-scroll">
+            <table className="tm-mini-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th className="mini-th-name">Team</th>
+                  <th>Bat</th>
+                  <th>Bowl</th>
+                  <th className="mini-th-total">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allTeams.map((t, i) => (
+                  <tr key={t.id} className={t.id === team.id ? 'mini-row-current' : ''}>
+                    <td>{i + 1}</td>
+                    <td className="mini-td-name">{t.name}</td>
+                    <td>{t.battingFactor.toFixed(1)}</td>
+                    <td>{t.bowlingFactor.toFixed(1)}</td>
+                    <td className="mini-td-total">{t.totalFactor.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <div className="factor-pill">
-            <span className="factor-label">Bowl</span>
-            <span className="factor-value">{team.bowlingFactor.toFixed(1)}</span>
+        </div>
+
+        {/* Right: top 10 batting & bowling */}
+        <div className="tm-ribbon-rankings">
+          <div className="tm-ribbon-rank-col">
+            <div className="tm-ribbon-section-label">Top 10 Batting</div>
+            <div className="tm-ribbon-rank-scroll">
+              {topBatters.length === 0 ? (
+                <div className="tm-ribbon-rank-empty">No ratings yet</div>
+              ) : (
+                <ol className="tm-mini-rank-list">
+                  {topBatters.slice(0, 10).map((p, i) => (
+                    <li key={p.id}>
+                      <span className="mini-rank-num">{i + 1}</span>
+                      <span className="mini-rank-name">{p.name}</span>
+                      <span className="mini-rank-val">{p.battingRating.toFixed(1)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
           </div>
-          <div className="factor-pill factor-pill-total">
-            <span className="factor-label">Total</span>
-            <span className="factor-value">{team.totalFactor.toFixed(1)}</span>
+          <div className="tm-ribbon-rank-col">
+            <div className="tm-ribbon-section-label">Top 10 Bowling</div>
+            <div className="tm-ribbon-rank-scroll">
+              {topBowlers.length === 0 ? (
+                <div className="tm-ribbon-rank-empty">No ratings yet</div>
+              ) : (
+                <ol className="tm-mini-rank-list">
+                  {topBowlers.slice(0, 10).map((p, i) => (
+                    <li key={p.id}>
+                      <span className="mini-rank-num">{i + 1}</span>
+                      <span className="mini-rank-name">{p.name}</span>
+                      <span className="mini-rank-val">{p.bowlingRating.toFixed(1)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="team-manager-body">
+      {/* Scrollable squad body */}
+      <div className="tm-squad-body">
         <SquadTable
           startingXI={startingXI}
           reserves={reserves}

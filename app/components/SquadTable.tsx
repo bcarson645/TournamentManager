@@ -3,8 +3,43 @@
 import { useState, useRef, useCallback } from 'react'
 import { SquadPlayer, BowlAction } from '../data/squad'
 
-const EDITABLE_FIELDS = ['btCaz', 'raw', 'sr'] as const
-type EditableField = typeof EDITABLE_FIELDS[number]
+function PidCell({ playerId }: { playerId: string }) {
+  const [visible, setVisible] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  function handleToggle() {
+    setVisible((v) => !v)
+    setCopied(false)
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(playerId)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <span className="pid-cell">
+      <button className="pid-eye" onClick={handleToggle} title={visible ? 'Hide Player ID' : 'Show Player ID'}>
+        {visible ? '👁' : '👁‍🗨'}
+      </button>
+      {visible && (
+        <span className="pid-reveal">
+          <code className="pid-value">{playerId}</code>
+          <button className="pid-copy" onClick={handleCopy} title="Copy ID">
+            {copied ? '✓' : '⧉'}
+          </button>
+        </span>
+      )}
+    </span>
+  )
+}
+
+const ALL_EDITABLE_FIELDS = ['btCaz', 'raw', 'sr', 'wkts', 'overs'] as const
+type EditableField = typeof ALL_EDITABLE_FIELDS[number]
+
+const BAT_EDITABLE: EditableField[] = ['btCaz', 'raw', 'sr']
+const BOWL_EDITABLE: EditableField[] = ['wkts', 'overs']
 
 interface SquadTableProps {
   startingXI: SquadPlayer[]
@@ -118,7 +153,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate }: SquadTabl
     let nextSection = section
 
     if (key === 'ArrowRight') {
-      nextCol = Math.min(colIndex + 1, EDITABLE_FIELDS.length - 1)
+      nextCol = Math.min(colIndex + 1, ALL_EDITABLE_FIELDS.length - 1)
     } else if (key === 'ArrowLeft') {
       nextCol = Math.max(colIndex - 1, 0)
     } else if (key === 'ArrowDown') {
@@ -166,32 +201,48 @@ export default function SquadTable({ startingXI, reserves, onUpdate }: SquadTabl
         onDragEnd={handleDragEnd}
         onDragOver={(e) => e.preventDefault()}
       >
+        <td className="sq-swap">
+          <button
+            className={`swap-btn ${isSwapSelected ? 'swap-active' : ''} ${isSwapTarget ? 'swap-target' : ''}`}
+            onClick={() => handleSwap(section, index)}
+            title={isSwapSelected ? 'Cancel swap' : swapSource ? 'Swap with this player' : 'Swap player'}
+          >
+            ⇅
+          </button>
+        </td>
+        <td className="sq-pos">{index + 1}</td>
         <td className="sq-drag">
           <span className="drag-handle" title="Drag to reorder">⠿</span>
         </td>
-        <td className="sq-pos">{index + 1}</td>
-        <td className="sq-pid">{player.playerId}</td>
+        <td className="sq-pid">
+          <PidCell playerId={player.playerId} />
+        </td>
         <td className="sq-name">{player.name}</td>
-        {EDITABLE_FIELDS.map((field, colIdx) => (
-          <td key={field} className="sq-num sq-editable">
-            <input
-              type="number"
-              className="cell-input"
-              value={player[field]}
-              data-section={section}
-              data-row={index}
-              data-col={colIdx}
-              onChange={(e) => updateField(section, index, field, e.target.value)}
-              onKeyDown={(e) => handleCellKeyDown(e, section, index, colIdx)}
-              onFocus={(e) => e.target.select()}
-            />
-          </td>
-        ))}
+        {/* Batting editable: BT CAZ, Raw, SR */}
+        {BAT_EDITABLE.map((field) => {
+          const colIdx = ALL_EDITABLE_FIELDS.indexOf(field)
+          return (
+            <td key={field} className="sq-num sq-editable">
+              <input
+                type="number"
+                className="cell-input"
+                value={player[field]}
+                data-section={section}
+                data-row={index}
+                data-col={colIdx}
+                onChange={(e) => updateField(section, index, field, e.target.value)}
+                onKeyDown={(e) => handleCellKeyDown(e, section, index, colIdx)}
+                onFocus={(e) => e.target.select()}
+              />
+            </td>
+          )
+        })}
         <td className="sq-num">{player.fours.toFixed(1)}</td>
         <td className="sq-num">{player.sixes.toFixed(1)}</td>
         <td className={`sq-num sq-rating ${player.batRating > 0 ? 'rating-pos' : player.batRating < 0 ? 'rating-neg' : ''}`}>
           {player.batRating}
         </td>
+        {/* Bowling: Action dropdown */}
         <td className="sq-action">
           <select
             className="action-select"
@@ -206,8 +257,25 @@ export default function SquadTable({ startingXI, reserves, onUpdate }: SquadTabl
             <option value="SPIN">SPIN</option>
           </select>
         </td>
-        <td className="sq-num">{player.wkts.toFixed(1)}</td>
-        <td className="sq-num">{player.overs}</td>
+        {/* Bowling editable: WKTS, Overs */}
+        {BOWL_EDITABLE.map((field) => {
+          const colIdx = ALL_EDITABLE_FIELDS.indexOf(field)
+          return (
+            <td key={field} className="sq-num sq-editable">
+              <input
+                type="number"
+                className="cell-input"
+                value={player[field]}
+                data-section={section}
+                data-row={index}
+                data-col={colIdx}
+                onChange={(e) => updateField(section, index, field, e.target.value)}
+                onKeyDown={(e) => handleCellKeyDown(e, section, index, colIdx)}
+                onFocus={(e) => e.target.select()}
+              />
+            </td>
+          )
+        })}
         <td className="sq-num">{player.econ.toFixed(1)}</td>
         <td className="sq-num">{player.bowlSr.toFixed(1)}</td>
         <td className="sq-num">{player.bowlAvg.toFixed(2)}</td>
@@ -225,15 +293,6 @@ export default function SquadTable({ startingXI, reserves, onUpdate }: SquadTabl
             title={player.locked ? 'Unlock stats' : 'Lock stats'}
           />
         </td>
-        <td className="sq-swap">
-          <button
-            className={`swap-btn ${isSwapSelected ? 'swap-active' : ''} ${isSwapTarget ? 'swap-target' : ''}`}
-            onClick={() => handleSwap(section, index)}
-            title={isSwapSelected ? 'Cancel swap' : swapSource ? 'Swap with this player' : 'Swap player'}
-          >
-            ⇅
-          </button>
-        </td>
       </tr>
     )
   }
@@ -241,14 +300,15 @@ export default function SquadTable({ startingXI, reserves, onUpdate }: SquadTabl
   const headerRows = (
     <>
       <tr className="group-header-row">
-        <th colSpan={4}></th>
+        <th colSpan={5}></th>
         <th colSpan={6} className="group-header group-batting">Batting</th>
         <th colSpan={7} className="group-header group-bowling">Bowling</th>
-        <th colSpan={3}></th>
+        <th colSpan={2}></th>
       </tr>
       <tr>
-        <th className="th-drag"></th>
+        <th className="th-swap"></th>
         <th className="th-pos">Pos</th>
+        <th className="th-drag"></th>
         <th className="th-pid">Player ID</th>
         <th className="th-name">Name</th>
         <th className="th-sq-num th-bat">BT CAZ</th>
@@ -266,7 +326,6 @@ export default function SquadTable({ startingXI, reserves, onUpdate }: SquadTabl
         <th className="th-sq-num th-bowl">Rating</th>
         <th className="th-info"></th>
         <th className="th-lock">✓</th>
-        <th className="th-swap"></th>
       </tr>
     </>
   )

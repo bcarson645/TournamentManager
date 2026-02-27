@@ -67,10 +67,13 @@ export default function Dashboard({
           onGoHome={onGoHome}
         />
 
-        <main className="dashboard-main">
+        <main className="dashboard-main dashboard-main-no-pad">
           <TeamManager
             team={selectedTeam}
             tournamentName={tournament?.name ?? ''}
+            allTeams={teams}
+            topBatters={topBatters}
+            topBowlers={topBowlers}
           />
         </main>
       </div>
