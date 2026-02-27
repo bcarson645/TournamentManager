@@ -45,9 +45,11 @@ interface SquadTableProps {
   startingXI: SquadPlayer[]
   reserves: SquadPlayer[]
   onUpdate: (startingXI: SquadPlayer[], reserves: SquadPlayer[]) => void
+  selectedPlayerId?: string | null
+  onSelectPlayer?: (player: SquadPlayer) => void
 }
 
-export default function SquadTable({ startingXI, reserves, onUpdate }: SquadTableProps) {
+export default function SquadTable({ startingXI, reserves, onUpdate, selectedPlayerId, onSelectPlayer }: SquadTableProps) {
   const [swapSource, setSwapSource] = useState<{ section: 'starting' | 'reserves'; index: number } | null>(null)
   const dragItem = useRef<{ section: 'starting' | 'reserves'; index: number } | null>(null)
   const dragOver = useRef<{ section: 'starting' | 'reserves'; index: number } | null>(null)
@@ -191,15 +193,18 @@ export default function SquadTable({ startingXI, reserves, onUpdate }: SquadTabl
     const isSwapSelected =
       swapSource?.section === section && swapSource?.index === index
 
+    const isSelected = selectedPlayerId === player.id
+
     return (
       <tr
         key={player.id}
-        className={`squad-row ${isSwapSelected ? 'squad-row-swap-source' : ''}`}
+        className={`squad-row ${isSwapSelected ? 'squad-row-swap-source' : ''} ${isSelected ? 'squad-row-selected' : ''}`}
         draggable
         onDragStart={() => handleDragStart(section, index)}
         onDragEnter={() => handleDragEnter(section, index)}
         onDragEnd={handleDragEnd}
         onDragOver={(e) => e.preventDefault()}
+        onClick={() => onSelectPlayer?.(player)}
       >
         <td className="sq-swap">
           <button
@@ -283,7 +288,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate }: SquadTabl
           {player.bowlRating}
         </td>
         <td className="sq-info">
-          <button className="info-btn" title="Player info">i</button>
+          <button className="info-btn" title="Player info" onClick={(e) => { e.stopPropagation(); onSelectPlayer?.(player) }}>i</button>
         </td>
         <td className="sq-lock">
           <input

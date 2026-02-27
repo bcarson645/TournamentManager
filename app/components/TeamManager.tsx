@@ -5,6 +5,7 @@ import { Team, Player } from '../data/teams'
 import { SquadPlayer, makePlaceholderSquad } from '../data/squad'
 import { GROUNDS, Ground } from '../data/grounds'
 import SquadTable from './SquadTable'
+import PlayerDetailPanel from './PlayerDetailPanel'
 
 interface MatchResult {
   won: boolean
@@ -84,6 +85,7 @@ export default function TeamManager({
     makePlaceholderSquad(team.id, 11, 11),
   )
 
+  const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
   const [selectedGround, setSelectedGround] = useState<Ground | null>(null)
   const [groundSearch, setGroundSearch] = useState('')
   const [groundDropdownOpen, setGroundDropdownOpen] = useState(false)
@@ -311,13 +313,24 @@ export default function TeamManager({
         </div>
       </div>
 
-      {/* Scrollable squad body */}
-      <div className="tm-squad-body">
-        <SquadTable
-          startingXI={startingXI}
-          reserves={reserves}
-          onUpdate={handleUpdate}
-        />
+      {/* Scrollable squad body + optional player panel */}
+      <div className={`tm-body-layout ${selectedPlayer ? 'tm-body-with-panel' : ''}`}>
+        <div className="tm-squad-body">
+          <SquadTable
+            startingXI={startingXI}
+            reserves={reserves}
+            onUpdate={handleUpdate}
+            selectedPlayerId={selectedPlayer?.id ?? null}
+            onSelectPlayer={(p) => setSelectedPlayer(p)}
+          />
+        </div>
+        {selectedPlayer && (
+          <PlayerDetailPanel
+            player={selectedPlayer}
+            tournamentName={tournamentName}
+            onClose={() => setSelectedPlayer(null)}
+          />
+        )}
       </div>
     </div>
   )

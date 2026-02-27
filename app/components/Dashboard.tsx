@@ -8,6 +8,7 @@ import TeamsTable from './TeamsTable'
 import PlayerRankings from './PlayerRankings'
 import TournamentSettings from './TournamentSettings'
 import TeamManager from './TeamManager'
+import FixtureList from './FixtureList'
 
 interface DashboardProps {
   format: CricketFormat
@@ -106,6 +107,9 @@ export default function Dashboard({
           <section className="dashboard-left">
             <h2 className="section-title">Teams</h2>
             <TeamsTable teams={teams} onSelectTeam={handleSelectTeam} />
+
+            <h2 className="section-title" style={{ marginTop: '2rem' }}>Fixtures</h2>
+            <FixtureList teams={teams} tournamentId={tournamentId} />
           </section>
 
           <section className="dashboard-right">
