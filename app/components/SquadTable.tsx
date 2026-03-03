@@ -338,6 +338,33 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
     </>
   )
 
+  function renderTotalsRow(players: SquadPlayer[]) {
+    const sum = (fn: (p: SquadPlayer) => number) =>
+      players.reduce((acc, p) => acc + fn(p), 0)
+
+    return (
+      <tfoot>
+        <tr className="squad-totals-row">
+          <td colSpan={5} className="sq-totals-label">Totals</td>
+          <td className="sq-num">{sum((p) => p.btCaz).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => p.raw).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => p.sr).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => p.fours).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => p.sixes).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => p.batRating).toFixed(1)}</td>
+          <td></td>
+          <td className="sq-num">{sum((p) => p.wkts).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => p.overs).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => p.econ).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => p.bowlSr).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => p.bowlAvg).toFixed(2)}</td>
+          <td className="sq-num">{sum((p) => p.bowlRating).toFixed(1)}</td>
+          <td colSpan={2}></td>
+        </tr>
+      </tfoot>
+    )
+  }
+
   const existingNames = useMemo(
     () => [...startingXI, ...reserves].map((p) => p.name),
     [startingXI, reserves],
@@ -364,6 +391,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             <tbody>
               {startingXI.map((p, i) => renderRow(p, i, 'starting'))}
             </tbody>
+            {renderTotalsRow(startingXI)}
           </table>
         </div>
       </div>
@@ -378,6 +406,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             <tbody>
               {reserves.map((p, i) => renderRow(p, i, 'reserves'))}
             </tbody>
+            {renderTotalsRow(reserves)}
           </table>
         </div>
 

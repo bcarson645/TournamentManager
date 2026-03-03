@@ -2412,3 +2412,26 @@ body {
   border-radius: 0.4rem;
   margin-bottom: 0.25rem;
 }
+
+/* ========== Squad Totals Row ========== */
+
+.squad-totals-row {
+  background: var(--bg-surface);
+  border-top: 2px solid var(--border-subtle);
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+.squad-totals-row td {
+  padding: 0.4rem 0.35rem;
+  color: var(--accent);
+}
+
+.sq-totals-label {
+  text-align: right !important;
+  padding-right: 0.75rem !important;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary) !important;
+}
