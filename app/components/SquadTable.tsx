@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useRef, useCallback, useMemo } from 'react'
-import { SquadPlayer, BowlAction } from '../data/squad'
+import { SquadPlayer, BowlAction, calcWktsAndBowlAvg, MAX_TEAM_OVERS } from '../data/squad'
 import { searchPlayers, PlayerDbEntry } from '../data/playerDatabase'
+import { calculateBatRating, calculateBowlRating } from '../data/ratingBenchmarks'
 
 function PidCell({ playerId }: { playerId: string }) {
   const [visible, setVisible] = useState(false)
@@ -36,11 +37,11 @@ function PidCell({ playerId }: { playerId: string }) {
   )
 }
 
-const ALL_EDITABLE_FIELDS = ['btCaz', 'raw', 'sr', 'wkts', 'overs'] as const
+const ALL_EDITABLE_FIELDS = ['btCaz', 'raw', 'sr', 'overs', 'econ', 'bowlSr'] as const
 type EditableField = typeof ALL_EDITABLE_FIELDS[number]
 
 const BAT_EDITABLE: EditableField[] = ['btCaz', 'raw', 'sr']
-const BOWL_EDITABLE: EditableField[] = ['wkts', 'overs']
+const BOWL_EDITABLE: EditableField[] = ['overs', 'econ', 'bowlSr']
 
 interface SquadTableProps {
   startingXI: SquadPlayer[]
@@ -49,6 +50,14 @@ interface SquadTableProps {
   selectedPlayerId?: string | null
   onSelectPlayer?: (player: SquadPlayer) => void
   onAddPlayer?: (name: string, dbEntry: PlayerDbEntry) => void
+}
+
+function recalcRatings(players: SquadPlayer[]): SquadPlayer[] {
+  return players.map((p, i) => ({
+    ...p,
+    batRating: calculateBatRating(p.btCaz, p.raw, p.sr, i + 1),
+    bowlRating: calculateBowlRating(p.econ, p.bowlSr, p.bowlAvg, p.overs),
+  }))
 }
 
 export default function SquadTable({ startingXI, reserves, onUpdate, selectedPlayerId, onSelectPlayer, onAddPlayer }: SquadTableProps) {
@@ -89,7 +98,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
     srcList[swapSource.index] = dstList[index]
     dstList[index] = temp
 
-    onUpdate(newStarting, newReserves)
+    onUpdate(recalcRatings(newStarting), recalcRatings(newReserves))
     setSwapSource(null)
   }
 
@@ -126,7 +135,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
       dstList[dst.index] = temp
     }
 
-    onUpdate(newStarting, newReserves)
+    onUpdate(recalcRatings(newStarting), recalcRatings(newReserves))
     dragItem.current = null
     dragOver.current = null
   }
@@ -137,10 +146,26 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
     field: EditableField,
     value: string,
   ) {
-    const num = value === '' ? 0 : parseFloat(value)
+    let num = value === '' ? 0 : parseFloat(value)
     if (isNaN(num)) return
+    if (field === 'overs' && section === 'starting') {
+      const otherOvers = startingXI.reduce((s, p, i) => s + (i === index ? 0 : p.overs), 0)
+      num = Math.min(num, Math.max(0, MAX_TEAM_OVERS - otherOvers))
+    }
     const list = section === 'starting' ? [...startingXI] : [...reserves]
-    list[index] = { ...list[index], [field]: num }
+    const updated = { ...list[index], [field]: num }
+
+    if (BAT_EDITABLE.includes(field)) {
+      updated.batRating = calculateBatRating(updated.btCaz, updated.raw, updated.sr, index + 1)
+    }
+    if (BOWL_EDITABLE.includes(field)) {
+      const { wkts, bowlAvg } = calcWktsAndBowlAvg(updated.overs, updated.econ, updated.bowlSr)
+      updated.wkts = wkts
+      updated.bowlAvg = bowlAvg
+      updated.bowlRating = calculateBowlRating(updated.econ, updated.bowlSr, updated.bowlAvg, updated.overs)
+    }
+
+    list[index] = updated
     section === 'starting' ? onUpdate(list, reserves) : onUpdate(startingXI, list)
   }
 
@@ -265,6 +290,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             <option value="SPIN">SPIN</option>
           </select>
         </td>
+        <td className="sq-num">{player.wkts.toFixed(1)}</td>
         {BOWL_EDITABLE.map((field) => {
           const colIdx = ALL_EDITABLE_FIELDS.indexOf(field)
           return (
@@ -284,11 +310,9 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             </td>
           )
         })}
-        <td className="sq-num">{player.econ.toFixed(1)}</td>
-        <td className="sq-num">{player.bowlSr.toFixed(1)}</td>
         <td className="sq-num">{player.bowlAvg.toFixed(2)}</td>
-        <td className={`sq-num sq-rating ${player.bowlRating > 0 ? 'rating-pos' : player.bowlRating < 0 ? 'rating-neg' : ''}`}>
-          {player.bowlRating}
+        <td className={`sq-num sq-rating ${!Number.isNaN(player.bowlRating) ? (player.bowlRating > 0 ? 'rating-pos' : player.bowlRating < 0 ? 'rating-neg' : '') : ''}`}>
+          {Number.isNaN(player.bowlRating) ? '–' : player.bowlRating}
         </td>
         <td className="sq-info">
           <button className="info-btn" title="Player info" onClick={() => onSelectPlayer?.(player)}>i</button>
@@ -358,7 +382,7 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
           <td className="sq-num">{sum((p) => p.econ).toFixed(1)}</td>
           <td className="sq-num">{sum((p) => p.bowlSr).toFixed(1)}</td>
           <td className="sq-num">{sum((p) => p.bowlAvg).toFixed(2)}</td>
-          <td className="sq-num">{sum((p) => p.bowlRating).toFixed(1)}</td>
+          <td className="sq-num">{sum((p) => Number.isNaN(p.bowlRating) ? 0 : p.bowlRating).toFixed(1)}</td>
           <td colSpan={2}></td>
         </tr>
       </tfoot>

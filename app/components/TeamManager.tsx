@@ -1,13 +1,17 @@
 'use client'
 
 import { useState, useRef, useMemo, useEffect } from 'react'
-import { Team, Player } from '../data/teams'
-import { SquadPlayer, BowlAction, makeSquadForTeam } from '../data/squad'
+import { Team } from '../data/teams'
+import { RankedBatter } from '../data/squadStore'
+import { SquadPlayer, BowlAction, makeSquadForTeam, calcWktsAndBowlAvg } from '../data/squad'
+import { calculateBowlRating } from '../data/ratingBenchmarks'
 import { PlayerDbEntry } from '../data/playerDatabase'
 import { GROUNDS, Ground } from '../data/grounds'
 import SquadTable from './SquadTable'
 import PlayerDetailPanel from './PlayerDetailPanel'
 import { getTeamLogo, setTeamLogo as storeTeamLogo } from '../data/logoStore'
+import { getStoredSquad, storeSquad } from '../data/squadStore'
+import { getProfileForPlayer } from '../data/playerProfile'
 
 interface MatchResult {
   won: boolean
@@ -66,35 +70,56 @@ interface TeamManagerProps {
   team: Team
   tournamentName: string
   allTeams: Team[]
-  topBatters: Player[]
-  topBowlers: Player[]
+  teamBatRatings: Record<string, number>
+  teamBowlingRatings: Record<string, number>
+  topBatters: RankedBatter[]
+  topBowlers: { id: string; name: string; bowlingRating: number }[]
 }
 
 export default function TeamManager({
   team,
   tournamentName,
   allTeams,
+  teamBatRatings,
+  teamBowlingRatings,
   topBatters,
   topBowlers,
 }: TeamManagerProps) {
   const [teamLogo, setTeamLogo] = useState<string | null>(getTeamLogo(team.id) ?? team.logo ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [startingXI, setStartingXI] = useState<SquadPlayer[]>(() => makeSquadForTeam(team.id).startingXI)
-  const [reserves, setReserves] = useState<SquadPlayer[]>(() => makeSquadForTeam(team.id).reserves)
+  const [startingXI, setStartingXI] = useState<SquadPlayer[]>(() => {
+    const stored = getStoredSquad(team.id)
+    return stored ? stored.startingXI : makeSquadForTeam(team.id).startingXI
+  })
+  const [reserves, setReserves] = useState<SquadPlayer[]>(() => {
+    const stored = getStoredSquad(team.id)
+    return stored ? stored.reserves : makeSquadForTeam(team.id).reserves
+  })
 
   const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
-  const [selectedGround, setSelectedGround] = useState<Ground | null>(null)
+  const [selectedGround, setSelectedGround] = useState<Ground | null>(() => {
+    const stored = getStoredSquad(team.id)
+    if (stored?.groundId) return GROUNDS.find((g) => g.id === stored.groundId) ?? null
+    return null
+  })
   const [groundSearch, setGroundSearch] = useState('')
   const [groundDropdownOpen, setGroundDropdownOpen] = useState(false)
 
   useEffect(() => {
-    const squad = makeSquadForTeam(team.id)
-    setStartingXI(squad.startingXI)
-    setReserves(squad.reserves)
+    const stored = getStoredSquad(team.id)
+    if (stored) {
+      setStartingXI(stored.startingXI)
+      setReserves(stored.reserves)
+      setSelectedGround(stored.groundId ? GROUNDS.find((g) => g.id === stored.groundId) ?? null : null)
+    } else {
+      const squad = makeSquadForTeam(team.id)
+      setStartingXI(squad.startingXI)
+      setReserves(squad.reserves)
+      setSelectedGround(null)
+    }
     setSelectedPlayer(null)
     setTeamLogo(getTeamLogo(team.id) ?? team.logo ?? null)
-    setSelectedGround(null)
     setGroundSearch('')
   }, [team.id])
 
@@ -115,20 +140,33 @@ export default function TeamManager({
   function handleUpdate(newStarting: SquadPlayer[], newReserves: SquadPlayer[]) {
     setStartingXI(newStarting)
     setReserves(newReserves)
+    storeSquad(team.id, newStarting, newReserves, selectedGround?.id ?? null)
   }
 
   function handleAddPlayer(name: string, dbEntry: PlayerDbEntry) {
     const totalPlayers = startingXI.length + reserves.length
+    const profile = getProfileForPlayer(dbEntry.name)
+    const bowl = profile.careerBowling
+    const econ = bowl.economy || 0
+    const bowlSr = bowl.strikeRate || 0
+    const overs = bowl.matches > 0 && bowl.wickets > 0 && bowlSr > 0
+      ? Math.min(4, Math.round((bowl.wickets * bowlSr) / (6 * bowl.matches) * 10) / 10)
+      : bowl.wickets > 0 ? 4 : 0
+    const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, econ, bowlSr)
+    const bowlRating = calculateBowlRating(econ, bowlSr, bowlAvg, overs)
+
     const newPlayer: SquadPlayer = {
       id: `${team.id}-p${totalPlayers + 1}`,
       playerId: dbEntry.id,
       name: dbEntry.name,
       btCaz: 0, raw: 0, sr: 0, fours: 0, sixes: 0, batRating: 0,
       action: (dbEntry.role === 'BOWL' ? 'SEAM' : 'SEAM') as BowlAction,
-      wkts: 0, overs: 0, econ: 0, bowlSr: 0, bowlAvg: 0, bowlRating: 0,
+      wkts, overs, econ, bowlSr, bowlAvg, bowlRating,
       locked: false,
     }
-    setReserves((prev) => [...prev, newPlayer])
+    const newReserves = [...reserves, newPlayer]
+    setReserves(newReserves)
+    storeSquad(team.id, startingXI, newReserves, selectedGround?.id ?? null)
   }
 
   function handleLogoClick() {
@@ -151,6 +189,7 @@ export default function TeamManager({
     setSelectedGround(ground)
     setGroundSearch('')
     setGroundDropdownOpen(false)
+    storeSquad(team.id, startingXI, reserves, ground.id)
   }
 
   return (
@@ -267,9 +306,9 @@ export default function TeamManager({
           </div>
         </div>
 
-        {/* Centre: league table */}
+        {/* Centre: tournament ratings table */}
         <div className="tm-ribbon-league">
-          <div className="tm-ribbon-section-label">League Table</div>
+          <div className="tm-ribbon-section-label">Tournament Ratings</div>
           <div className="tm-ribbon-league-scroll">
             <table className="tm-mini-table">
               <thead>
@@ -282,15 +321,25 @@ export default function TeamManager({
                 </tr>
               </thead>
               <tbody>
-                {allTeams.map((t, i) => (
+                {[...allTeams]
+                  .sort((a, b) => {
+                    const totalA = ((teamBatRatings[a.id] ?? 0) + (teamBowlingRatings[a.id] ?? 0)) / 2
+                    const totalB = ((teamBatRatings[b.id] ?? 0) + (teamBowlingRatings[b.id] ?? 0)) / 2
+                    return totalB - totalA
+                  })
+                  .map((t, i) => {
+                    const batVal = teamBatRatings[t.id] ?? 0
+                    const bowlVal = teamBowlingRatings[t.id] ?? 0
+                    const totalVal = (batVal + bowlVal) / 2
+                    return (
                   <tr key={t.id} className={t.id === team.id ? 'mini-row-current' : ''}>
                     <td>{i + 1}</td>
                     <td className="mini-td-name">{t.name}</td>
-                    <td>{t.battingFactor.toFixed(1)}</td>
-                    <td>{t.bowlingFactor.toFixed(1)}</td>
-                    <td className="mini-td-total">{t.totalFactor.toFixed(1)}</td>
+                    <td className={batVal > 0 ? 'rating-pos' : batVal < 0 ? 'rating-neg' : ''}>{batVal.toFixed(1)}</td>
+                    <td className={bowlVal > 0 ? 'rating-pos' : bowlVal < 0 ? 'rating-neg' : ''}>{bowlVal.toFixed(1)}</td>
+                    <td className="mini-td-total">{totalVal.toFixed(1)}</td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
@@ -309,7 +358,7 @@ export default function TeamManager({
                     <li key={p.id}>
                       <span className="mini-rank-num">{i + 1}</span>
                       <span className="mini-rank-name">{p.name}</span>
-                      <span className="mini-rank-val">{p.battingRating.toFixed(1)}</span>
+                      <span className={`mini-rank-val ${p.batRating > 0 ? 'rating-pos' : p.batRating < 0 ? 'rating-neg' : ''}`}>{p.batRating.toFixed(1)}</span>
                     </li>
                   ))}
                 </ol>
@@ -327,7 +376,7 @@ export default function TeamManager({
                     <li key={p.id}>
                       <span className="mini-rank-num">{i + 1}</span>
                       <span className="mini-rank-name">{p.name}</span>
-                      <span className="mini-rank-val">{p.bowlingRating.toFixed(1)}</span>
+                      <span className={`mini-rank-val ${p.bowlingRating > 0 ? 'rating-pos' : p.bowlingRating < 0 ? 'rating-neg' : ''}`}>{p.bowlingRating.toFixed(1)}</span>
                     </li>
                   ))}
                 </ol>

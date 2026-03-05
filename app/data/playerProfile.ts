@@ -508,6 +508,311 @@ const KNOWN_STATS: Record<string, Partial<PlayerProfile>> = {
     careerBatting: { matches: 3, runs: 0, average: 0, strikeRate: 0, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
     careerBowling: { matches: 3, wickets: 3, average: 29.67, economy: 7.96, strikeRate: 0, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
   },
+  'Shreyas Iyer': {
+    country: 'India',
+    careerBatting: { matches: 240, runs: 6578, average: 34.08, strikeRate: 136.61, hundreds: 3, fifties: 43, highScore: '0', innings: 0 },
+    careerBowling: { matches: 240, wickets: 8, average: 81, economy: 9.91, strikeRate: 49, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Nehal Wadhera': {
+    country: 'India',
+    careerBatting: { matches: 61, runs: 1159, average: 26.34, strikeRate: 134.61, hundreds: 0, fifties: 6, highScore: '0', innings: 0 },
+    careerBowling: { matches: 61, wickets: 3, average: 16, economy: 7.19, strikeRate: 13.3, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Vishnu Vinod': {
+    country: 'India',
+    careerBatting: { matches: 72, runs: 1757, average: 32.53, strikeRate: 141.92, hundreds: 1, fifties: 9, highScore: '0', innings: 0 },
+    careerBowling: { matches: 72, wickets: 3, average: 0, economy: 7.57, strikeRate: 0, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Prabhsimran Singh': {
+    country: 'India',
+    careerBatting: { matches: 115, runs: 3155, average: 30.63, strikeRate: 149.03, hundreds: 2, fifties: 21, highScore: '0', innings: 0 },
+  },
+  'Shashank Singh': {
+    country: 'India',
+    careerBatting: { matches: 98, runs: 1631, average: 25.88, strikeRate: 144.08, hundreds: 0, fifties: 10, highScore: '0', innings: 0 },
+    careerBowling: { matches: 98, wickets: 21, average: 30.61, economy: 8.68, strikeRate: 21.1, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Marcus Stoinis': {
+    country: 'Australia',
+    careerBatting: { matches: 364, runs: 7287, average: 29.74, strikeRate: 137.72, hundreds: 2, fifties: 38, highScore: '0', innings: 0 },
+    careerBowling: { matches: 364, wickets: 202, average: 26.15, economy: 9.05, strikeRate: 17.3, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Harpreet Brar': {
+    country: 'India',
+    careerBatting: { matches: 105, runs: 427, average: 17.08, strikeRate: 129.39, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 105, wickets: 102, average: 23.79, economy: 7.46, strikeRate: 19.1, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Marco Jansen': {
+    country: 'South Africa',
+    careerBatting: { matches: 138, runs: 1107, average: 18.76, strikeRate: 136.83, hundreds: 0, fifties: 5, highScore: '0', innings: 0 },
+    careerBowling: { matches: 138, wickets: 160, average: 25.44, economy: 8.26, strikeRate: 18.4, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Azmatullah Omarzai': {
+    country: 'Afghanistan',
+    careerBatting: { matches: 168, runs: 2029, average: 20.29, strikeRate: 134.01, hundreds: 0, fifties: 3, highScore: '0', innings: 0 },
+    careerBowling: { matches: 168, wickets: 157, average: 25.76, economy: 8.39, strikeRate: 18.4, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Musheer Khan': {
+    country: 'India',
+    careerBatting: { matches: 1, runs: 0, average: 0, strikeRate: 0, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 1, wickets: 1, average: 27, economy: 13.5, strikeRate: 12, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Mitch Owen': {
+    country: 'Australia',
+    careerBatting: { matches: 75, runs: 1305, average: 22.11, strikeRate: 180.99, hundreds: 2, fifties: 3, highScore: '0', innings: 0 },
+    careerBowling: { matches: 75, wickets: 30, average: 27.6, economy: 9.87, strikeRate: 16.7, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Cooper Connolly': {
+    country: 'Australia',
+    careerBatting: { matches: 52, runs: 870, average: 24.85, strikeRate: 132.62, hundreds: 0, fifties: 4, highScore: '0', innings: 0 },
+    careerBowling: { matches: 52, wickets: 30, average: 24.13, economy: 7.46, strikeRate: 19.4, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Ben Dwarshuis': {
+    country: 'Australia',
+    careerBatting: { matches: 188, runs: 1192, average: 18.62, strikeRate: 139.74, hundreds: 0, fifties: 1, highScore: '0', innings: 0 },
+    careerBowling: { matches: 188, wickets: 236, average: 23.22, economy: 8.33, strikeRate: 16.7, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Arshdeep Singh': {
+    country: 'India',
+    careerBatting: { matches: 192, runs: 161, average: 7.31, strikeRate: 101.25, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 192, wickets: 255, average: 22.53, economy: 8.55, strikeRate: 15.8, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Yuzvendra Chahal': {
+    country: 'India',
+    careerBatting: { matches: 329, runs: 81, average: 4.5, strikeRate: 53.28, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 329, wickets: 384, average: 23.6, economy: 7.73, strikeRate: 18.3, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Vyshak Vijaykumar': {
+    country: 'India',
+    careerBatting: { matches: 49, runs: 66, average: 6.6, strikeRate: 122.22, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 49, wickets: 61, average: 25.52, economy: 8.94, strikeRate: 17.1, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Yash Thakur': {
+    country: 'India',
+    careerBatting: { matches: 73, runs: 38, average: 6.33, strikeRate: 63.33, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 73, wickets: 108, average: 18.59, economy: 8.08, strikeRate: 13.8, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Xavier Bartlett': {
+    country: 'Australia',
+    careerBatting: { matches: 103, runs: 537, average: 15.79, strikeRate: 124.01, hundreds: 0, fifties: 1, highScore: '0', innings: 0 },
+    careerBowling: { matches: 103, wickets: 128, average: 23.05, economy: 8.62, strikeRate: 16, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Pravin Dubey': {
+    country: 'India',
+    careerBatting: { matches: 33, runs: 230, average: 15.33, strikeRate: 107.98, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 33, wickets: 33, average: 20, economy: 7.26, strikeRate: 16.5, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Lockie Ferguson': {
+    country: 'New Zealand',
+    careerBatting: { matches: 204, runs: 292, average: 10.81, strikeRate: 112.3, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 204, wickets: 240, average: 22.47, economy: 7.75, strikeRate: 17.4, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Riyan Parag': {
+    country: 'India',
+    careerBatting: { matches: 143, runs: 3168, average: 30.75, strikeRate: 144.13, hundreds: 0, fifties: 23, highScore: '0', innings: 0 },
+    careerBowling: { matches: 143, wickets: 48, average: 30.93, economy: 7.34, strikeRate: 25.2, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Shimron Hetmyer': {
+    country: 'West Indies',
+    careerBatting: { matches: 322, runs: 6534, average: 27, strikeRate: 144.36, hundreds: 1, fifties: 34, highScore: '0', innings: 0 },
+  },
+  'Jofra Archer': {
+    country: 'England',
+    careerBatting: { matches: 182, runs: 715, average: 14.3, strikeRate: 138.56, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 182, wickets: 225, average: 23.47, economy: 7.87, strikeRate: 17.8, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Sam Curran': {
+    country: 'England',
+    careerBatting: { matches: 74, runs: 678, average: 20.55, strikeRate: 127.92, hundreds: 0, fifties: 2, highScore: '0', innings: 0 },
+    careerBowling: { matches: 74, wickets: 66, average: 27.18, economy: 8.65, strikeRate: 18.86, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Ravindra Jadeja': {
+    country: 'India',
+    careerBatting: { matches: 346, runs: 3985, average: 26.39, strikeRate: 130.82, hundreds: 0, fifties: 5, highScore: '0', innings: 0 },
+    careerBowling: { matches: 346, wickets: 235, average: 30.85, economy: 7.62, strikeRate: 24.2, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Yashasvi Jaiswal': {
+    country: 'India',
+    careerBatting: { matches: 121, runs: 3682, average: 33.47, strikeRate: 152.27, hundreds: 4, fifties: 23, highScore: '0', innings: 0 },
+  },
+  'Dhruv Jurel': {
+    country: 'India',
+    careerBatting: { matches: 56, runs: 784, average: 24.5, strikeRate: 141.26, hundreds: 0, fifties: 4, highScore: '0', innings: 0 },
+  },
+  'Tushar Deshpande': {
+    country: 'India',
+    careerBatting: { matches: 102, runs: 53, average: 6.62, strikeRate: 108.16, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 102, wickets: 135, average: 23.53, economy: 8.87, strikeRate: 15.9, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Ravi Bishnoi': {
+    country: 'India',
+    careerBatting: { matches: 45, runs: 65, average: 9.29, strikeRate: 125, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 45, wickets: 67, average: 19.19, economy: 7.45, strikeRate: 15.46, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Adam Milne': {
+    country: 'New Zealand',
+    careerBatting: { matches: 214, runs: 492, average: 11.44, strikeRate: 118.26, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 214, wickets: 246, average: 23.45, economy: 7.88, strikeRate: 17.8, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Suyash Sharma': {
+    country: 'India',
+    careerBatting: { matches: 52, runs: 7, average: 7, strikeRate: 70, hundreds: 0, fifties: 0, highScore: '6*', innings: 0 },
+    careerBowling: { matches: 52, wickets: 56, average: 26.07, economy: 7.65, strikeRate: 20.4, bestFigures: '5/13', fiveWickets: 1, innings: 0 },
+  },
+  'Krunal Pandya': {
+    country: 'India',
+    careerBatting: { matches: 228, runs: 3017, average: 23.57, strikeRate: 130.21, hundreds: 0, fifties: 9, highScore: '86', innings: 0 },
+    careerBowling: { matches: 228, wickets: 165, average: 30.56, economy: 7.35, strikeRate: 24.9, bestFigures: '4/15', fiveWickets: 0, innings: 0 },
+  },
+  'Bhuvneshwar Kumar': {
+    country: 'India',
+    careerBatting: { matches: 315, runs: 529, average: 9.98, strikeRate: 93.79, hundreds: 0, fifties: 0, highScore: '27', innings: 0 },
+    careerBowling: { matches: 315, wickets: 335, average: 24.96, economy: 7.35, strikeRate: 20.3, bestFigures: '5/4', fiveWickets: 5, innings: 0 },
+  },
+  'Nuwan Thushara': {
+    country: 'Sri Lanka',
+    careerBatting: { matches: 137, runs: 41, average: 4.1, strikeRate: 57.74, hundreds: 0, fifties: 0, highScore: '7*', innings: 0 },
+    careerBowling: { matches: 137, wickets: 174, average: 21.25, economy: 8.25, strikeRate: 15.4, bestFigures: '5/13', fiveWickets: 2, innings: 0 },
+  },
+  'Jordan Cox': {
+    country: 'England',
+    careerBatting: { matches: 174, runs: 3931, average: 30.71, strikeRate: 140.04, hundreds: 1, fifties: 20, highScore: '139', innings: 0 },
+  },
+  'Phil Salt': {
+    country: 'England',
+    careerBatting: { matches: 176, runs: 3936, average: 30.27, strikeRate: 139.62, hundreds: 1, fifties: 20, highScore: '139', innings: 0 },
+  },
+  'Devdutt Padikkal': {
+    country: 'India',
+    careerBatting: { matches: 115, runs: 3362, average: 32.32, strikeRate: 135.83, hundreds: 4, fifties: 21, highScore: '124', innings: 0 },
+  },
+  'Rajat Patidar': {
+    country: 'India',
+    careerBatting: { matches: 98, runs: 2888, average: 34.38, strikeRate: 155.51, hundreds: 1, fifties: 26, highScore: '112*', innings: 0 },
+  },
+  'Virat Kohli': {
+    country: 'India',
+    careerBatting: { matches: 267, runs: 8661, average: 39.55, strikeRate: 132.86, hundreds: 8, fifties: 63, highScore: '113', innings: 0 },
+    careerBowling: { matches: 267, wickets: 4, average: 92, economy: 8.8, strikeRate: 62.75, bestFigures: '2/25', fiveWickets: 0, innings: 0 },
+  },
+  'Jitesh Sharma': {
+    country: 'India',
+    careerBatting: { matches: 145, runs: 2994, average: 27.98, strikeRate: 154.01, hundreds: 1, fifties: 12, highScore: '106', innings: 0 },
+  },
+  'Tim David': {
+    country: 'Australia',
+    careerBatting: { matches: 300, runs: 4000, average: 28, strikeRate: 153.8, hundreds: 0, fifties: 18, highScore: '92*', innings: 0 },
+    careerBowling: { matches: 300, wickets: 40, average: 65, economy: 8, strikeRate: 27, bestFigures: '2/20', fiveWickets: 0, innings: 0 },
+  },
+  'Romario Shepherd': {
+    country: 'West Indies',
+    careerBatting: { matches: 232, runs: 2545, average: 24.95, strikeRate: 156.61, hundreds: 0, fifties: 7, highScore: '52*', innings: 0 },
+    careerBowling: { matches: 232, wickets: 212, average: 26.33, economy: 9.23, strikeRate: 17.1, bestFigures: '5/20', fiveWickets: 1, innings: 0 },
+  },
+  'Jacob Bethell': {
+    country: 'England',
+    careerBatting: { matches: 95, runs: 1717, average: 23.52, strikeRate: 139.14, hundreds: 0, fifties: 9, highScore: '87', innings: 0 },
+    careerBowling: { matches: 95, wickets: 22, average: 22.18, economy: 8.31, strikeRate: 16, bestFigures: '4/11', fiveWickets: 0, innings: 0 },
+  },
+  'Venkatesh Iyer': {
+    country: 'India',
+    careerBatting: { matches: 135, runs: 3038, average: 35.32, strikeRate: 140.71, hundreds: 1, fifties: 17, highScore: '104', innings: 0 },
+    careerBowling: { matches: 135, wickets: 49, average: 25.18, economy: 7.7, strikeRate: 19.6, bestFigures: '6/20', fiveWickets: 1, innings: 0 },
+  },
+  'Satvik Deswal': {
+    country: 'India',
+    careerBatting: { matches: 0, runs: 0, average: 0, strikeRate: 0, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 0, wickets: 0, average: 0, economy: 0, strikeRate: 0, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Mangesh Yadav': {
+    country: 'India',
+    careerBatting: { matches: 2, runs: 28, average: 28, strikeRate: 233.33, hundreds: 0, fifties: 0, highScore: '28', innings: 0 },
+    careerBowling: { matches: 2, wickets: 3, average: 28.33, economy: 12.14, strikeRate: 14, bestFigures: '2/38', fiveWickets: 0, innings: 0 },
+  },
+  'Vicky Ostwal': {
+    country: 'India',
+    careerBatting: { matches: 15, runs: 67, average: 13.4, strikeRate: 106.34, hundreds: 0, fifties: 0, highScore: '28', innings: 0 },
+    careerBowling: { matches: 15, wickets: 14, average: 25.71, economy: 6.46, strikeRate: 23.8, bestFigures: '3/27', fiveWickets: 0, innings: 0 },
+  },
+  'Vihaan Malhotra': {
+    country: 'India',
+    careerBatting: { matches: 0, runs: 0, average: 0, strikeRate: 0, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 0, wickets: 0, average: 0, economy: 0, strikeRate: 0, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Kanishk Chouhan': {
+    country: 'India',
+    careerBatting: { matches: 0, runs: 0, average: 0, strikeRate: 0, hundreds: 0, fifties: 0, highScore: '0', innings: 0 },
+    careerBowling: { matches: 0, wickets: 0, average: 0, economy: 0, strikeRate: 0, bestFigures: '0/0', fiveWickets: 0, innings: 0 },
+  },
+  'Josh Hazlewood': {
+    country: 'Australia',
+    careerBatting: { matches: 127, runs: 71, average: 14.2, strikeRate: 85.54, hundreds: 0, fifties: 0, highScore: '13', innings: 0 },
+    careerBowling: { matches: 127, wickets: 170, average: 21.29, economy: 7.62, strikeRate: 16.7, bestFigures: '4/12', fiveWickets: 0, innings: 0 },
+  },
+  'Rasikh Dar': {
+    country: 'India',
+    careerBatting: { matches: 42, runs: 78, average: 7.09, strikeRate: 98.73, hundreds: 0, fifties: 0, highScore: '10*', innings: 0 },
+    careerBowling: { matches: 42, wickets: 50, average: 24.1, economy: 8.47, strikeRate: 17, bestFigures: '6/31', fiveWickets: 1, innings: 0 },
+  },
+  'Ishan Kishan': {
+    country: 'India',
+    careerBatting: { matches: 221, runs: 6022, average: 30.56, strikeRate: 140.17, hundreds: 7, fifties: 32, highScore: '113', innings: 0 },
+  },
+  'Heinrich Klaasen': {
+    country: 'South Africa',
+    careerBatting: { matches: 276, runs: 6186, average: 31.24, strikeRate: 149.85, hundreds: 3, fifties: 37, highScore: '105', innings: 0 },
+    careerBowling: { matches: 276, wickets: 1, average: 68, economy: 9.71, strikeRate: 42, bestFigures: '1/12', fiveWickets: 0, innings: 0 },
+  },
+  'Travis Head': {
+    country: 'Australia',
+    careerBatting: { matches: 221, runs: 5674, average: 28.1, strikeRate: 143.6, hundreds: 1, fifties: 33, highScore: '100', innings: 0 },
+    careerBowling: { matches: 221, wickets: 89, average: 27, economy: 8.44, strikeRate: 19.2, bestFigures: '4/17', fiveWickets: 0, innings: 0 },
+  },
+  'Harshal Patel': {
+    country: 'India',
+    careerBatting: { matches: 205, runs: 1288, average: 15.7, strikeRate: 139.24, hundreds: 0, fifties: 4, highScore: '82', innings: 0 },
+    careerBowling: { matches: 205, wickets: 253, average: 23.09, economy: 8.38, strikeRate: 16.5, bestFigures: '5/12', fiveWickets: 2, innings: 0 },
+  },
+  'Kamindu Mendis': {
+    country: 'Sri Lanka',
+    careerBatting: { matches: 125, runs: 2442, average: 26.25, strikeRate: 130.72, hundreds: 0, fifties: 14, highScore: '99*', innings: 0 },
+    careerBowling: { matches: 125, wickets: 30, average: 41.86, economy: 8.08, strikeRate: 31, bestFigures: '3/21', fiveWickets: 0, innings: 0 },
+  },
+  'Brydon Carse': {
+    country: 'England',
+    careerBatting: { matches: 88, runs: 792, average: 17.21, strikeRate: 139.19, hundreds: 0, fifties: 2, highScore: '58', innings: 0 },
+    careerBowling: { matches: 88, wickets: 58, average: 35.48, economy: 9.09, strikeRate: 23.3, bestFigures: '3/23', fiveWickets: 0, innings: 0 },
+  },
+  'Liam Livingstone': {
+    country: 'England',
+    careerBatting: { matches: 221, runs: 5674, average: 28.1, strikeRate: 143.6, hundreds: 1, fifties: 33, highScore: '100', innings: 0 },
+    careerBowling: { matches: 221, wickets: 89, average: 27, economy: 8.44, strikeRate: 19.2, bestFigures: '4/17', fiveWickets: 0, innings: 0 },
+  },
+  'Abhishek Sharma': {
+    country: 'India',
+    careerBatting: { matches: 171, runs: 5070, average: 33.57, strikeRate: 145, hundreds: 8, fifties: 29, highScore: '148', innings: 0 },
+    careerBowling: { matches: 171, wickets: 54, average: 27.53, economy: 7.5, strikeRate: 22, bestFigures: '3/7', fiveWickets: 0, innings: 0 },
+  },
+  'Pat Cummins': {
+    country: 'Australia',
+    careerBatting: { matches: 206, runs: 562, average: 15.61, strikeRate: 130.09, hundreds: 0, fifties: 1, highScore: '58', innings: 0 },
+    careerBowling: { matches: 206, wickets: 245, average: 22, economy: 8, strikeRate: 20, bestFigures: '5/25', fiveWickets: 2, innings: 0 },
+  },
+  'Shivam Mavi': {
+    country: 'India',
+    careerBatting: { matches: 68, runs: 195, average: 8.86, strikeRate: 114.7, hundreds: 0, fifties: 0, highScore: '45*', innings: 0 },
+    careerBowling: { matches: 68, wickets: 63, average: 29.46, economy: 8.27, strikeRate: 21.3, bestFigures: '4/14', fiveWickets: 0, innings: 0 },
+  },
+  'Nitish Kumar Reddy': {
+    country: 'India',
+    careerBatting: { matches: 40, runs: 737, average: 28.34, strikeRate: 131.13, hundreds: 0, fifties: 3, highScore: '76*', innings: 0 },
+    careerBowling: { matches: 40, wickets: 14, average: 31.5, economy: 9.76, strikeRate: 19.3, bestFigures: '3/17', fiveWickets: 0, innings: 0 },
+  },
+  'Jaydev Unadkat': {
+    country: 'India',
+    careerBatting: { matches: 206, runs: 562, average: 15.61, strikeRate: 130.09, hundreds: 0, fifties: 1, highScore: '58', innings: 0 },
+    careerBowling: { matches: 206, wickets: 245, average: 22, economy: 8, strikeRate: 20, bestFigures: '5/25', fiveWickets: 2, innings: 0 },
+  },
 }
 
 export function getProfileForPlayer(name: string): PlayerProfile {
