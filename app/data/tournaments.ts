@@ -96,3 +96,20 @@ export const TOURNAMENTS: Record<CricketFormat, Record<Gender, Tournament[]>> = 
     women: [],
   },
 }
+
+/** Every tournament with its format and gender (for search / upcoming lists). */
+export function getAllTournamentEntries(): {
+  format: CricketFormat
+  gender: Gender
+  tournament: Tournament
+}[] {
+  const out: { format: CricketFormat; gender: Gender; tournament: Tournament }[] = []
+  for (const fmt of Object.keys(TOURNAMENTS) as CricketFormat[]) {
+    for (const g of Object.keys(TOURNAMENTS[fmt]) as Gender[]) {
+      for (const t of TOURNAMENTS[fmt][g]) {
+        out.push({ format: fmt, gender: g, tournament: t })
+      }
+    }
+  }
+  return out
+}

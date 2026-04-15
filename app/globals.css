@@ -47,6 +47,21 @@ body {
   background: var(--bg-secondary);
 }
 
+.header-app {
+  justify-content: flex-start;
+  background: #000000;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.65rem 1.25rem;
+}
+
+.header-logo {
+  height: 2.5rem;
+  width: auto;
+  max-width: min(280px, 55vw);
+  object-fit: contain;
+  object-position: left center;
+}
+
 .header-title {
   font-size: 1.25rem;
   font-weight: 700;
@@ -58,12 +73,87 @@ body {
   color: var(--accent);
 }
 
+/* ---------- App home shell (landing + nav) ---------- */
+
+.app-home-shell {
+  display: flex;
+  min-height: calc(100vh - 4rem);
+  align-items: stretch;
+}
+
+.app-nav-sidebar {
+  flex: 0 0 15.5rem;
+  max-width: 40vw;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.app-nav-sidebar-inner {
+  position: sticky;
+  top: 0;
+  padding: 1.25rem 0;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+.app-nav-list {
+  list-style: none;
+}
+
+.app-nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 1rem 0.65rem 1.25rem;
+  margin: 0;
+  border: none;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-nav-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.app-nav-item-active {
+  color: var(--text-primary);
+  border-left-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.app-home-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-home-page {
+  margin: 0 auto;
+}
+
+.nav-placeholder-panel {
+  padding: 2rem 0;
+  max-width: min(56rem, 100%);
+}
+
 /* ---------- Page shell ---------- */
 
 .page {
   max-width: 56rem;
   margin: 0 auto;
   padding: 2.5rem 1.5rem;
+}
+
+/* Wider layout inside tournament manager (sidebar + main) */
+.app-home-main .page {
+  max-width: min(108rem, 100%);
+  padding-left: clamp(1rem, 2.5vw, 2.5rem);
+  padding-right: clamp(1rem, 2.5vw, 2.5rem);
 }
 
 .page-heading {
@@ -77,6 +167,288 @@ body {
   color: var(--text-secondary);
   font-size: 1rem;
   margin-bottom: 2rem;
+}
+
+/* Format step: main + upcoming + in progress */
+/* --format-step-panel-h: room below header / steps / padding for sticky tournament columns */
+.format-step-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.2fr) minmax(320px, 1fr) minmax(320px, 1fr);
+  gap: clamp(1.25rem, 2.2vw, 2rem);
+  align-items: start;
+}
+
+.format-step-main {
+  min-width: 0;
+}
+
+.format-step-upcoming,
+.format-step-inprogress {
+  --format-step-panel-h: calc(100dvh - 10.5rem);
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  height: var(--format-step-panel-h);
+  max-height: var(--format-step-panel-h);
+  padding: 1rem 1rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+}
+
+.format-step-inprogress {
+  border-color: rgba(251, 191, 36, 0.22);
+  background: linear-gradient(
+    165deg,
+    rgba(251, 191, 36, 0.06) 0%,
+    var(--bg-card) 48%
+  );
+}
+
+.format-step-upcoming-title {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.35rem;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.format-step-upcoming-sub {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  margin-bottom: 0.85rem;
+  flex-shrink: 0;
+}
+
+.format-step-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 0.85rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.format-step-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.format-step-filter-grow {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+}
+
+.format-step-filter-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.format-step-filter-check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+}
+
+.format-step-filter-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.format-step-select,
+.format-step-search {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: calc(var(--radius) - 4px);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.format-step-search {
+  width: 100%;
+}
+
+.format-step-upcoming-list-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.15rem;
+  margin-right: -0.15rem;
+}
+
+.format-step-upcoming-empty {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  padding: 0.75rem 0;
+}
+
+.format-step-upcoming-loading {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  padding: 0.5rem 0;
+}
+
+.format-step-upcoming-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.format-step-upcoming-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.65rem 0.7rem;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.format-step-upcoming-item-top {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.format-step-upcoming-item:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-hover);
+}
+
+.format-step-inprogress-item {
+  border-color: rgba(251, 191, 36, 0.12);
+}
+
+.format-step-inprogress-item:hover {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.format-step-inprogress-date-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.format-step-inprogress-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #fbbf24;
+}
+
+.format-step-upcoming-date {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.format-step-upcoming-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.format-step-upcoming-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.format-step-prep {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  width: 100%;
+}
+
+.format-step-prep-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.format-step-prep-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.format-step-prep-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+@media (max-width: 1100px) {
+  .format-step-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .format-step-main {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .format-step-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .format-step-main {
+    grid-column: auto;
+  }
+
+  .format-step-upcoming,
+  .format-step-inprogress {
+    position: static;
+    height: auto;
+    max-height: none;
+  }
+
+  .format-step-upcoming-list-scroll {
+    flex: none;
+    overflow-y: visible;
+    min-height: 0;
+  }
 }
 
 /* ---------- Step indicator ---------- */
@@ -1414,6 +1786,28 @@ body {
 
 .tm-body-with-panel .tm-squad-body {
   flex: 1 1 0;
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .tm-body-with-panel {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .tm-body-with-panel .tm-squad-body {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+
+  .tm-body-with-panel .pp-panel {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
+    max-height: min(45vh, 26rem);
+  }
 }
 
 /* ---------- Home ground selector ---------- */
@@ -1962,8 +2356,10 @@ body {
 /* ========== Player Detail Panel ========== */
 
 .pp-panel {
-  width: 380px;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  width: min(560px, 48vw);
+  max-width: 580px;
+  min-width: 340px;
   background: var(--bg-card);
   border-left: 1px solid var(--border-subtle);
   display: flex;
@@ -1971,10 +2367,80 @@ body {
   overflow: hidden;
 }
 
+.pp-panel-empty {
+  min-height: 12rem;
+}
+
+.pp-empty-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0.25rem 1rem;
+}
+
+.pp-empty-kicker {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.pp-empty-heading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.pp-empty-text {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 30rem;
+}
+
 .pp-panel-scroll {
   flex: 1;
   overflow-y: auto;
   padding: 1.25rem;
+}
+
+.pp-tabs {
+  display: flex;
+  gap: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.pp-tab {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pp-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pp-tab-active {
+  color: var(--text-primary);
+  background: var(--accent-glow);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 /* Header */

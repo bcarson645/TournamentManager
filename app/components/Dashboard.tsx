@@ -15,6 +15,8 @@ interface DashboardProps {
   format: CricketFormat
   gender: Gender
   tournamentId: string
+  /** When set, opens team workspace immediately (e.g. home wizard finished on a team). */
+  initialTeamId?: string | null
   onSelectTournament: (format: CricketFormat, gender: Gender, tournamentId: string) => void
   onGoHome: () => void
 }
@@ -23,10 +25,11 @@ export default function Dashboard({
   format,
   gender,
   tournamentId,
+  initialTeamId = null,
   onSelectTournament,
   onGoHome,
 }: DashboardProps) {
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(initialTeamId)
   const [selectedYear, setSelectedYear] = useState(2026)
 
   const currentYear = 2026

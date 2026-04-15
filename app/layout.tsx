@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -14,10 +15,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <header className="header">
-          <div className="header-title">
-            Tournament<span>Manager</span>
-          </div>
+        <header className="header header-app">
+          <Image
+            src="/logo.png"
+            alt=""
+            width={280}
+            height={56}
+            priority
+            className="header-logo"
+          />
         </header>
         {children}
       </body>

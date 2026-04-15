@@ -386,8 +386,8 @@ export default function TeamManager({
         </div>
       </div>
 
-      {/* Scrollable squad body + optional player panel */}
-      <div className={`tm-body-layout ${selectedPlayer ? 'tm-body-with-panel' : ''}`}>
+      {/* Scrollable squad body + player stats panel (always visible) */}
+      <div className="tm-body-layout tm-body-with-panel">
         <div className="tm-squad-body">
           <SquadTable
             startingXI={startingXI}
@@ -398,13 +398,11 @@ export default function TeamManager({
             onAddPlayer={handleAddPlayer}
           />
         </div>
-        {selectedPlayer && (
-          <PlayerDetailPanel
-            player={selectedPlayer}
-            tournamentName={tournamentName}
-            onClose={() => setSelectedPlayer(null)}
-          />
-        )}
+        <PlayerDetailPanel
+          player={selectedPlayer}
+          tournamentName={tournamentName}
+          onClose={() => setSelectedPlayer(null)}
+        />
       </div>
     </div>
   )

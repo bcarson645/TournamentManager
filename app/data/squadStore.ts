@@ -1,5 +1,6 @@
 import { SquadPlayer, makeSquadForTeam, normalizeBowlStats, MAX_TEAM_OVERS, calcWktsAndBowlAvg } from './squad'
 import { calculateBowlRating } from './ratingBenchmarks'
+import { TEAMS } from './teams'
 
 interface StoredSquad {
   startingXI: SquadPlayer[]
@@ -43,6 +44,17 @@ export function getSquadForTeam(teamId: string): { startingXI: SquadPlayer[]; re
     }
   }
   return makeSquadForTeam(teamId)
+}
+
+/** Teams with a saved squad in this session count as “prepped”. */
+export function getTournamentPrepProgress(tournamentId: string): { prepped: number; total: number } {
+  const teams = TEAMS[tournamentId] ?? []
+  const total = teams.length
+  let prepped = 0
+  for (const t of teams) {
+    if (getStoredSquad(t.id) !== null) prepped++
+  }
+  return { prepped, total }
 }
 
 export function getTeamBatRatingTotal(teamId: string): number {
