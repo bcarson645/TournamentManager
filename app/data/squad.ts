@@ -1,6 +1,7 @@
 import { IPL_PLAYERS } from './iplPlayers'
 import { getProfileForPlayer } from './playerProfile'
 import { calculateBatRating, calculateBowlRating } from './ratingBenchmarks'
+import type { CricketFormat } from './tournaments'
 
 export type BowlAction = 'SEAM' | 'SPIN'
 
@@ -19,6 +20,7 @@ export interface SquadPlayer {
   name: string
   btCaz: number
   raw: number
+  /** Batting SR.CAZ — runs per ball (not per 100 balls). */
   sr: number
   fours: number
   sixes: number
@@ -43,16 +45,22 @@ const KNOWN_PLAYERS: Record<string, string[]> = {
   ...IPL_PLAYERS,
 }
 
-function makePlayer(teamId: string, index: number, name: string, position: number): SquadPlayer {
+function makePlayer(
+  teamId: string,
+  index: number,
+  name: string,
+  position: number,
+  format: CricketFormat = 't20',
+): SquadPlayer {
   const profile = getProfileForPlayer(name)
   const bat = profile.careerBatting
   const bowl = profile.careerBowling
 
   const btCaz = bat.average || 0
   const raw = bat.average ? Math.round(bat.average * 0.85 * 10) / 10 : 0
-  const sr = bat.strikeRate || 0
+  const sr = bat.strikeRate ?? 0
 
-  const batRating = calculateBatRating(btCaz, raw, sr, position)
+  const batRating = calculateBatRating(btCaz, raw, sr, position, format)
 
   const econ = bowl.economy || 0
   const bowlSr = bowl.strikeRate || 0
@@ -84,21 +92,29 @@ function makePlayer(teamId: string, index: number, name: string, position: numbe
   }
 }
 
-export function makePlaceholderSquad(teamId: string, count: number, offset = 0): SquadPlayer[] {
+export function makePlaceholderSquad(
+  teamId: string,
+  count: number,
+  offset = 0,
+  format: CricketFormat = 't20',
+): SquadPlayer[] {
   return Array.from({ length: count }, (_, i) => {
     const num = i + 1 + offset
     const position = i + 1
-    return makePlayer(teamId, num - 1, `Player ${num}`, position)
+    return makePlayer(teamId, num - 1, `Player ${num}`, position, format)
   })
 }
 
-export function makeSquadForTeam(teamId: string): { startingXI: SquadPlayer[]; reserves: SquadPlayer[] } {
+export function makeSquadForTeam(
+  teamId: string,
+  format: CricketFormat = 't20',
+): { startingXI: SquadPlayer[]; reserves: SquadPlayer[] } {
   const knownNames = KNOWN_PLAYERS[teamId]
 
   if (!knownNames || knownNames.length === 0) {
     return {
-      startingXI: makePlaceholderSquad(teamId, 11, 0),
-      reserves: makePlaceholderSquad(teamId, 11, 11),
+      startingXI: makePlaceholderSquad(teamId, 11, 0, format),
+      reserves: makePlaceholderSquad(teamId, 11, 11, format),
     }
   }
 
@@ -107,7 +123,7 @@ export function makeSquadForTeam(teamId: string): { startingXI: SquadPlayer[]; r
   for (let i = 0; i < Math.max(knownNames.length, 22); i++) {
     const name = i < knownNames.length ? knownNames[i] : `Player ${i + 1}`
     const position = (i % 11) + 1
-    allPlayers.push(makePlayer(teamId, i, name, position))
+    allPlayers.push(makePlayer(teamId, i, name, position, format))
   }
 
   let startingXI = allPlayers.slice(0, 11)

@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { SquadPlayer, BowlAction, calcWktsAndBowlAvg, MAX_TEAM_OVERS } from '../data/squad'
 import { searchPlayers, PlayerDbEntry } from '../data/playerDatabase'
+import type { CricketFormat } from '../data/tournaments'
+import { battingPositionForParTable } from '../data/battingExpectedRunsFormula'
 import { calculateBatRating, calculateBowlRating } from '../data/ratingBenchmarks'
 
 function PidCell({ playerId }: { playerId: string }) {
@@ -44,6 +46,7 @@ const BAT_EDITABLE: EditableField[] = ['btCaz', 'raw', 'sr']
 const BOWL_EDITABLE: EditableField[] = ['overs', 'econ', 'bowlSr']
 
 interface SquadTableProps {
+  cricketFormat: CricketFormat
   startingXI: SquadPlayer[]
   reserves: SquadPlayer[]
   onUpdate: (startingXI: SquadPlayer[], reserves: SquadPlayer[]) => void
@@ -52,15 +55,33 @@ interface SquadTableProps {
   onAddPlayer?: (name: string, dbEntry: PlayerDbEntry) => void
 }
 
-function recalcRatings(players: SquadPlayer[]): SquadPlayer[] {
+function recalcRatings(
+  players: SquadPlayer[],
+  section: 'starting' | 'reserves',
+  cricketFormat: CricketFormat,
+): SquadPlayer[] {
   return players.map((p, i) => ({
     ...p,
-    batRating: calculateBatRating(p.btCaz, p.raw, p.sr, i + 1),
+    batRating: calculateBatRating(
+      p.btCaz,
+      p.raw,
+      p.sr,
+      battingPositionForParTable(section, i),
+      cricketFormat,
+    ),
     bowlRating: calculateBowlRating(p.econ, p.bowlSr, p.bowlAvg, p.overs),
   }))
 }
 
-export default function SquadTable({ startingXI, reserves, onUpdate, selectedPlayerId, onSelectPlayer, onAddPlayer }: SquadTableProps) {
+export default function SquadTable({
+  cricketFormat,
+  startingXI,
+  reserves,
+  onUpdate,
+  selectedPlayerId,
+  onSelectPlayer,
+  onAddPlayer,
+}: SquadTableProps) {
   const [swapSource, setSwapSource] = useState<{ section: 'starting' | 'reserves'; index: number } | null>(null)
   const [addQuery, setAddQuery] = useState('')
   const [addDropdownOpen, setAddDropdownOpen] = useState(false)
@@ -98,7 +119,10 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
     srcList[swapSource.index] = dstList[index]
     dstList[index] = temp
 
-    onUpdate(recalcRatings(newStarting), recalcRatings(newReserves))
+    onUpdate(
+      recalcRatings(newStarting, 'starting', cricketFormat),
+      recalcRatings(newReserves, 'reserves', cricketFormat),
+    )
     setSwapSource(null)
   }
 
@@ -135,7 +159,10 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
       dstList[dst.index] = temp
     }
 
-    onUpdate(recalcRatings(newStarting), recalcRatings(newReserves))
+    onUpdate(
+      recalcRatings(newStarting, 'starting', cricketFormat),
+      recalcRatings(newReserves, 'reserves', cricketFormat),
+    )
     dragItem.current = null
     dragOver.current = null
   }
@@ -152,17 +179,26 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
       const otherOvers = startingXI.reduce((s, p, i) => s + (i === index ? 0 : p.overs), 0)
       num = Math.min(num, Math.max(0, MAX_TEAM_OVERS - otherOvers))
     }
+    if (field === 'sr') {
+      num = Math.round(num * 100) / 100
+    }
     const list = section === 'starting' ? [...startingXI] : [...reserves]
     const updated = { ...list[index], [field]: num }
 
     if (BAT_EDITABLE.includes(field)) {
-      updated.batRating = calculateBatRating(updated.btCaz, updated.raw, updated.sr, index + 1)
+      updated.batRating = calculateBatRating(
+        updated.btCaz,
+        updated.raw,
+        updated.sr,
+        battingPositionForParTable(section, index),
+        cricketFormat,
+      )
     }
     if (BOWL_EDITABLE.includes(field)) {
       const { wkts, bowlAvg } = calcWktsAndBowlAvg(updated.overs, updated.econ, updated.bowlSr)
       updated.wkts = wkts
       updated.bowlAvg = bowlAvg
-      updated.bowlRating = calculateBowlRating(updated.econ, updated.bowlSr, updated.bowlAvg, updated.overs)
+      updated.bowlRating = calculateBowlRating(updated.econ, updated.bowlSr, bowlAvg, updated.overs)
     }
 
     list[index] = updated
@@ -205,22 +241,17 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
     }
 
     const target = document.querySelector<HTMLInputElement>(
-      `input[data-section="${nextSection}"][data-row="${nextRow}"][data-col="${nextCol}"]`
+      `input[data-section="${nextSection}"][data-row="${nextRow}"][data-col="${nextCol}"]`,
     )
     target?.focus()
     target?.select()
   }
 
-  function renderRow(
-    player: SquadPlayer,
-    index: number,
-    section: 'starting' | 'reserves',
-  ) {
+  function renderRow(player: SquadPlayer, index: number, section: 'starting' | 'reserves') {
     const isSwapTarget =
       swapSource !== null &&
       !(swapSource.section === section && swapSource.index === index)
-    const isSwapSelected =
-      swapSource?.section === section && swapSource?.index === index
+    const isSwapSelected = swapSource?.section === section && swapSource?.index === index
 
     const isSelected = selectedPlayerId === player.id
 
@@ -234,8 +265,9 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
         onDragEnd={handleDragEnd}
         onDragOver={(e) => e.preventDefault()}
       >
-        <td className="sq-swap">
+        <td className="sq-swap sq-core">
           <button
+            type="button"
             className={`swap-btn ${isSwapSelected ? 'swap-active' : ''} ${isSwapTarget ? 'swap-target' : ''}`}
             onClick={() => handleSwap(section, index)}
             title={isSwapSelected ? 'Cancel swap' : swapSource ? 'Swap with this player' : 'Swap player'}
@@ -243,23 +275,28 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             ⇅
           </button>
         </td>
-        <td className="sq-pos">{index + 1}</td>
-        <td className="sq-drag">
-          <span className="drag-handle" title="Drag to reorder">⠿</span>
+        <td className="sq-pos sq-core">{index + 1}</td>
+        <td className="sq-drag sq-core">
+          <span className="drag-handle" title="Drag to reorder">
+            ⠿
+          </span>
         </td>
-        <td className="sq-pid">
+        <td className="sq-pid sq-core">
           <PidCell playerId={player.playerId} />
         </td>
-        <td className="sq-name sq-name-clickable" onClick={() => onSelectPlayer?.(player)}>{player.name}</td>
+        <td className="sq-name sq-name-clickable sq-core" onClick={() => onSelectPlayer?.(player)}>
+          {player.name}
+        </td>
         {BAT_EDITABLE.map((field) => {
           const colIdx = ALL_EDITABLE_FIELDS.indexOf(field)
           return (
-            <td key={field} className="sq-num sq-editable">
+            <td key={field} className="sq-num sq-editable sq-stat sq-stat-bat">
               <input
                 type="number"
                 className="cell-input"
-                value={player[field]}
+                value={field === 'sr' ? Math.round(player.sr * 100) / 100 : player[field]}
                 disabled={player.locked}
+                step={field === 'sr' ? '0.01' : undefined}
                 data-section={section}
                 data-row={index}
                 data-col={colIdx}
@@ -270,12 +307,14 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             </td>
           )
         })}
-        <td className="sq-num">{player.fours.toFixed(1)}</td>
-        <td className="sq-num">{player.sixes.toFixed(1)}</td>
-        <td className={`sq-num sq-rating ${player.batRating > 0 ? 'rating-pos' : player.batRating < 0 ? 'rating-neg' : ''}`}>
+        <td className="sq-num sq-stat sq-stat-bat">{player.fours.toFixed(1)}</td>
+        <td className="sq-num sq-stat sq-stat-bat">{player.sixes.toFixed(1)}</td>
+        <td
+          className={`sq-num sq-rating sq-stat sq-stat-bat ${player.batRating > 0 ? 'rating-pos' : player.batRating < 0 ? 'rating-neg' : ''}`}
+        >
           {player.batRating}
         </td>
-        <td className="sq-action">
+        <td className="sq-action sq-stat sq-stat-bowl">
           <select
             className="action-select"
             value={player.action}
@@ -290,11 +329,11 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             <option value="SPIN">SPIN</option>
           </select>
         </td>
-        <td className="sq-num">{player.wkts.toFixed(1)}</td>
+        <td className="sq-num sq-stat sq-stat-bowl">{player.wkts.toFixed(1)}</td>
         {BOWL_EDITABLE.map((field) => {
           const colIdx = ALL_EDITABLE_FIELDS.indexOf(field)
           return (
-            <td key={field} className="sq-num sq-editable">
+            <td key={field} className="sq-num sq-editable sq-stat sq-stat-bowl">
               <input
                 type="number"
                 className="cell-input"
@@ -310,14 +349,18 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
             </td>
           )
         })}
-        <td className="sq-num">{player.bowlAvg.toFixed(2)}</td>
-        <td className={`sq-num sq-rating ${!Number.isNaN(player.bowlRating) ? (player.bowlRating > 0 ? 'rating-pos' : player.bowlRating < 0 ? 'rating-neg' : '') : ''}`}>
+        <td className="sq-num sq-stat sq-stat-bowl">{player.bowlAvg.toFixed(2)}</td>
+        <td
+          className={`sq-num sq-rating sq-stat sq-stat-bowl ${!Number.isNaN(player.bowlRating) ? (player.bowlRating > 0 ? 'rating-pos' : player.bowlRating < 0 ? 'rating-neg' : '') : ''}`}
+        >
           {Number.isNaN(player.bowlRating) ? '–' : player.bowlRating}
         </td>
-        <td className="sq-info">
-          <button className="info-btn" title="Player info" onClick={() => onSelectPlayer?.(player)}>i</button>
+        <td className="sq-info sq-core">
+          <button type="button" className="info-btn" title="Player info" onClick={() => onSelectPlayer?.(player)}>
+            i
+          </button>
         </td>
-        <td className="sq-lock">
+        <td className="sq-lock sq-core">
           <input
             type="checkbox"
             checked={player.locked}
@@ -332,58 +375,63 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
   const headerRows = (
     <>
       <tr className="group-header-row">
-        <th colSpan={5}></th>
-        <th colSpan={6} className="group-header group-batting">Batting</th>
-        <th colSpan={7} className="group-header group-bowling">Bowling</th>
-        <th colSpan={2}></th>
+        <th colSpan={5} className="group-header-spacer"></th>
+        <th colSpan={6} className="group-header group-panel-title">
+          Batting
+        </th>
+        <th colSpan={7} className="group-header group-panel-title">
+          Bowling
+        </th>
+        <th colSpan={2} className="group-header-spacer"></th>
       </tr>
       <tr>
-        <th className="th-swap"></th>
-        <th className="th-pos">Pos</th>
-        <th className="th-drag"></th>
-        <th className="th-pid">Player ID</th>
-        <th className="th-name">Name</th>
-        <th className="th-sq-num th-bat">BT CAZ</th>
-        <th className="th-sq-num th-bat">Raw</th>
-        <th className="th-sq-num th-bat">SR</th>
-        <th className="th-sq-num th-bat">4s</th>
-        <th className="th-sq-num th-bat">6s</th>
-        <th className="th-sq-num th-bat">Rating</th>
-        <th className="th-action th-bowl">Action</th>
-        <th className="th-sq-num th-bowl">WKTS</th>
-        <th className="th-sq-num th-bowl">Overs</th>
-        <th className="th-sq-num th-bowl">Econ</th>
-        <th className="th-sq-num th-bowl">SR</th>
-        <th className="th-sq-num th-bowl">Avg</th>
-        <th className="th-sq-num th-bowl">Rating</th>
-        <th className="th-info"></th>
-        <th className="th-lock">✓</th>
+        <th className="th-swap th-core"></th>
+        <th className="th-pos th-core">Pos</th>
+        <th className="th-drag th-core"></th>
+        <th className="th-pid th-core">Player ID</th>
+        <th className="th-name th-core">Name</th>
+        <th className="th-sq-num th-bat th-stat th-stat-bat">BT CAZ</th>
+        <th className="th-sq-num th-bat th-stat th-stat-bat">Raw</th>
+        <th className="th-sq-num th-bat th-stat th-stat-bat">SR.CAZ</th>
+        <th className="th-sq-num th-bat th-stat th-stat-bat">4s</th>
+        <th className="th-sq-num th-bat th-stat th-stat-bat">6s</th>
+        <th className="th-sq-num th-bat th-stat th-stat-bat">Rating</th>
+        <th className="th-action th-bowl th-stat th-stat-bowl">Action</th>
+        <th className="th-sq-num th-bowl th-stat th-stat-bowl">WKTS</th>
+        <th className="th-sq-num th-bowl th-stat th-stat-bowl">Overs</th>
+        <th className="th-sq-num th-bowl th-stat th-stat-bowl">Econ</th>
+        <th className="th-sq-num th-bowl th-stat th-stat-bowl">SR</th>
+        <th className="th-sq-num th-bowl th-stat th-stat-bowl">Avg</th>
+        <th className="th-sq-num th-bowl th-stat th-stat-bowl">Rating</th>
+        <th className="th-info th-core"></th>
+        <th className="th-lock th-core">✓</th>
       </tr>
     </>
   )
 
   function renderTotalsRow(players: SquadPlayer[]) {
-    const sum = (fn: (p: SquadPlayer) => number) =>
-      players.reduce((acc, p) => acc + fn(p), 0)
+    const sum = (fn: (p: SquadPlayer) => number) => players.reduce((acc, p) => acc + fn(p), 0)
 
     return (
       <tfoot>
         <tr className="squad-totals-row">
-          <td colSpan={5} className="sq-totals-label">Totals</td>
-          <td className="sq-num">{sum((p) => p.btCaz).toFixed(1)}</td>
-          <td className="sq-num">{sum((p) => p.raw).toFixed(1)}</td>
-          <td className="sq-num">{sum((p) => p.sr).toFixed(1)}</td>
-          <td className="sq-num">{sum((p) => p.fours).toFixed(1)}</td>
-          <td className="sq-num">{sum((p) => p.sixes).toFixed(1)}</td>
-          <td className="sq-num">{sum((p) => p.batRating).toFixed(1)}</td>
-          <td></td>
-          <td className="sq-num">{sum((p) => p.wkts).toFixed(1)}</td>
-          <td className="sq-num">{sum((p) => p.overs).toFixed(1)}</td>
-          <td className="sq-num">{sum((p) => p.econ).toFixed(1)}</td>
-          <td className="sq-num">{sum((p) => p.bowlSr).toFixed(1)}</td>
-          <td className="sq-num">{sum((p) => p.bowlAvg).toFixed(2)}</td>
-          <td className="sq-num">{sum((p) => Number.isNaN(p.bowlRating) ? 0 : p.bowlRating).toFixed(1)}</td>
-          <td colSpan={2}></td>
+          <td colSpan={5} className="sq-totals-label sq-core">
+            Totals
+          </td>
+          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.btCaz).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.raw).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.sr).toFixed(2)}</td>
+          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.fours).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.sixes).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.batRating).toFixed(1)}</td>
+          <td className="sq-stat sq-stat-bowl"></td>
+          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.wkts).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.overs).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.econ).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.bowlSr).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.bowlAvg).toFixed(2)}</td>
+          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => (Number.isNaN(p.bowlRating) ? 0 : p.bowlRating)).toFixed(1)}</td>
+          <td colSpan={2} className="sq-core"></td>
         </tr>
       </tfoot>
     )
@@ -407,29 +455,23 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
 
   return (
     <div className="squad-table-container">
-      <div className="squad-section">
-        <h3 className="squad-section-title">STARTING XI</h3>
+      <div className="squad-section squad-section-panel">
+        <h3 className="squad-section-title">Starting XI</h3>
         <div className="squad-table-wrap">
           <table className="squad-table">
             <thead>{headerRows}</thead>
-            <tbody>
-              {startingXI.map((p, i) => renderRow(p, i, 'starting'))}
-            </tbody>
+            <tbody>{startingXI.map((p, i) => renderRow(p, i, 'starting'))}</tbody>
             {renderTotalsRow(startingXI)}
           </table>
         </div>
       </div>
 
-      <div className="squad-divider" />
-
-      <div className="squad-section">
-        <h3 className="squad-section-title">RESERVES</h3>
+      <div className="squad-section squad-section-panel">
+        <h3 className="squad-section-title">Reserves</h3>
         <div className="squad-table-wrap">
           <table className="squad-table">
             <thead>{headerRows}</thead>
-            <tbody>
-              {reserves.map((p, i) => renderRow(p, i, 'reserves'))}
-            </tbody>
+            <tbody>{reserves.map((p, i) => renderRow(p, i, 'reserves'))}</tbody>
             {renderTotalsRow(reserves)}
           </table>
         </div>
@@ -446,7 +488,9 @@ export default function SquadTable({ startingXI, reserves, onUpdate, selectedPla
                   setAddQuery(e.target.value)
                   setAddDropdownOpen(true)
                 }}
-                onFocus={() => { if (addQuery.length >= 2) setAddDropdownOpen(true) }}
+                onFocus={() => {
+                  if (addQuery.length >= 2) setAddDropdownOpen(true)
+                }}
                 onBlur={() => setTimeout(() => setAddDropdownOpen(false), 200)}
               />
               {addDropdownOpen && addResults.length > 0 && (

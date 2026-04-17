@@ -1784,6 +1784,36 @@ body {
   min-width: 0;
 }
 
+.tm-panel-resize-handle {
+  flex: 0 0 6px;
+  width: 6px;
+  cursor: col-resize;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  align-self: stretch;
+  position: relative;
+  z-index: 2;
+  transition: background 0.15s ease;
+}
+
+.tm-panel-resize-handle:hover,
+.tm-panel-resize-handle:active {
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.tm-panel-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .tm-body-with-panel .tm-squad-body {
   flex: 1 1 0;
   min-width: 0;
@@ -1795,6 +1825,10 @@ body {
     overflow-y: auto;
   }
 
+  .tm-panel-resize-handle {
+    display: none;
+  }
+
   .tm-body-with-panel .tm-squad-body {
     flex: 1 1 auto;
     max-width: none;
@@ -1802,8 +1836,9 @@ body {
 
   .tm-body-with-panel .pp-panel {
     flex: 0 0 auto;
-    width: 100%;
-    min-width: 0;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
     border-left: none;
     border-top: 1px solid var(--border-subtle);
     max-height: min(45vh, 26rem);
@@ -2007,31 +2042,41 @@ body {
 .squad-table-container {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 1rem;
+}
+
+.squad-section-panel {
+  padding: 0.85rem 1rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
 }
 
 .squad-section-title {
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-secondary);
-  padding: 0.5rem 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: var(--text-primary);
+  margin: 0 0 0.65rem;
+  padding: 0;
+  line-height: 1.25;
 }
 
 .squad-divider {
-  height: 1px;
-  background: var(--border-subtle);
-  margin: 1rem 0;
+  display: none;
 }
 
 .squad-table-wrap {
   overflow-x: auto;
+  border-radius: 0.5rem;
 }
 
 .squad-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.78rem;
   white-space: nowrap;
 }
@@ -2044,37 +2089,98 @@ body {
   letter-spacing: 0.03em;
   color: var(--text-secondary);
   padding: 0.4rem 0.35rem;
-  border-bottom: 2px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
   position: sticky;
   top: 0;
-  background: var(--bg-primary);
+  z-index: 2;
+  background: var(--bg-secondary);
 }
 
-.group-header-row th {
+.squad-table thead tr.group-header-row th {
+  position: static;
+  z-index: auto;
+  background: transparent;
   border-bottom: none;
-  padding-bottom: 0;
 }
 
 .group-header {
-  font-size: 0.72rem;
+  padding: 0;
+}
+
+.group-header-spacer {
+  background: transparent;
+  border: none;
+}
+
+.group-panel-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--text-primary);
+  padding: 0.55rem 0.5rem 0.45rem !important;
+  vertical-align: middle;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
+}
+
+tr.group-header-row .group-panel-title:first-of-type {
+  border-radius: 0.5rem 0 0 0;
+}
+
+tr.group-header-row .group-panel-title:last-of-type {
+  border-radius: 0 0.5rem 0 0;
+}
+
+.th-core {
+  background: var(--bg-secondary) !important;
+}
+
+/* Batting & bowling: same neutral surface; vertical rules separate panels */
+.squad-table thead tr:nth-child(2) th.th-stat-bat,
+.squad-table tbody td.sq-stat-bat,
+.squad-table tfoot td.sq-stat-bat {
+  background: var(--bg-card) !important;
+}
+
+.squad-table thead tr:nth-child(2) th.th-stat-bowl,
+.squad-table tbody td.sq-stat-bowl,
+.squad-table tfoot td.sq-stat-bowl {
+  background: var(--bg-card) !important;
+}
+
+.squad-table thead tr:nth-child(2) th:nth-child(6),
+.squad-table tbody td:nth-child(6),
+.squad-table tfoot td:nth-child(6) {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.squad-table thead tr:nth-child(2) th:nth-child(12),
+.squad-table tbody td:nth-child(12),
+.squad-table tfoot td:nth-child(12) {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.th-bat {
+  border-top: none;
+}
+
+.th-bowl {
+  border-top: none;
+}
+
+.squad-totals-row td.sq-totals-label {
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 0.3rem 0.35rem 0.15rem;
 }
 
-.group-batting {
-  color: var(--green);
-  border-bottom: 2px solid rgba(74, 222, 128, 0.3);
+.squad-table tfoot td {
+  border-top: 1px solid var(--border-subtle);
 }
 
-.group-bowling {
-  color: var(--accent);
-  border-bottom: 2px solid rgba(56, 189, 248, 0.3);
+.squad-table tfoot tr.squad-totals-row td {
+  font-weight: 600;
 }
-
-.th-bat { border-top: none; }
-.th-bowl { border-top: none; }
 
 .squad-table tbody td {
   padding: 0.35rem 0.35rem;
@@ -2357,9 +2463,6 @@ body {
 
 .pp-panel {
   flex: 0 0 auto;
-  width: min(560px, 48vw);
-  max-width: 580px;
-  min-width: 340px;
   background: var(--bg-card);
   border-left: 1px solid var(--border-subtle);
   display: flex;
@@ -2439,8 +2542,16 @@ body {
 
 .pp-tab-active {
   color: var(--text-primary);
-  background: var(--accent-glow);
-  box-shadow: inset 0 -2px 0 var(--accent);
+  background: var(--bg-card-hover);
+  box-shadow: inset 0 -2px 0 var(--border-hover);
+}
+
+.pp-tab-panel {
+  padding: 1rem 0.85rem 0.25rem;
+  margin-top: 0.35rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
 }
 
 /* Header */
@@ -2549,12 +2660,12 @@ body {
 }
 
 .pp-section-title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--accent);
-  margin: 0 0 0.65rem 0;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem 0;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 
 .pp-section-header {

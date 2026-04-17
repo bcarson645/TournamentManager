@@ -4,7 +4,9 @@ import { useState, useRef, useMemo, useEffect } from 'react'
 import { Team } from '../data/teams'
 import { RankedBatter } from '../data/squadStore'
 import { SquadPlayer, BowlAction, makeSquadForTeam, calcWktsAndBowlAvg } from '../data/squad'
-import { calculateBowlRating } from '../data/ratingBenchmarks'
+import { CricketFormat } from '../data/tournaments'
+import { battingPositionForParTable } from '../data/battingExpectedRunsFormula'
+import { calculateBatRating, calculateBowlRating } from '../data/ratingBenchmarks'
 import { PlayerDbEntry } from '../data/playerDatabase'
 import { GROUNDS, Ground } from '../data/grounds'
 import SquadTable from './SquadTable'
@@ -67,6 +69,7 @@ function hashStr(s: string): number {
 }
 
 interface TeamManagerProps {
+  format: CricketFormat
   team: Team
   tournamentName: string
   allTeams: Team[]
@@ -77,6 +80,7 @@ interface TeamManagerProps {
 }
 
 export default function TeamManager({
+  format,
   team,
   tournamentName,
   allTeams,
@@ -98,6 +102,45 @@ export default function TeamManager({
   })
 
   const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
+
+  const [playerPanelWidth, setPlayerPanelWidth] = useState(() => {
+    if (typeof window === 'undefined') return 400
+    const raw = localStorage.getItem('tm-player-panel-w')
+    const n = raw ? parseInt(raw, 10) : NaN
+    return Number.isFinite(n) ? Math.min(640, Math.max(260, n)) : 400
+  })
+
+  const panelResizeRef = useRef<{ startX: number; startW: number } | null>(null)
+  const playerPanelWidthRef = useRef(playerPanelWidth)
+  playerPanelWidthRef.current = playerPanelWidth
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      const drag = panelResizeRef.current
+      if (!drag) return
+      const delta = drag.startX - e.clientX
+      setPlayerPanelWidth(Math.min(640, Math.max(260, drag.startW + delta)))
+    }
+    function onUp() {
+      if (panelResizeRef.current === null) return
+      panelResizeRef.current = null
+      setPlayerPanelWidth((w) => {
+        localStorage.setItem('tm-player-panel-w', String(w))
+        return w
+      })
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [])
+
+  function handlePanelResizeStart(e: React.MouseEvent) {
+    e.preventDefault()
+    panelResizeRef.current = { startX: e.clientX, startW: playerPanelWidthRef.current }
+  }
   const [selectedGround, setSelectedGround] = useState<Ground | null>(() => {
     const stored = getStoredSquad(team.id)
     if (stored?.groundId) return GROUNDS.find((g) => g.id === stored.groundId) ?? null
@@ -113,7 +156,7 @@ export default function TeamManager({
       setReserves(stored.reserves)
       setSelectedGround(stored.groundId ? GROUNDS.find((g) => g.id === stored.groundId) ?? null : null)
     } else {
-      const squad = makeSquadForTeam(team.id)
+      const squad = makeSquadForTeam(team.id, format)
       setStartingXI(squad.startingXI)
       setReserves(squad.reserves)
       setSelectedGround(null)
@@ -121,7 +164,7 @@ export default function TeamManager({
     setSelectedPlayer(null)
     setTeamLogo(getTeamLogo(team.id) ?? team.logo ?? null)
     setGroundSearch('')
-  }, [team.id])
+  }, [team.id, format])
 
   const avgFirstInnings = useMemo(() => generateAvgScore(team.id), [team.id])
   const last10 = useMemo(() => generateLast10(team.id), [team.id])
@@ -390,6 +433,7 @@ export default function TeamManager({
       <div className="tm-body-layout tm-body-with-panel">
         <div className="tm-squad-body">
           <SquadTable
+            cricketFormat={format}
             startingXI={startingXI}
             reserves={reserves}
             onUpdate={handleUpdate}
@@ -398,9 +442,17 @@ export default function TeamManager({
             onAddPlayer={handleAddPlayer}
           />
         </div>
+        <div
+          className="tm-panel-resize-handle"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize player stats panel"
+          onMouseDown={handlePanelResizeStart}
+        />
         <PlayerDetailPanel
           player={selectedPlayer}
           tournamentName={tournamentName}
+          panelWidth={playerPanelWidth}
           onClose={() => setSelectedPlayer(null)}
         />
       </div>

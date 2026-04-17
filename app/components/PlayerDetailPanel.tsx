@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type CSSProperties } from 'react'
 import { SquadPlayer } from '../data/squad'
 import {
   PlayerProfile,
@@ -14,14 +14,21 @@ import {
 interface PlayerDetailPanelProps {
   player: SquadPlayer | null
   tournamentName: string
+  panelWidth: number
   onClose: () => void
 }
 
 type StatsTab = 'batting' | 'bowling'
 
+/** Stored as SR.CAZ (per ball); player stats UI uses traditional SR per 100 balls. */
+function srPer100FromCaz(caz: number): number {
+  return Math.round(caz * 100 * 100) / 100
+}
+
 export default function PlayerDetailPanel({
   player,
   tournamentName,
+  panelWidth,
   onClose,
 }: PlayerDetailPanelProps) {
   const [profile, setProfile] = useState<PlayerProfile>(() =>
@@ -47,13 +54,25 @@ export default function PlayerDetailPanel({
   }
 
   function updateBatField(field: keyof CareerBatting, value: string) {
-    setProfile((p) => ({
-      ...p,
-      careerBatting: {
-        ...p.careerBatting,
-        [field]: field === 'highScore' ? value : (parseFloat(value) || 0),
-      },
-    }))
+    setProfile((p) => {
+      if (field === 'highScore') {
+        return { ...p, careerBatting: { ...p.careerBatting, highScore: value } }
+      }
+      if (field === 'strikeRate') {
+        const per100 = parseFloat(value) || 0
+        return {
+          ...p,
+          careerBatting: { ...p.careerBatting, strikeRate: per100 / 100 },
+        }
+      }
+      return {
+        ...p,
+        careerBatting: {
+          ...p.careerBatting,
+          [field]: parseFloat(value) || 0,
+        },
+      }
+    })
   }
 
   function updateBowlField(field: keyof CareerBowling, value: string) {
@@ -104,9 +123,13 @@ export default function PlayerDetailPanel({
   function updateTournamentRecord(idx: number, field: keyof TournamentRecord, value: string) {
     setProfile((p) => {
       const updated = [...p.tournamentHistory]
-      updated[idx] = {
-        ...updated[idx],
-        [field]: field === 'season' ? value : (parseFloat(value) || 0),
+      if (field === 'season') {
+        updated[idx] = { ...updated[idx], season: value }
+      } else if (field === 'strikeRate') {
+        const per100 = parseFloat(value) || 0
+        updated[idx] = { ...updated[idx], strikeRate: per100 / 100 }
+      } else {
+        updated[idx] = { ...updated[idx], [field]: parseFloat(value) || 0 }
       }
       return { ...p, tournamentHistory: updated }
     })
@@ -129,9 +152,16 @@ export default function PlayerDetailPanel({
   const bat = profile.careerBatting
   const bowl = profile.careerBowling
 
+  const panelStyle: CSSProperties = {
+    width: panelWidth,
+    flex: '0 0 auto',
+    minWidth: 260,
+    maxWidth: 'min(640px, 70vw)',
+  }
+
   if (!player) {
     return (
-      <aside className="pp-panel pp-panel-empty" aria-label="Player stats">
+      <aside className="pp-panel pp-panel-empty" style={panelStyle} aria-label="Player stats">
         <div className="pp-panel-scroll">
           <div className="pp-empty-shell">
             <div className="pp-empty-kicker">{tournamentName}</div>
@@ -146,9 +176,8 @@ export default function PlayerDetailPanel({
   }
 
   return (
-    <aside className="pp-panel">
+    <aside className="pp-panel" style={panelStyle}>
       <div className="pp-panel-scroll">
-        {/* Header */}
         <div className="pp-header">
           <div
             className="pp-photo-wrap"
@@ -222,16 +251,29 @@ export default function PlayerDetailPanel({
             <div className="pp-section">
               <h3 className="pp-section-title">Career Batting</h3>
               <div className="pp-stat-grid">
-                {([
-                  ['matches', 'Matches'], ['runs', 'Runs'], ['average', 'Average'], ['strikeRate', 'Strike Rate'],
-                  ['hundreds', '100s'], ['fifties', '50s'], ['highScore', 'High Score'], ['innings', 'Innings'],
-                ] as [keyof CareerBatting, string][]).map(([key, label]) => (
+                {(
+                  [
+                    ['matches', 'Matches'],
+                    ['runs', 'Runs'],
+                    ['average', 'Average'],
+                    ['strikeRate', 'SR'],
+                    ['hundreds', '100s'],
+                    ['fifties', '50s'],
+                    ['highScore', 'High Score'],
+                    ['innings', 'Innings'],
+                  ] as [keyof CareerBatting, string][]
+                ).map(([key, label]) => (
                   <div key={key} className="pp-stat-box">
                     <span className="pp-stat-label">{label}</span>
                     <input
                       type={key === 'highScore' ? 'text' : 'number'}
                       className="pp-stat-input"
-                      value={bat[key]}
+                      value={
+                        key === 'strikeRate'
+                          ? srPer100FromCaz(bat.strikeRate)
+                          : bat[key]
+                      }
+                      step={key === 'strikeRate' ? '0.01' : undefined}
                       onChange={(e) => updateBatField(key, e.target.value)}
                     />
                   </div>
@@ -295,16 +337,27 @@ export default function PlayerDetailPanel({
                         <button type="button" className="pp-recent-remove" onClick={() => removeTournamentRecord(i)}>×</button>
                       </div>
                       <div className="pp-stat-grid pp-stat-grid-sm">
-                        {([
-                          ['matches', 'Mat'], ['runs', 'Runs'], ['average', 'Avg'], ['strikeRate', 'SR'],
-                          ['wickets', 'Wkts'], ['bowlAvg', 'Bowl Avg'],
-                        ] as [keyof TournamentRecord, string][]).map(([key, label]) => (
+                        {(
+                          [
+                            ['matches', 'Mat'],
+                            ['runs', 'Runs'],
+                            ['average', 'Avg'],
+                            ['strikeRate', 'SR'],
+                            ['wickets', 'Wkts'],
+                            ['bowlAvg', 'Bowl Avg'],
+                          ] as [keyof TournamentRecord, string][]
+                        ).map(([key, label]) => (
                           <div key={key} className="pp-stat-box pp-stat-box-sm">
                             <span className="pp-stat-label">{label}</span>
                             <input
                               type="number"
                               className="pp-stat-input"
-                              value={rec[key]}
+                              value={
+                                key === 'strikeRate'
+                                  ? srPer100FromCaz(rec.strikeRate)
+                                  : rec[key]
+                              }
+                              step={key === 'strikeRate' ? '0.01' : undefined}
                               onChange={(e) => updateTournamentRecord(i, key, e.target.value)}
                             />
                           </div>
@@ -328,10 +381,18 @@ export default function PlayerDetailPanel({
             <div className="pp-section">
               <h3 className="pp-section-title">Career Bowling</h3>
               <div className="pp-stat-grid">
-                {([
-                  ['matches', 'Matches'], ['wickets', 'Wickets'], ['average', 'Average'], ['economy', 'Economy'],
-                  ['strikeRate', 'Strike Rate'], ['bestFigures', 'Best Figures'], ['fiveWickets', '5W'], ['innings', 'Innings'],
-                ] as [keyof CareerBowling, string][]).map(([key, label]) => (
+                {(
+                  [
+                    ['matches', 'Matches'],
+                    ['wickets', 'Wickets'],
+                    ['average', 'Average'],
+                    ['economy', 'Economy'],
+                    ['strikeRate', 'Strike Rate'],
+                    ['bestFigures', 'Best Figures'],
+                    ['fiveWickets', '5W'],
+                    ['innings', 'Innings'],
+                  ] as [keyof CareerBowling, string][]
+                ).map(([key, label]) => (
                   <div key={key} className="pp-stat-box">
                     <span className="pp-stat-label">{label}</span>
                     <input
