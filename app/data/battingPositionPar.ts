@@ -1,8 +1,12 @@
 /**
- * Position par benchmarks for batting (lookup by **batting position** 1–11).
+ * Position par benchmarks for batting (lookup by **batting order** 1–11).
  * SR.CAZ values are runs per ball (same units as squad `sr`).
  *
- * Extend with per-format tables later (e.g. T20 vs Test) — see `getBattingPositionParRow`.
+ * **Par BT CAZ** matches the reference “bt.caz” column for that slot.
+ * **Par SR** is calibrated for T20 men’s W + raw-runs ratio, using the **Excel** grouping:
+ * `W * (ratio vs par) + SR adjustment` (W does not multiply the SR adjustment).
+ *
+ * Extend with per-format tables later — `getBattingPositionParRow` accepts `format`.
  */
 
 import type { CricketFormat } from './tournaments'
@@ -15,24 +19,25 @@ export interface BattingPositionParRow {
   parBtCaz: number
   /** Par SR.CAZ — runs per ball */
   parSrCaz: number
+  /** Legacy display / sorting hint (not used in the rating formula). */
   parRating: number
 }
 
 /**
- * Default par row used for all formats until format-specific sheets are added.
+ * Default par rows — **par BT** from reference sheet; **par SR** calibrated (Excel-aligned formula).
  */
 export const BATTING_POSITION_PAR_ROWS: readonly BattingPositionParRow[] = [
-  { bat: 1, bowl: 11, parBtCaz: 28, parSrCaz: 1.33, parRating: 29 },
-  { bat: 2, bowl: 10, parBtCaz: 28, parSrCaz: 1.33, parRating: 29 },
-  { bat: 3, bowl: 9, parBtCaz: 27, parSrCaz: 1.29, parRating: 27 },
-  { bat: 4, bowl: 8, parBtCaz: 27, parSrCaz: 1.29, parRating: 27 },
-  { bat: 5, bowl: 7, parBtCaz: 25, parSrCaz: 1.29, parRating: 25 },
-  { bat: 6, bowl: 6, parBtCaz: 22, parSrCaz: 1.3, parRating: 22 },
-  { bat: 7, bowl: 5, parBtCaz: 19, parSrCaz: 1.3, parRating: 19 },
-  { bat: 8, bowl: 4, parBtCaz: 16, parSrCaz: 1.25, parRating: 15 },
-  { bat: 9, bowl: 3, parBtCaz: 13, parSrCaz: 1.12, parRating: 11 },
-  { bat: 10, bowl: 2, parBtCaz: 11, parSrCaz: 0.95, parRating: 8 },
-  { bat: 11, bowl: 1, parBtCaz: 9, parSrCaz: 0.8, parRating: 6 },
+  { bat: 1, bowl: 11, parBtCaz: 24, parSrCaz: 1.4276, parRating: 24 },
+  { bat: 2, bowl: 10, parBtCaz: 24, parSrCaz: 1.4663, parRating: 24 },
+  { bat: 3, bowl: 9, parBtCaz: 28, parSrCaz: 1.2597, parRating: 28 },
+  { bat: 4, bowl: 8, parBtCaz: 26, parSrCaz: 1.2309, parRating: 26 },
+  { bat: 5, bowl: 7, parBtCaz: 26, parSrCaz: 1.2425, parRating: 26 },
+  { bat: 6, bowl: 6, parBtCaz: 25, parSrCaz: 1.1205, parRating: 25 },
+  { bat: 7, bowl: 5, parBtCaz: 21, parSrCaz: 1.2129, parRating: 21 },
+  { bat: 8, bowl: 4, parBtCaz: 12, parSrCaz: 0.4, parRating: 12 },
+  { bat: 9, bowl: 3, parBtCaz: 12, parSrCaz: 0.4, parRating: 12 },
+  { bat: 10, bowl: 2, parBtCaz: 12, parSrCaz: 0.4, parRating: 12 },
+  { bat: 11, bowl: 1, parBtCaz: 7, parSrCaz: 0.4, parRating: 7 },
 ] as const
 
 const BY_BAT = new Map<number, BattingPositionParRow>(

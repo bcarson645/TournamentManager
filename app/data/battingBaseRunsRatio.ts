@@ -1,7 +1,8 @@
 /**
- * Raw runs ratio multiplier by batting position (1–11), “Batting / Now / runs” column.
- * Applied as the final factor in `computeBattingExpectedRunsContribution`.
+ * **Raw runs ratio** (diagram) — static multiplier by batting position 1–11.
+ * Not the squad grid’s **Raw** column; that column does not feed the rating formula.
  *
+ * Applied as the final factor in `computeBattingExpectedRunsContribution`.
  * Extend with per-format tables later — `format` is reserved on the getter.
  */
 

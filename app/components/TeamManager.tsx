@@ -4,7 +4,7 @@ import { useState, useRef, useMemo, useEffect } from 'react'
 import { Team } from '../data/teams'
 import { RankedBatter } from '../data/squadStore'
 import { SquadPlayer, BowlAction, makeSquadForTeam, calcWktsAndBowlAvg } from '../data/squad'
-import { CricketFormat } from '../data/tournaments'
+import { CricketFormat, Gender } from '../data/tournaments'
 import { battingPositionForParTable } from '../data/battingExpectedRunsFormula'
 import { calculateBatRating, calculateBowlRating } from '../data/ratingBenchmarks'
 import { PlayerDbEntry } from '../data/playerDatabase'
@@ -14,6 +14,40 @@ import PlayerDetailPanel from './PlayerDetailPanel'
 import { getTeamLogo, setTeamLogo as storeTeamLogo } from '../data/logoStore'
 import { getStoredSquad, storeSquad } from '../data/squadStore'
 import { getProfileForPlayer } from '../data/playerProfile'
+
+function reapplySquadRatings(
+  startingXI: SquadPlayer[],
+  reserves: SquadPlayer[],
+  format: CricketFormat,
+  gender: Gender,
+): { startingXI: SquadPlayer[]; reserves: SquadPlayer[] } {
+  return {
+    startingXI: startingXI.map((p, i) => ({
+      ...p,
+      batRating: calculateBatRating(
+        p.btCaz,
+        p.raw,
+        p.sr,
+        battingPositionForParTable('starting', i),
+        format,
+        gender,
+      ),
+      bowlRating: calculateBowlRating(p.econ, p.bowlWpo, p.bowlAvg, p.overs, format, gender),
+    })),
+    reserves: reserves.map((p, i) => ({
+      ...p,
+      batRating: calculateBatRating(
+        p.btCaz,
+        p.raw,
+        p.sr,
+        battingPositionForParTable('reserves', i),
+        format,
+        gender,
+      ),
+      bowlRating: calculateBowlRating(p.econ, p.bowlWpo, p.bowlAvg, p.overs, format, gender),
+    })),
+  }
+}
 
 interface MatchResult {
   won: boolean
@@ -70,6 +104,7 @@ function hashStr(s: string): number {
 
 interface TeamManagerProps {
   format: CricketFormat
+  gender: Gender
   team: Team
   tournamentName: string
   allTeams: Team[]
@@ -81,6 +116,7 @@ interface TeamManagerProps {
 
 export default function TeamManager({
   format,
+  gender,
   team,
   tournamentName,
   allTeams,
@@ -94,11 +130,13 @@ export default function TeamManager({
 
   const [startingXI, setStartingXI] = useState<SquadPlayer[]>(() => {
     const stored = getStoredSquad(team.id)
-    return stored ? stored.startingXI : makeSquadForTeam(team.id).startingXI
+    if (!stored) return makeSquadForTeam(team.id, format, gender).startingXI
+    return reapplySquadRatings(stored.startingXI, stored.reserves, format, gender).startingXI
   })
   const [reserves, setReserves] = useState<SquadPlayer[]>(() => {
     const stored = getStoredSquad(team.id)
-    return stored ? stored.reserves : makeSquadForTeam(team.id).reserves
+    if (!stored) return makeSquadForTeam(team.id, format, gender).reserves
+    return reapplySquadRatings(stored.startingXI, stored.reserves, format, gender).reserves
   })
 
   const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
@@ -152,11 +190,12 @@ export default function TeamManager({
   useEffect(() => {
     const stored = getStoredSquad(team.id)
     if (stored) {
-      setStartingXI(stored.startingXI)
-      setReserves(stored.reserves)
+      const reapplied = reapplySquadRatings(stored.startingXI, stored.reserves, format, gender)
+      setStartingXI(reapplied.startingXI)
+      setReserves(reapplied.reserves)
       setSelectedGround(stored.groundId ? GROUNDS.find((g) => g.id === stored.groundId) ?? null : null)
     } else {
-      const squad = makeSquadForTeam(team.id, format)
+      const squad = makeSquadForTeam(team.id, format, gender)
       setStartingXI(squad.startingXI)
       setReserves(squad.reserves)
       setSelectedGround(null)
@@ -164,7 +203,7 @@ export default function TeamManager({
     setSelectedPlayer(null)
     setTeamLogo(getTeamLogo(team.id) ?? team.logo ?? null)
     setGroundSearch('')
-  }, [team.id, format])
+  }, [team.id, format, gender])
 
   const avgFirstInnings = useMemo(() => generateAvgScore(team.id), [team.id])
   const last10 = useMemo(() => generateLast10(team.id), [team.id])
@@ -191,12 +230,13 @@ export default function TeamManager({
     const profile = getProfileForPlayer(dbEntry.name)
     const bowl = profile.careerBowling
     const econ = bowl.economy || 0
-    const bowlSr = bowl.strikeRate || 0
-    const overs = bowl.matches > 0 && bowl.wickets > 0 && bowlSr > 0
-      ? Math.min(4, Math.round((bowl.wickets * bowlSr) / (6 * bowl.matches) * 10) / 10)
+    const ballsPerWicket = bowl.strikeRate || 0
+    const bowlWpo = ballsPerWicket > 0 ? 6 / ballsPerWicket : 0
+    const overs = bowl.matches > 0 && bowl.wickets > 0 && ballsPerWicket > 0
+      ? Math.min(4, Math.round((bowl.wickets * ballsPerWicket) / (6 * bowl.matches) * 10) / 10)
       : bowl.wickets > 0 ? 4 : 0
-    const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, econ, bowlSr)
-    const bowlRating = calculateBowlRating(econ, bowlSr, bowlAvg, overs)
+    const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, econ, bowlWpo)
+    const bowlRating = calculateBowlRating(econ, bowlWpo, bowlAvg, overs, format, gender)
 
     const newPlayer: SquadPlayer = {
       id: `${team.id}-p${totalPlayers + 1}`,
@@ -204,7 +244,7 @@ export default function TeamManager({
       name: dbEntry.name,
       btCaz: 0, raw: 0, sr: 0, fours: 0, sixes: 0, batRating: 0,
       action: (dbEntry.role === 'BOWL' ? 'SEAM' : 'SEAM') as BowlAction,
-      wkts, overs, econ, bowlSr, bowlAvg, bowlRating,
+      wkts, overs, econ, bowlWpo, bowlAvg, bowlRating,
       locked: false,
     }
     const newReserves = [...reserves, newPlayer]
@@ -434,6 +474,7 @@ export default function TeamManager({
         <div className="tm-squad-body">
           <SquadTable
             cricketFormat={format}
+            gender={gender}
             startingXI={startingXI}
             reserves={reserves}
             onUpdate={handleUpdate}

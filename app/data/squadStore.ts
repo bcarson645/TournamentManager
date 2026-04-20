@@ -1,5 +1,5 @@
 import { SquadPlayer, makeSquadForTeam, normalizeBowlStats, MAX_TEAM_OVERS, calcWktsAndBowlAvg } from './squad'
-import { calculateBowlRating } from './ratingBenchmarks'
+import { calculateBowlRating, roundRatingToStoredDecimals } from './ratingBenchmarks'
 import { TEAMS } from './teams'
 
 interface StoredSquad {
@@ -13,8 +13,8 @@ const store: Record<string, StoredSquad> = {}
 export function getStoredSquad(teamId: string): StoredSquad | null {
   const stored = store[teamId]
   if (!stored) return null
-  const startingXI = capStartingXIOvers(stored.startingXI.map(normalizeBowlStats))
-  const reserves = stored.reserves.map(normalizeBowlStats)
+  const startingXI = capStartingXIOvers(stored.startingXI.map((p) => normalizeBowlStats(p)))
+  const reserves = stored.reserves.map((p) => normalizeBowlStats(p))
   return { ...stored, startingXI, reserves }
 }
 
@@ -28,8 +28,8 @@ function capStartingXIOvers(players: SquadPlayer[]): SquadPlayer[] {
   const scale = MAX_TEAM_OVERS / totalOvers
   return players.map((p) => {
     const overs = Math.round(p.overs * scale * 10) / 10
-    const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, p.econ, p.bowlSr)
-    const bowlRating = calculateBowlRating(p.econ, p.bowlSr, bowlAvg, overs)
+    const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, p.econ, p.bowlWpo)
+    const bowlRating = calculateBowlRating(p.econ, p.bowlWpo, bowlAvg, overs)
     return { ...p, overs, wkts, bowlAvg, bowlRating }
   })
 }
@@ -37,10 +37,10 @@ function capStartingXIOvers(players: SquadPlayer[]): SquadPlayer[] {
 export function getSquadForTeam(teamId: string): { startingXI: SquadPlayer[]; reserves: SquadPlayer[] } {
   const stored = store[teamId]
   if (stored) {
-    const startingXI = capStartingXIOvers(stored.startingXI.map(normalizeBowlStats))
+    const startingXI = capStartingXIOvers(stored.startingXI.map((p) => normalizeBowlStats(p)))
     return {
       startingXI,
-      reserves: stored.reserves.map(normalizeBowlStats),
+      reserves: stored.reserves.map((p) => normalizeBowlStats(p)),
     }
   }
   return makeSquadForTeam(teamId)
@@ -59,7 +59,7 @@ export function getTournamentPrepProgress(tournamentId: string): { prepped: numb
 
 export function getTeamBatRatingTotal(teamId: string): number {
   const { startingXI } = getSquadForTeam(teamId)
-  return Math.round(startingXI.reduce((sum, p) => sum + p.batRating, 0) * 10) / 10
+  return roundRatingToStoredDecimals(startingXI.reduce((sum, p) => sum + p.batRating, 0))
 }
 
 export function getTeamBowlRatingTotal(teamId: string): number {
@@ -68,7 +68,7 @@ export function getTeamBowlRatingTotal(teamId: string): number {
     (s, p) => s + (Number.isNaN(p.bowlRating) ? 0 : p.bowlRating),
     0,
   )
-  return Math.round(sum * 10) / 10
+  return roundRatingToStoredDecimals(sum)
 }
 
 export interface RankedBatter {

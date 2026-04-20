@@ -1,11 +1,17 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { SquadPlayer, BowlAction, calcWktsAndBowlAvg, MAX_TEAM_OVERS } from '../data/squad'
 import { searchPlayers, PlayerDbEntry } from '../data/playerDatabase'
-import type { CricketFormat } from '../data/tournaments'
+import type { CricketFormat, Gender } from '../data/tournaments'
 import { battingPositionForParTable } from '../data/battingExpectedRunsFormula'
-import { calculateBatRating, calculateBowlRating } from '../data/ratingBenchmarks'
+import { calculateBatRating, calculateBowlRating, roundRatingToStoredDecimals } from '../data/ratingBenchmarks'
+import {
+  formatSquadRatingDisplay,
+  readSquadRatingDp,
+  writeSquadRatingDp,
+  type SquadRatingDecimalPlaces,
+} from '../data/ratingDisplaySettings'
 
 function PidCell({ playerId }: { playerId: string }) {
   const [visible, setVisible] = useState(false)
@@ -39,14 +45,15 @@ function PidCell({ playerId }: { playerId: string }) {
   )
 }
 
-const ALL_EDITABLE_FIELDS = ['btCaz', 'raw', 'sr', 'overs', 'econ', 'bowlSr'] as const
+const ALL_EDITABLE_FIELDS = ['btCaz', 'raw', 'sr', 'overs', 'econ', 'bowlWpo'] as const
 type EditableField = typeof ALL_EDITABLE_FIELDS[number]
 
 const BAT_EDITABLE: EditableField[] = ['btCaz', 'raw', 'sr']
-const BOWL_EDITABLE: EditableField[] = ['overs', 'econ', 'bowlSr']
+const BOWL_EDITABLE: EditableField[] = ['overs', 'econ', 'bowlWpo']
 
 interface SquadTableProps {
   cricketFormat: CricketFormat
+  gender: Gender
   startingXI: SquadPlayer[]
   reserves: SquadPlayer[]
   onUpdate: (startingXI: SquadPlayer[], reserves: SquadPlayer[]) => void
@@ -59,6 +66,7 @@ function recalcRatings(
   players: SquadPlayer[],
   section: 'starting' | 'reserves',
   cricketFormat: CricketFormat,
+  gender: Gender,
 ): SquadPlayer[] {
   return players.map((p, i) => ({
     ...p,
@@ -68,13 +76,15 @@ function recalcRatings(
       p.sr,
       battingPositionForParTable(section, i),
       cricketFormat,
+      gender,
     ),
-    bowlRating: calculateBowlRating(p.econ, p.bowlSr, p.bowlAvg, p.overs),
+    bowlRating: calculateBowlRating(p.econ, p.bowlWpo, p.bowlAvg, p.overs, cricketFormat, gender),
   }))
 }
 
 export default function SquadTable({
   cricketFormat,
+  gender,
   startingXI,
   reserves,
   onUpdate,
@@ -85,6 +95,11 @@ export default function SquadTable({
   const [swapSource, setSwapSource] = useState<{ section: 'starting' | 'reserves'; index: number } | null>(null)
   const [addQuery, setAddQuery] = useState('')
   const [addDropdownOpen, setAddDropdownOpen] = useState(false)
+  const [ratingDp, setRatingDp] = useState<SquadRatingDecimalPlaces>(1)
+
+  useEffect(() => {
+    setRatingDp(readSquadRatingDp())
+  }, [])
   const dragItem = useRef<{ section: 'starting' | 'reserves'; index: number } | null>(null)
   const dragOver = useRef<{ section: 'starting' | 'reserves'; index: number } | null>(null)
 
@@ -120,8 +135,8 @@ export default function SquadTable({
     dstList[index] = temp
 
     onUpdate(
-      recalcRatings(newStarting, 'starting', cricketFormat),
-      recalcRatings(newReserves, 'reserves', cricketFormat),
+      recalcRatings(newStarting, 'starting', cricketFormat, gender),
+      recalcRatings(newReserves, 'reserves', cricketFormat, gender),
     )
     setSwapSource(null)
   }
@@ -160,8 +175,8 @@ export default function SquadTable({
     }
 
     onUpdate(
-      recalcRatings(newStarting, 'starting', cricketFormat),
-      recalcRatings(newReserves, 'reserves', cricketFormat),
+      recalcRatings(newStarting, 'starting', cricketFormat, gender),
+      recalcRatings(newReserves, 'reserves', cricketFormat, gender),
     )
     dragItem.current = null
     dragOver.current = null
@@ -182,6 +197,9 @@ export default function SquadTable({
     if (field === 'sr') {
       num = Math.round(num * 100) / 100
     }
+    if (field === 'bowlWpo') {
+      num = Math.round(num * 1000) / 1000
+    }
     const list = section === 'starting' ? [...startingXI] : [...reserves]
     const updated = { ...list[index], [field]: num }
 
@@ -192,13 +210,21 @@ export default function SquadTable({
         updated.sr,
         battingPositionForParTable(section, index),
         cricketFormat,
+        gender,
       )
     }
     if (BOWL_EDITABLE.includes(field)) {
-      const { wkts, bowlAvg } = calcWktsAndBowlAvg(updated.overs, updated.econ, updated.bowlSr)
+      const { wkts, bowlAvg } = calcWktsAndBowlAvg(updated.overs, updated.econ, updated.bowlWpo)
       updated.wkts = wkts
       updated.bowlAvg = bowlAvg
-      updated.bowlRating = calculateBowlRating(updated.econ, updated.bowlSr, bowlAvg, updated.overs)
+      updated.bowlRating = calculateBowlRating(
+        updated.econ,
+        updated.bowlWpo,
+        bowlAvg,
+        updated.overs,
+        cricketFormat,
+        gender,
+      )
     }
 
     list[index] = updated
@@ -312,7 +338,7 @@ export default function SquadTable({
         <td
           className={`sq-num sq-rating sq-stat sq-stat-bat ${player.batRating > 0 ? 'rating-pos' : player.batRating < 0 ? 'rating-neg' : ''}`}
         >
-          {player.batRating}
+          {formatSquadRatingDisplay(player.batRating, ratingDp)}
         </td>
         <td className="sq-action sq-stat sq-stat-bowl">
           <select
@@ -337,8 +363,9 @@ export default function SquadTable({
               <input
                 type="number"
                 className="cell-input"
-                value={player[field]}
+                value={field === 'bowlWpo' ? (player.bowlWpo > 0 ? player[field] : '') : player[field]}
                 disabled={player.locked}
+                step={field === 'bowlWpo' ? '0.001' : undefined}
                 data-section={section}
                 data-row={index}
                 data-col={colIdx}
@@ -353,7 +380,7 @@ export default function SquadTable({
         <td
           className={`sq-num sq-rating sq-stat sq-stat-bowl ${!Number.isNaN(player.bowlRating) ? (player.bowlRating > 0 ? 'rating-pos' : player.bowlRating < 0 ? 'rating-neg' : '') : ''}`}
         >
-          {Number.isNaN(player.bowlRating) ? '–' : player.bowlRating}
+          {Number.isNaN(player.bowlRating) ? '–' : formatSquadRatingDisplay(player.bowlRating, ratingDp)}
         </td>
         <td className="sq-info sq-core">
           <button type="button" className="info-btn" title="Player info" onClick={() => onSelectPlayer?.(player)}>
@@ -375,16 +402,20 @@ export default function SquadTable({
   const headerRows = (
     <>
       <tr className="group-header-row">
-        <th colSpan={5} className="group-header-spacer"></th>
+        <th colSpan={5} className="group-header group-panel-title">
+          Player
+        </th>
         <th colSpan={6} className="group-header group-panel-title">
           Batting
         </th>
         <th colSpan={7} className="group-header group-panel-title">
           Bowling
         </th>
-        <th colSpan={2} className="group-header-spacer"></th>
+        <th colSpan={2} className="group-header group-panel-title">
+          Actions
+        </th>
       </tr>
-      <tr>
+      <tr className="squad-head-subrow">
         <th className="th-swap th-core"></th>
         <th className="th-pos th-core">Pos</th>
         <th className="th-drag th-core"></th>
@@ -411,6 +442,9 @@ export default function SquadTable({
 
   function renderTotalsRow(players: SquadPlayer[]) {
     const sum = (fn: (p: SquadPlayer) => number) => players.reduce((acc, p) => acc + fn(p), 0)
+    const totOvers = sum((p) => p.overs)
+    const totWkts = sum((p) => p.wkts)
+    const teamWpo = totOvers > 0 ? Math.round((totWkts / totOvers) * 1000) / 1000 : null
 
     return (
       <tfoot>
@@ -423,14 +457,21 @@ export default function SquadTable({
           <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.sr).toFixed(2)}</td>
           <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.fours).toFixed(1)}</td>
           <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.sixes).toFixed(1)}</td>
-          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.batRating).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bat">
+            {formatSquadRatingDisplay(roundRatingToStoredDecimals(sum((p) => p.batRating)), ratingDp)}
+          </td>
           <td className="sq-stat sq-stat-bowl"></td>
           <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.wkts).toFixed(1)}</td>
           <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.overs).toFixed(1)}</td>
           <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.econ).toFixed(1)}</td>
-          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.bowlSr).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bowl">{teamWpo !== null ? teamWpo.toFixed(3) : '–'}</td>
           <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.bowlAvg).toFixed(2)}</td>
-          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => (Number.isNaN(p.bowlRating) ? 0 : p.bowlRating)).toFixed(1)}</td>
+          <td className="sq-num sq-stat sq-stat-bowl">
+            {formatSquadRatingDisplay(
+              roundRatingToStoredDecimals(sum((p) => (Number.isNaN(p.bowlRating) ? 0 : p.bowlRating))),
+              ratingDp,
+            )}
+          </td>
           <td colSpan={2} className="sq-core"></td>
         </tr>
       </tfoot>
@@ -456,7 +497,30 @@ export default function SquadTable({
   return (
     <div className="squad-table-container">
       <div className="squad-section squad-section-panel">
-        <h3 className="squad-section-title">Starting XI</h3>
+        <div className="squad-section-header-row">
+          <h3 className="squad-section-title">Starting XI</h3>
+          <label className="squad-rating-dp-control" title="Decimal places for Bat and Bowl rating columns">
+            <span className="squad-dp-icon" aria-hidden>
+              ⚙
+            </span>
+            <span className="sr-only">Rating decimal places</span>
+            <select
+              className="squad-rating-dp-select"
+              value={ratingDp}
+              onChange={(e) => {
+                const v = Number(e.target.value) as SquadRatingDecimalPlaces
+                if (v === 0 || v === 1 || v === 2) {
+                  setRatingDp(v)
+                  writeSquadRatingDp(v)
+                }
+              }}
+            >
+              <option value={0}>Ratings: 0 dp</option>
+              <option value={1}>Ratings: 1 dp</option>
+              <option value={2}>Ratings: 2 dp</option>
+            </select>
+          </label>
+        </div>
         <div className="squad-table-wrap">
           <table className="squad-table">
             <thead>{headerRows}</thead>

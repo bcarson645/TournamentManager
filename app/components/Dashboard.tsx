@@ -107,6 +107,7 @@ export default function Dashboard({
         <main className="dashboard-main dashboard-main-no-pad">
           <TeamManager
             format={format}
+            gender={gender}
             team={selectedTeam}
             tournamentName={tournament?.name ?? ''}
             allTeams={teams}

@@ -1,16 +1,18 @@
 import { IPL_PLAYERS } from './iplPlayers'
 import { getProfileForPlayer } from './playerProfile'
 import { calculateBatRating, calculateBowlRating } from './ratingBenchmarks'
-import type { CricketFormat } from './tournaments'
+import type { CricketFormat, Gender } from './tournaments'
 
 export type BowlAction = 'SEAM' | 'SPIN'
 
 export const MAX_TEAM_OVERS = 20
 
-export function calcWktsAndBowlAvg(overs: number, econ: number, bowlSr: number): { wkts: number; bowlAvg: number } {
+/** `bowlWpo` = wickets per over. Internally uses balls/wicket = 6/bowlWpo for wkts & avg. */
+export function calcWktsAndBowlAvg(overs: number, econ: number, bowlWpo: number): { wkts: number; bowlAvg: number } {
   const balls = overs * 6
-  const wkts = bowlSr > 0 ? Math.round((balls / bowlSr) * 10) / 10 : 0
-  const bowlAvg = wkts > 0 ? Math.round((econ * bowlSr) / 6 * 100) / 100 : 0
+  const ballsPerWicket = bowlWpo > 0 ? 6 / bowlWpo : 0
+  const wkts = ballsPerWicket > 0 ? Math.round((balls / ballsPerWicket) * 10) / 10 : 0
+  const bowlAvg = wkts > 0 ? Math.round((econ * ballsPerWicket) / 6 * 100) / 100 : 0
   return { wkts, bowlAvg }
 }
 
@@ -29,16 +31,31 @@ export interface SquadPlayer {
   wkts: number
   overs: number
   econ: number
-  bowlSr: number
+  /** Bowling SR — **wickets per over** (decimal), user input; matches par SR column. */
+  bowlWpo: number
   bowlAvg: number
   bowlRating: number
   locked: boolean
 }
 
-export function normalizeBowlStats(p: SquadPlayer): SquadPlayer {
-  const { wkts, bowlAvg } = calcWktsAndBowlAvg(p.overs, p.econ, p.bowlSr)
-  const bowlRating = calculateBowlRating(p.econ, p.bowlSr, bowlAvg, p.overs)
-  return { ...p, wkts, bowlAvg, bowlRating }
+/** Migrate in-memory rows from old `bowlSr` (balls/wicket) to `bowlWpo`. */
+export function migrateLegacyBowlingFields(p: SquadPlayer & { bowlSr?: number }): SquadPlayer {
+  if (typeof p.bowlSr === 'number' && p.bowlSr > 0 && !(p.bowlWpo > 0)) {
+    const { bowlSr: _legacy, ...rest } = p
+    return { ...rest, bowlWpo: 6 / p.bowlSr }
+  }
+  return { ...p, bowlWpo: p.bowlWpo ?? 0 }
+}
+
+export function normalizeBowlStats(
+  p: SquadPlayer,
+  format: CricketFormat = 't20',
+  gender: Gender = 'men',
+): SquadPlayer {
+  const pl = migrateLegacyBowlingFields(p)
+  const { wkts, bowlAvg } = calcWktsAndBowlAvg(pl.overs, pl.econ, pl.bowlWpo)
+  const bowlRating = calculateBowlRating(pl.econ, pl.bowlWpo, bowlAvg, pl.overs, format, gender)
+  return { ...pl, wkts, bowlAvg, bowlRating }
 }
 
 const KNOWN_PLAYERS: Record<string, string[]> = {
@@ -51,6 +68,7 @@ function makePlayer(
   name: string,
   position: number,
   format: CricketFormat = 't20',
+  gender: Gender = 'men',
 ): SquadPlayer {
   const profile = getProfileForPlayer(name)
   const bat = profile.careerBatting
@@ -60,16 +78,17 @@ function makePlayer(
   const raw = bat.average ? Math.round(bat.average * 0.85 * 10) / 10 : 0
   const sr = bat.strikeRate ?? 0
 
-  const batRating = calculateBatRating(btCaz, raw, sr, position, format)
+  const batRating = calculateBatRating(btCaz, raw, sr, position, format, gender)
 
   const econ = bowl.economy || 0
-  const bowlSr = bowl.strikeRate || 0
-  const overs = bowl.matches > 0 && bowl.wickets > 0 && bowlSr > 0
-    ? Math.min(4, Math.round((bowl.wickets * bowlSr) / (6 * bowl.matches) * 10) / 10)
+  const ballsPerWicket = bowl.strikeRate || 0
+  const bowlWpo = ballsPerWicket > 0 ? 6 / ballsPerWicket : 0
+  const overs = bowl.matches > 0 && bowl.wickets > 0 && ballsPerWicket > 0
+    ? Math.min(4, Math.round((bowl.wickets * ballsPerWicket) / (6 * bowl.matches) * 10) / 10)
     : bowl.wickets > 0 ? 4 : 0
 
-  const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, econ, bowlSr)
-  const bowlRating = calculateBowlRating(econ, bowlSr, bowlAvg, overs)
+  const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, econ, bowlWpo)
+  const bowlRating = calculateBowlRating(econ, bowlWpo, bowlAvg, overs, format, gender)
 
   return {
     id: `${teamId}-p${index + 1}`,
@@ -85,7 +104,7 @@ function makePlayer(
     wkts,
     overs,
     econ,
-    bowlSr,
+    bowlWpo,
     bowlAvg,
     bowlRating,
     locked: false,
@@ -97,24 +116,26 @@ export function makePlaceholderSquad(
   count: number,
   offset = 0,
   format: CricketFormat = 't20',
+  gender: Gender = 'men',
 ): SquadPlayer[] {
   return Array.from({ length: count }, (_, i) => {
     const num = i + 1 + offset
     const position = i + 1
-    return makePlayer(teamId, num - 1, `Player ${num}`, position, format)
+    return makePlayer(teamId, num - 1, `Player ${num}`, position, format, gender)
   })
 }
 
 export function makeSquadForTeam(
   teamId: string,
   format: CricketFormat = 't20',
+  gender: Gender = 'men',
 ): { startingXI: SquadPlayer[]; reserves: SquadPlayer[] } {
   const knownNames = KNOWN_PLAYERS[teamId]
 
   if (!knownNames || knownNames.length === 0) {
     return {
-      startingXI: makePlaceholderSquad(teamId, 11, 0, format),
-      reserves: makePlaceholderSquad(teamId, 11, 11, format),
+      startingXI: makePlaceholderSquad(teamId, 11, 0, format, gender),
+      reserves: makePlaceholderSquad(teamId, 11, 11, format, gender),
     }
   }
 
@@ -123,7 +144,7 @@ export function makeSquadForTeam(
   for (let i = 0; i < Math.max(knownNames.length, 22); i++) {
     const name = i < knownNames.length ? knownNames[i] : `Player ${i + 1}`
     const position = (i % 11) + 1
-    allPlayers.push(makePlayer(teamId, i, name, position, format))
+    allPlayers.push(makePlayer(teamId, i, name, position, format, gender))
   }
 
   let startingXI = allPlayers.slice(0, 11)
@@ -132,8 +153,8 @@ export function makeSquadForTeam(
     const scale = MAX_TEAM_OVERS / totalOvers
     startingXI = startingXI.map((p) => {
       const overs = Math.round(p.overs * scale * 10) / 10
-      const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, p.econ, p.bowlSr)
-      const bowlRating = calculateBowlRating(p.econ, p.bowlSr, bowlAvg, overs)
+      const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, p.econ, p.bowlWpo)
+      const bowlRating = calculateBowlRating(p.econ, p.bowlWpo, bowlAvg, overs, format, gender)
       return { ...p, overs, wkts, bowlAvg, bowlRating }
     })
   }
