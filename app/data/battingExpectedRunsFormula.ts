@@ -33,11 +33,14 @@ import { getFormatWicketValue as getFormatWicketValueFromTable } from './formatW
 
 /**
  * Starting XI row → batting order 1–11 for par tables.
- * Reserves → use position **11** par (tail) until product defines otherwise.
+ * Reserves and impact sub pool → use position **11** par (tail) until product defines otherwise.
  */
-export function battingPositionForParTable(section: 'starting' | 'reserves', rowIndex: number): number {
+export function battingPositionForParTable(
+  section: 'starting' | 'reserves' | 'impact',
+  _rowIndex: number,
+): number {
   if (section === 'starting') {
-    return Math.max(1, Math.min(11, rowIndex + 1))
+    return Math.max(1, Math.min(11, _rowIndex + 1))
   }
   return 11
 }

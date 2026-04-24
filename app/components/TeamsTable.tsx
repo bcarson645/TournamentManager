@@ -37,12 +37,12 @@ export default function TeamsTable({ teams, teamBatRatings, teamBowlingRatings, 
     <div className="teams-table-wrap">
       <table className="teams-table">
         <thead>
-          <tr>
-            <th className="th-logo"></th>
-            <th className="th-name">Team</th>
-            <th className="th-num">Batting</th>
-            <th className="th-num">Bowling</th>
-            <th className="th-num th-total">Total</th>
+          <tr className="teams-table-head-row">
+            <th className="th-logo teams-th-identity" aria-hidden />
+            <th className="th-name teams-th-identity">Team</th>
+            <th className="th-num teams-th-batting">Batting</th>
+            <th className="th-num teams-th-bowling">Bowling</th>
+            <th className="th-num th-total teams-th-total">Total</th>
           </tr>
         </thead>
         <tbody>

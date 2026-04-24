@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev:unlock": "node scripts/dev-unlock.cjs",
-    "dev": "next dev",
+    "dev": "next dev --webpack",
+    "dev:turbo": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

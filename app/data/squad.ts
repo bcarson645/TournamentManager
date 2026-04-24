@@ -6,6 +6,8 @@ import type { CricketFormat, Gender } from './tournaments'
 export type BowlAction = 'SEAM' | 'SPIN'
 
 export const MAX_TEAM_OVERS = 20
+/** Pre-named impact / substitute pool (e.g. IPL-style bench). */
+export const MAX_IMPACT_SUBS = 5
 
 /** `bowlWpo` = wickets per over. Internally uses balls/wicket = 6/bowlWpo for wkts & avg. */
 export function calcWktsAndBowlAvg(overs: number, econ: number, bowlWpo: number): { wkts: number; bowlAvg: number } {
@@ -21,11 +23,24 @@ export interface SquadPlayer {
   playerId: string
   name: string
   btCaz: number
+  /** Seeded / profile base raw average; read-only in squad table. */
+  rawBase: number
+  /** User adjustment; effective `raw` = rawBase + rawAdj for ratings. */
+  rawAdj: number
+  /**
+   * Effective raw average for batting rating (`rawBase + rawAdj`).
+   * Recomputed when `rawBase` or `rawAdj` changes; kept in sync in storage.
+   */
   raw: number
   /** Batting SR.CAZ — runs per ball (not per 100 balls). */
   sr: number
   fours: number
   sixes: number
+  /**
+   * Par batting slot 1–11 for `calculateBatRating` when the player is in **reserves** or **impact subs**.
+   * Starting XI uses row order instead; this field is still stored and may be edited when they move to the bench.
+   */
+  ratingParPosition: number
   batRating: number
   action: BowlAction
   wkts: number
@@ -45,6 +60,32 @@ export function migrateLegacyBowlingFields(p: SquadPlayer & { bowlSr?: number })
     return { ...rest, bowlWpo: 6 / p.bowlSr }
   }
   return { ...p, bowlWpo: p.bowlWpo ?? 0 }
+}
+
+type SquadPlayerRawLoose = SquadPlayer & { rawBase?: number; rawAdj?: number; ratingParPosition?: number }
+
+/**
+ * Ensure `rawBase` / `rawAdj` / `raw` (effective) are consistent. Legacy JSON had only `raw` as direct input; that becomes the base.
+ */
+export function normalizeSquadPlayer(p: SquadPlayerRawLoose): SquadPlayer {
+  const m = migrateLegacyBowlingFields(p)
+  const hasBase = typeof m.rawBase === 'number' && !Number.isNaN(m.rawBase)
+  const hasAdj = typeof m.rawAdj === 'number' && !Number.isNaN(m.rawAdj)
+  const rawBase = hasBase ? m.rawBase! : m.raw
+  const rawAdj = hasAdj ? Math.round(m.rawAdj!) : 0
+  const raw = Math.round((rawBase + rawAdj) * 10) / 10
+  const rp0 =
+    typeof m.ratingParPosition === 'number' && !Number.isNaN(m.ratingParPosition) ? m.ratingParPosition : 11
+  const ratingParPosition = Math.max(1, Math.min(11, Math.round(rp0)))
+  return { ...m, rawBase, rawAdj, raw, ratingParPosition }
+}
+
+/** Par position 1–11 for batting rating on bench rows; starting XI should use `battingPositionForParTable('starting', i)`. */
+export function ratingParPosForBatCalc(section: 'starting' | 'reserves' | 'impact', rowIndex: number, p: SquadPlayer): number {
+  if (section === 'starting') {
+    return Math.max(1, Math.min(11, rowIndex + 1))
+  }
+  return Math.max(1, Math.min(11, Math.round(p.ratingParPosition)))
 }
 
 export function normalizeBowlStats(
@@ -75,10 +116,13 @@ function makePlayer(
   const bowl = profile.careerBowling
 
   const btCaz = bat.average || 0
-  const raw = bat.average ? Math.round(bat.average * 0.85 * 10) / 10 : 0
+  const rawBase = bat.average ? Math.round(bat.average * 0.85 * 10) / 10 : 0
+  const rawAdj = 0
+  const raw = Math.round((rawBase + rawAdj) * 10) / 10
   const sr = bat.strikeRate ?? 0
 
-  const batRating = calculateBatRating(btCaz, raw, sr, position, format, gender)
+  const ratingParPosition = Math.max(1, Math.min(11, position))
+  const batRating = calculateBatRating(btCaz, raw, sr, ratingParPosition, format, gender)
 
   const econ = bowl.economy || 0
   const ballsPerWicket = bowl.strikeRate || 0
@@ -95,10 +139,13 @@ function makePlayer(
     playerId: String(11000000 + index + 1).padStart(8, '0'),
     name,
     btCaz,
+    rawBase,
+    rawAdj,
     raw,
     sr,
     fours: 0,
     sixes: 0,
+    ratingParPosition,
     batRating,
     action: 'SEAM' as BowlAction,
     wkts,

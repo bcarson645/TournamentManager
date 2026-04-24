@@ -1,25 +1,62 @@
-import { SquadPlayer, makeSquadForTeam, normalizeBowlStats, MAX_TEAM_OVERS, calcWktsAndBowlAvg } from './squad'
+import {
+  SquadPlayer,
+  makeSquadForTeam,
+  normalizeBowlStats,
+  normalizeSquadPlayer,
+  MAX_TEAM_OVERS,
+  calcWktsAndBowlAvg,
+} from './squad'
 import { calculateBowlRating, roundRatingToStoredDecimals } from './ratingBenchmarks'
 import { TEAMS } from './teams'
 
 interface StoredSquad {
   startingXI: SquadPlayer[]
   reserves: SquadPlayer[]
+  impactSubs: SquadPlayer[]
   groundId: string | null
 }
 
 const store: Record<string, StoredSquad> = {}
 
+/** Bumps when any squad is saved — use with `useSyncExternalStore` so UI ratings refresh. */
+let squadStoreVersion = 0
+const squadStoreListeners = new Set<() => void>()
+
+function notifySquadStoreChanged(): void {
+  squadStoreVersion += 1
+  squadStoreListeners.forEach((l) => l())
+}
+
+/** Subscribe to squad mutations (after `storeSquad`). */
+export function subscribeSquadStore(onChange: () => void): () => void {
+  squadStoreListeners.add(onChange)
+  return () => squadStoreListeners.delete(onChange)
+}
+
+export function getSquadStoreVersion(): number {
+  return squadStoreVersion
+}
+
 export function getStoredSquad(teamId: string): StoredSquad | null {
   const stored = store[teamId]
   if (!stored) return null
-  const startingXI = capStartingXIOvers(stored.startingXI.map((p) => normalizeBowlStats(p)))
-  const reserves = stored.reserves.map((p) => normalizeBowlStats(p))
-  return { ...stored, startingXI, reserves }
+  const startingXI = capStartingXIOvers(
+    stored.startingXI.map((p) => normalizeBowlStats(normalizeSquadPlayer(p))),
+  )
+  const reserves = stored.reserves.map((p) => normalizeBowlStats(normalizeSquadPlayer(p)))
+  const impactSubs = (stored.impactSubs ?? []).map((p) => normalizeBowlStats(normalizeSquadPlayer(p)))
+  return { ...stored, startingXI, reserves, impactSubs }
 }
 
-export function storeSquad(teamId: string, startingXI: SquadPlayer[], reserves: SquadPlayer[], groundId: string | null): void {
-  store[teamId] = { startingXI: capStartingXIOvers(startingXI), reserves, groundId }
+export function storeSquad(
+  teamId: string,
+  startingXI: SquadPlayer[],
+  reserves: SquadPlayer[],
+  groundId: string | null,
+  impactSubs: SquadPlayer[] = [],
+): void {
+  store[teamId] = { startingXI: capStartingXIOvers(startingXI), reserves, impactSubs, groundId }
+  notifySquadStoreChanged()
 }
 
 function capStartingXIOvers(players: SquadPlayer[]): SquadPlayer[] {
@@ -34,16 +71,24 @@ function capStartingXIOvers(players: SquadPlayer[]): SquadPlayer[] {
   })
 }
 
-export function getSquadForTeam(teamId: string): { startingXI: SquadPlayer[]; reserves: SquadPlayer[] } {
+export function getSquadForTeam(teamId: string): {
+  startingXI: SquadPlayer[]
+  reserves: SquadPlayer[]
+  impactSubs: SquadPlayer[]
+} {
   const stored = store[teamId]
   if (stored) {
-    const startingXI = capStartingXIOvers(stored.startingXI.map((p) => normalizeBowlStats(p)))
+    const startingXI = capStartingXIOvers(
+      stored.startingXI.map((p) => normalizeBowlStats(normalizeSquadPlayer(p))),
+    )
     return {
       startingXI,
-      reserves: stored.reserves.map((p) => normalizeBowlStats(p)),
+      reserves: stored.reserves.map((p) => normalizeBowlStats(normalizeSquadPlayer(p))),
+      impactSubs: (stored.impactSubs ?? []).map((p) => normalizeBowlStats(normalizeSquadPlayer(p))),
     }
   }
-  return makeSquadForTeam(teamId)
+  const made = makeSquadForTeam(teamId)
+  return { ...made, impactSubs: [] as SquadPlayer[] }
 }
 
 /** Teams with a saved squad in this session count as “prepped”. */
@@ -79,7 +124,7 @@ export interface RankedBatter {
   batRating: number
 }
 
-export function getTopRatedBatters(teams: { id: string; name: string }[], limit = 10): RankedBatter[] {
+export function getRankedBatters(teams: { id: string; name: string }[]): RankedBatter[] {
   const all: RankedBatter[] = []
   for (const team of teams) {
     const { startingXI } = getSquadForTeam(team.id)
@@ -87,7 +132,11 @@ export function getTopRatedBatters(teams: { id: string; name: string }[], limit 
       all.push({ id: p.id, name: p.name, teamId: team.id, teamName: team.name, batRating: p.batRating })
     }
   }
-  return all.sort((a, b) => b.batRating - a.batRating).slice(0, limit)
+  return all.sort((a, b) => b.batRating - a.batRating)
+}
+
+export function getTopRatedBatters(teams: { id: string; name: string }[], limit = 10): RankedBatter[] {
+  return getRankedBatters(teams).slice(0, limit)
 }
 
 export interface RankedBowler {
@@ -98,7 +147,7 @@ export interface RankedBowler {
   bowlingRating: number
 }
 
-export function getTopRatedBowlers(teams: { id: string; name: string }[], limit = 10): RankedBowler[] {
+export function getRankedBowlers(teams: { id: string; name: string }[]): RankedBowler[] {
   const all: RankedBowler[] = []
   for (const team of teams) {
     const { startingXI } = getSquadForTeam(team.id)
@@ -108,5 +157,9 @@ export function getTopRatedBowlers(teams: { id: string; name: string }[], limit 
       }
     }
   }
-  return all.sort((a, b) => b.bowlingRating - a.bowlingRating).slice(0, limit)
+  return all.sort((a, b) => b.bowlingRating - a.bowlingRating)
+}
+
+export function getTopRatedBowlers(teams: { id: string; name: string }[], limit = 10): RankedBowler[] {
+  return getRankedBowlers(teams).slice(0, limit)
 }

@@ -2,10 +2,18 @@
 
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { Team } from '../data/teams'
-import { RankedBatter } from '../data/squadStore'
-import { SquadPlayer, BowlAction, makeSquadForTeam, calcWktsAndBowlAvg } from '../data/squad'
+import { RankedBatter, RankedBowler } from '../data/squadStore'
+import {
+  SquadPlayer,
+  BowlAction,
+  makeSquadForTeam,
+  calcWktsAndBowlAvg,
+  MAX_IMPACT_SUBS,
+  normalizeBowlStats,
+  normalizeSquadPlayer,
+} from '../data/squad'
 import { CricketFormat, Gender } from '../data/tournaments'
-import { battingPositionForParTable } from '../data/battingExpectedRunsFormula'
+import { ratingParPosForBatCalc } from '../data/squad'
 import { calculateBatRating, calculateBowlRating } from '../data/ratingBenchmarks'
 import { PlayerDbEntry } from '../data/playerDatabase'
 import { GROUNDS, Ground } from '../data/grounds'
@@ -14,38 +22,35 @@ import PlayerDetailPanel from './PlayerDetailPanel'
 import { getTeamLogo, setTeamLogo as storeTeamLogo } from '../data/logoStore'
 import { getStoredSquad, storeSquad } from '../data/squadStore'
 import { getProfileForPlayer } from '../data/playerProfile'
+import { useTournamentOptions } from '../hooks/useTournamentOptions'
 
 function reapplySquadRatings(
   startingXI: SquadPlayer[],
   reserves: SquadPlayer[],
+  impactSubs: SquadPlayer[],
   format: CricketFormat,
   gender: Gender,
-): { startingXI: SquadPlayer[]; reserves: SquadPlayer[] } {
+): { startingXI: SquadPlayer[]; reserves: SquadPlayer[]; impactSubs: SquadPlayer[] } {
+  const mapList = (list: SquadPlayer[], section: 'starting' | 'reserves' | 'impact') =>
+    list.map((p, i) => {
+      const n = normalizeBowlStats(normalizeSquadPlayer(p), format, gender)
+      return {
+        ...n,
+        batRating: calculateBatRating(
+          n.btCaz,
+          n.raw,
+          n.sr,
+          ratingParPosForBatCalc(section, i, n),
+          format,
+          gender,
+        ),
+        bowlRating: calculateBowlRating(n.econ, n.bowlWpo, n.bowlAvg, n.overs, format, gender),
+      }
+    })
   return {
-    startingXI: startingXI.map((p, i) => ({
-      ...p,
-      batRating: calculateBatRating(
-        p.btCaz,
-        p.raw,
-        p.sr,
-        battingPositionForParTable('starting', i),
-        format,
-        gender,
-      ),
-      bowlRating: calculateBowlRating(p.econ, p.bowlWpo, p.bowlAvg, p.overs, format, gender),
-    })),
-    reserves: reserves.map((p, i) => ({
-      ...p,
-      batRating: calculateBatRating(
-        p.btCaz,
-        p.raw,
-        p.sr,
-        battingPositionForParTable('reserves', i),
-        format,
-        gender,
-      ),
-      bowlRating: calculateBowlRating(p.econ, p.bowlWpo, p.bowlAvg, p.overs, format, gender),
-    })),
+    startingXI: mapList(startingXI, 'starting'),
+    reserves: mapList(reserves, 'reserves'),
+    impactSubs: mapList(impactSubs, 'impact'),
   }
 }
 
@@ -102,41 +107,71 @@ function hashStr(s: string): number {
   return Math.abs(h) || 1
 }
 
+const RIBBON_RANK_PAGE = 10
+
 interface TeamManagerProps {
   format: CricketFormat
   gender: Gender
+  tournamentId: string
   team: Team
   tournamentName: string
   allTeams: Team[]
   teamBatRatings: Record<string, number>
   teamBowlingRatings: Record<string, number>
-  topBatters: RankedBatter[]
-  topBowlers: { id: string; name: string; bowlingRating: number }[]
+  /** Full tournament batting ladder (sliced in ribbon by page). */
+  rankedBatters: RankedBatter[]
+  /** Full tournament bowling ladder. */
+  rankedBowlers: RankedBowler[]
 }
 
 export default function TeamManager({
   format,
   gender,
+  tournamentId,
   team,
   tournamentName,
   allTeams,
   teamBatRatings,
   teamBowlingRatings,
-  topBatters,
-  topBowlers,
+  rankedBatters,
+  rankedBowlers,
 }: TeamManagerProps) {
+  const { impactSubEnabled } = useTournamentOptions(tournamentId)
   const [teamLogo, setTeamLogo] = useState<string | null>(getTeamLogo(team.id) ?? team.logo ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [startingXI, setStartingXI] = useState<SquadPlayer[]>(() => {
     const stored = getStoredSquad(team.id)
     if (!stored) return makeSquadForTeam(team.id, format, gender).startingXI
-    return reapplySquadRatings(stored.startingXI, stored.reserves, format, gender).startingXI
+    return reapplySquadRatings(
+      stored.startingXI,
+      stored.reserves,
+      stored.impactSubs ?? [],
+      format,
+      gender,
+    ).startingXI
   })
   const [reserves, setReserves] = useState<SquadPlayer[]>(() => {
     const stored = getStoredSquad(team.id)
     if (!stored) return makeSquadForTeam(team.id, format, gender).reserves
-    return reapplySquadRatings(stored.startingXI, stored.reserves, format, gender).reserves
+    return reapplySquadRatings(
+      stored.startingXI,
+      stored.reserves,
+      stored.impactSubs ?? [],
+      format,
+      gender,
+    ).reserves
+  })
+  const [impactSubs, setImpactSubs] = useState<SquadPlayer[]>(() => {
+    const stored = getStoredSquad(team.id)
+    if (!stored) return []
+    return reapplySquadRatings(
+      stored.startingXI,
+      stored.reserves,
+      stored.impactSubs ?? [],
+      format,
+      gender,
+    ).impactSubs
   })
 
   const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
@@ -190,14 +225,22 @@ export default function TeamManager({
   useEffect(() => {
     const stored = getStoredSquad(team.id)
     if (stored) {
-      const reapplied = reapplySquadRatings(stored.startingXI, stored.reserves, format, gender)
+      const reapplied = reapplySquadRatings(
+        stored.startingXI,
+        stored.reserves,
+        stored.impactSubs ?? [],
+        format,
+        gender,
+      )
       setStartingXI(reapplied.startingXI)
       setReserves(reapplied.reserves)
+      setImpactSubs(reapplied.impactSubs)
       setSelectedGround(stored.groundId ? GROUNDS.find((g) => g.id === stored.groundId) ?? null : null)
     } else {
       const squad = makeSquadForTeam(team.id, format, gender)
       setStartingXI(squad.startingXI)
       setReserves(squad.reserves)
+      setImpactSubs([])
       setSelectedGround(null)
     }
     setSelectedPlayer(null)
@@ -219,16 +262,54 @@ export default function TeamManager({
     ).slice(0, 15)
   }, [groundSearch])
 
-  function handleUpdate(newStarting: SquadPlayer[], newReserves: SquadPlayer[]) {
+  const [ribbonBatPage, setRibbonBatPage] = useState(0)
+  const [ribbonBowlPage, setRibbonBowlPage] = useState(0)
+
+  const currentSquadPlayerIds = useMemo(
+    () => new Set([...startingXI, ...reserves, ...impactSubs].map((p) => p.id)),
+    [startingXI, reserves, impactSubs],
+  )
+
+  /** Same as tournament table: XI batting sum, XI bowling sum, average of the two. */
+  const ribbonTeamRatings = useMemo(() => {
+    const bat = teamBatRatings[team.id] ?? 0
+    const bowl = teamBowlingRatings[team.id] ?? 0
+    return { bat, bowl, total: (bat + bowl) / 2 }
+  }, [team.id, teamBatRatings, teamBowlingRatings])
+
+  const ribbonBatTotalPages = Math.max(1, Math.ceil(rankedBatters.length / RIBBON_RANK_PAGE))
+  const ribbonBowlTotalPages = Math.max(1, Math.ceil(rankedBowlers.length / RIBBON_RANK_PAGE))
+
+  useEffect(() => {
+    setRibbonBatPage((p) => Math.min(p, Math.max(0, ribbonBatTotalPages - 1)))
+  }, [rankedBatters.length, ribbonBatTotalPages])
+
+  useEffect(() => {
+    setRibbonBowlPage((p) => Math.min(p, Math.max(0, ribbonBowlTotalPages - 1)))
+  }, [rankedBowlers.length, ribbonBowlTotalPages])
+
+  function handleUpdate(
+    newStarting: SquadPlayer[],
+    newReserves: SquadPlayer[],
+    newImpact: SquadPlayer[],
+  ) {
     setStartingXI(newStarting)
     setReserves(newReserves)
-    storeSquad(team.id, newStarting, newReserves, selectedGround?.id ?? null)
+    setImpactSubs(newImpact)
+    storeSquad(team.id, newStarting, newReserves, selectedGround?.id ?? null, newImpact)
   }
 
-  function handleAddPlayer(name: string, dbEntry: PlayerDbEntry) {
-    const totalPlayers = startingXI.length + reserves.length
+  function handleAddPlayer(dbEntry: PlayerDbEntry, target: 'reserves' | 'impact') {
+    if (target === 'impact' && impactSubs.length >= MAX_IMPACT_SUBS) return
+    const totalPlayers = startingXI.length + reserves.length + impactSubs.length
     const profile = getProfileForPlayer(dbEntry.name)
+    const bat = profile.careerBatting
     const bowl = profile.careerBowling
+    const btCaz = bat.average || 0
+    const rawBase = bat.average ? Math.round(bat.average * 0.85 * 10) / 10 : 0
+    const rawAdj = 0
+    const raw = Math.round((rawBase + rawAdj) * 10) / 10
+    const sr = bat.strikeRate ?? 0
     const econ = bowl.economy || 0
     const ballsPerWicket = bowl.strikeRate || 0
     const bowlWpo = ballsPerWicket > 0 ? 6 / ballsPerWicket : 0
@@ -237,19 +318,38 @@ export default function TeamManager({
       : bowl.wickets > 0 ? 4 : 0
     const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, econ, bowlWpo)
     const bowlRating = calculateBowlRating(econ, bowlWpo, bowlAvg, overs, format, gender)
-
+    const ratingParPosition = 11
     const newPlayer: SquadPlayer = {
       id: `${team.id}-p${totalPlayers + 1}`,
       playerId: dbEntry.id,
       name: dbEntry.name,
-      btCaz: 0, raw: 0, sr: 0, fours: 0, sixes: 0, batRating: 0,
+      btCaz,
+      rawBase,
+      rawAdj,
+      raw,
+      sr,
+      fours: 0,
+      sixes: 0,
+      ratingParPosition,
+      batRating: calculateBatRating(btCaz, raw, sr, ratingParPosition, format, gender),
       action: (dbEntry.role === 'BOWL' ? 'SEAM' : 'SEAM') as BowlAction,
-      wkts, overs, econ, bowlWpo, bowlAvg, bowlRating,
+      wkts,
+      overs,
+      econ,
+      bowlWpo,
+      bowlAvg,
+      bowlRating,
       locked: false,
     }
-    const newReserves = [...reserves, newPlayer]
-    setReserves(newReserves)
-    storeSquad(team.id, startingXI, newReserves, selectedGround?.id ?? null)
+    if (target === 'reserves') {
+      const newReserves = [...reserves, newPlayer]
+      setReserves(newReserves)
+      storeSquad(team.id, startingXI, newReserves, selectedGround?.id ?? null, impactSubs)
+    } else {
+      const next = [...impactSubs, newPlayer]
+      setImpactSubs(next)
+      storeSquad(team.id, startingXI, reserves, selectedGround?.id ?? null, next)
+    }
   }
 
   function handleLogoClick() {
@@ -272,7 +372,7 @@ export default function TeamManager({
     setSelectedGround(ground)
     setGroundSearch('')
     setGroundDropdownOpen(false)
-    storeSquad(team.id, startingXI, reserves, ground.id)
+    storeSquad(team.id, startingXI, reserves, ground.id, impactSubs)
   }
 
   return (
@@ -282,7 +382,7 @@ export default function TeamManager({
         {/* Left: team identity + factors + ground + form */}
         <div className="tm-ribbon-team">
           <div className="tm-ribbon-identity">
-            <div className="team-logo-upload team-logo-upload-sm" onClick={handleLogoClick} title="Click to upload team logo">
+            <div className="team-logo-upload team-logo-upload-ribbon" onClick={handleLogoClick} title="Click to upload team logo">
               {teamLogo ? (
                 <img src={teamLogo} alt="" className="tm-ribbon-logo" />
               ) : (
@@ -301,24 +401,47 @@ export default function TeamManager({
                 onChange={handleLogoChange}
               />
             </div>
-            <div>
-              <div className="tm-ribbon-name">{team.name}</div>
+            <div className="tm-ribbon-identity-text">
+              <div className="tm-ribbon-name-row">
+                <h1 className="tm-ribbon-name">{team.name}</h1>
+                <div className="tm-ribbon-factors" aria-label="Squad rating totals (Starting XI)">
+                  <div className="factor-pill-sm factor-pill-inline factor-pill-ribbon">
+                    <span className="factor-label-sm">Bat</span>
+                    <span
+                      className={
+                        'factor-value-sm' +
+                        (ribbonTeamRatings.bat > 0
+                          ? ' rating-pos'
+                          : ribbonTeamRatings.bat < 0
+                            ? ' rating-neg'
+                            : '')
+                      }
+                    >
+                      {ribbonTeamRatings.bat.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="factor-pill-sm factor-pill-inline factor-pill-ribbon">
+                    <span className="factor-label-sm">Bowl</span>
+                    <span
+                      className={
+                        'factor-value-sm' +
+                        (ribbonTeamRatings.bowl > 0
+                          ? ' rating-pos'
+                          : ribbonTeamRatings.bowl < 0
+                            ? ' rating-neg'
+                            : '')
+                      }
+                    >
+                      {ribbonTeamRatings.bowl.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="factor-pill-sm factor-pill-inline factor-pill-ribbon factor-pill-sm-total">
+                    <span className="factor-label-sm">Total</span>
+                    <span className="factor-value-sm">{ribbonTeamRatings.total.toFixed(1)}</span>
+                  </div>
+                </div>
+              </div>
               <div className="tm-ribbon-tournament">{tournamentName}</div>
-            </div>
-          </div>
-
-          <div className="tm-ribbon-factors">
-            <div className="factor-pill-sm">
-              <span className="factor-label-sm">Bat</span>
-              <span className="factor-value-sm">{team.battingFactor.toFixed(1)}</span>
-            </div>
-            <div className="factor-pill-sm">
-              <span className="factor-label-sm">Bowl</span>
-              <span className="factor-value-sm">{team.bowlingFactor.toFixed(1)}</span>
-            </div>
-            <div className="factor-pill-sm factor-pill-sm-total">
-              <span className="factor-label-sm">Total</span>
-              <span className="factor-value-sm">{team.totalFactor.toFixed(1)}</span>
             </div>
           </div>
 
@@ -428,41 +551,109 @@ export default function TeamManager({
           </div>
         </div>
 
-        {/* Right: top 10 batting & bowling */}
+        {/* Right: tournament batting & bowling ladders (paged) */}
         <div className="tm-ribbon-rankings">
           <div className="tm-ribbon-rank-col">
-            <div className="tm-ribbon-section-label">Top 10 Batting</div>
+            <div className="tm-ribbon-section-label">Tournament Batting</div>
             <div className="tm-ribbon-rank-scroll">
-              {topBatters.length === 0 ? (
+              {rankedBatters.length === 0 ? (
                 <div className="tm-ribbon-rank-empty">No ratings yet</div>
               ) : (
-                <ol className="tm-mini-rank-list">
-                  {topBatters.slice(0, 10).map((p, i) => (
-                    <li key={p.id}>
-                      <span className="mini-rank-num">{i + 1}</span>
-                      <span className="mini-rank-name">{p.name}</span>
-                      <span className={`mini-rank-val ${p.batRating > 0 ? 'rating-pos' : p.batRating < 0 ? 'rating-neg' : ''}`}>{p.batRating.toFixed(1)}</span>
-                    </li>
-                  ))}
-                </ol>
+                <>
+                  {rankedBatters.length > RIBBON_RANK_PAGE && (
+                    <div className="tm-rank-dots" role="tablist" aria-label="Batting rank pages">
+                      {Array.from({ length: ribbonBatTotalPages }, (_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          role="tab"
+                          aria-selected={ribbonBatPage === i}
+                          aria-label={'Batting page ' + (i + 1) + ' of ' + ribbonBatTotalPages}
+                          className={'tm-rank-dot' + (ribbonBatPage === i ? ' tm-rank-dot-active' : '')}
+                          onClick={() => setRibbonBatPage(i)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <ol className="tm-mini-rank-list">
+                    {rankedBatters
+                      .slice(
+                        ribbonBatPage * RIBBON_RANK_PAGE,
+                        ribbonBatPage * RIBBON_RANK_PAGE + RIBBON_RANK_PAGE,
+                      )
+                      .map((p, i) => {
+                        const rank = ribbonBatPage * RIBBON_RANK_PAGE + i + 1
+                        const isSquad = currentSquadPlayerIds.has(p.id)
+                        return (
+                          <li key={p.id} className={isSquad ? 'mini-rank-row-current' : undefined}>
+                            <span className="mini-rank-num">{rank}</span>
+                            <span className="mini-rank-name">{p.name}</span>
+                            <span
+                              className={`mini-rank-val ${
+                                p.batRating > 0 ? 'rating-pos' : p.batRating < 0 ? 'rating-neg' : ''
+                              }`}
+                            >
+                              {p.batRating.toFixed(1)}
+                            </span>
+                          </li>
+                        )
+                      })}
+                  </ol>
+                </>
               )}
             </div>
           </div>
           <div className="tm-ribbon-rank-col">
-            <div className="tm-ribbon-section-label">Top 10 Bowling</div>
+            <div className="tm-ribbon-section-label">Tournament Bowling</div>
             <div className="tm-ribbon-rank-scroll">
-              {topBowlers.length === 0 ? (
+              {rankedBowlers.length === 0 ? (
                 <div className="tm-ribbon-rank-empty">No ratings yet</div>
               ) : (
-                <ol className="tm-mini-rank-list">
-                  {topBowlers.slice(0, 10).map((p, i) => (
-                    <li key={p.id}>
-                      <span className="mini-rank-num">{i + 1}</span>
-                      <span className="mini-rank-name">{p.name}</span>
-                      <span className={`mini-rank-val ${p.bowlingRating > 0 ? 'rating-pos' : p.bowlingRating < 0 ? 'rating-neg' : ''}`}>{p.bowlingRating.toFixed(1)}</span>
-                    </li>
-                  ))}
-                </ol>
+                <>
+                  {rankedBowlers.length > RIBBON_RANK_PAGE && (
+                    <div className="tm-rank-dots" role="tablist" aria-label="Bowling rank pages">
+                      {Array.from({ length: ribbonBowlTotalPages }, (_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          role="tab"
+                          aria-selected={ribbonBowlPage === i}
+                          aria-label={'Bowling page ' + (i + 1) + ' of ' + ribbonBowlTotalPages}
+                          className={'tm-rank-dot' + (ribbonBowlPage === i ? ' tm-rank-dot-active' : '')}
+                          onClick={() => setRibbonBowlPage(i)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <ol className="tm-mini-rank-list">
+                    {rankedBowlers
+                      .slice(
+                        ribbonBowlPage * RIBBON_RANK_PAGE,
+                        ribbonBowlPage * RIBBON_RANK_PAGE + RIBBON_RANK_PAGE,
+                      )
+                      .map((p, i) => {
+                        const rank = ribbonBowlPage * RIBBON_RANK_PAGE + i + 1
+                        const isSquad = currentSquadPlayerIds.has(p.id)
+                        return (
+                          <li key={p.id} className={isSquad ? 'mini-rank-row-current' : undefined}>
+                            <span className="mini-rank-num">{rank}</span>
+                            <span className="mini-rank-name">{p.name}</span>
+                            <span
+                              className={`mini-rank-val ${
+                                p.bowlingRating > 0
+                                  ? 'rating-pos'
+                                  : p.bowlingRating < 0
+                                    ? 'rating-neg'
+                                    : ''
+                              }`}
+                            >
+                              {p.bowlingRating.toFixed(1)}
+                            </span>
+                          </li>
+                        )
+                      })}
+                  </ol>
+                </>
               )}
             </div>
           </div>
@@ -475,8 +666,10 @@ export default function TeamManager({
           <SquadTable
             cricketFormat={format}
             gender={gender}
+            impactSubEnabled={impactSubEnabled}
             startingXI={startingXI}
             reserves={reserves}
+            impactSubs={impactSubs}
             onUpdate={handleUpdate}
             selectedPlayerId={selectedPlayer?.id ?? null}
             onSelectPlayer={(p) => setSelectedPlayer(p)}

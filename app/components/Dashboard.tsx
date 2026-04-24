@@ -1,9 +1,16 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useSyncExternalStore } from 'react'
 import { CricketFormat, Gender, FORMATS, GENDERS, TOURNAMENTS } from '../data/tournaments'
 import { getTeamsByTournament } from '../data/teams'
-import { getTeamBatRatingTotal, getTeamBowlRatingTotal, getTopRatedBatters, getTopRatedBowlers, RankedBatter } from '../data/squadStore'
+import {
+  getTeamBatRatingTotal,
+  getTeamBowlRatingTotal,
+  getRankedBatters,
+  getRankedBowlers,
+  getSquadStoreVersion,
+  subscribeSquadStore,
+} from '../data/squadStore'
 import Sidebar from './Sidebar'
 import TeamsTable from './TeamsTable'
 import PlayerRankings from './PlayerRankings'
@@ -45,13 +52,15 @@ export default function Dashboard({
 
   const teams = getTeamsByTournament(tournamentId)
 
+  const squadStoreVersion = useSyncExternalStore(subscribeSquadStore, getSquadStoreVersion, getSquadStoreVersion)
+
   const teamBatRatings = useMemo(() => {
     const map: Record<string, number> = {}
     for (const t of teams) {
       map[t.id] = getTeamBatRatingTotal(t.id)
     }
     return map
-  }, [teams])
+  }, [teams, squadStoreVersion])
 
   const teamBowlingRatings = useMemo(() => {
     const map: Record<string, number> = {}
@@ -59,16 +68,16 @@ export default function Dashboard({
       map[t.id] = getTeamBowlRatingTotal(t.id)
     }
     return map
-  }, [teams])
+  }, [teams, squadStoreVersion])
 
-  const topBatters: RankedBatter[] = useMemo(
-    () => getTopRatedBatters(teams),
-    [teams],
+  const rankedBatters = useMemo(
+    () => getRankedBatters(teams),
+    [teams, squadStoreVersion],
   )
 
-  const topBowlers = useMemo(
-    () => getTopRatedBowlers(teams),
-    [teams],
+  const rankedBowlers = useMemo(
+    () => getRankedBowlers(teams),
+    [teams, squadStoreVersion],
   )
 
   const selectedTeam = selectedTeamId
@@ -108,13 +117,14 @@ export default function Dashboard({
           <TeamManager
             format={format}
             gender={gender}
+            tournamentId={tournamentId}
             team={selectedTeam}
             tournamentName={tournament?.name ?? ''}
             allTeams={teams}
             teamBatRatings={teamBatRatings}
             teamBowlingRatings={teamBowlingRatings}
-            topBatters={topBatters}
-            topBowlers={topBowlers}
+            rankedBatters={rankedBatters}
+            rankedBowlers={rankedBowlers}
           />
         </main>
       </div>
@@ -167,27 +177,58 @@ export default function Dashboard({
 
         <div className="dashboard-content">
           <section className="dashboard-left">
-            <h2 className="section-title">Tournament Ratings</h2>
-            <TeamsTable teams={teams} teamBatRatings={teamBatRatings} teamBowlingRatings={teamBowlingRatings} onSelectTeam={handleSelectTeam} />
-
-            <h2 className="section-title" style={{ marginTop: '2rem' }}>Fixtures</h2>
-            <FixtureList teams={teams} tournamentId={tournamentId} />
+            <div className="tournament-section-panel">
+              <h2 className="tournament-section-head">Tournament ratings</h2>
+              <div className="tournament-section-body">
+                <TeamsTable
+                  teams={teams}
+                  teamBatRatings={teamBatRatings}
+                  teamBowlingRatings={teamBowlingRatings}
+                  onSelectTeam={handleSelectTeam}
+                />
+              </div>
+            </div>
+            <div className="tournament-section-panel">
+              <h2 className="tournament-section-head">Fixtures</h2>
+              <div className="tournament-section-body">
+                <FixtureList teams={teams} tournamentId={tournamentId} />
+              </div>
+            </div>
           </section>
 
           <section className="dashboard-right">
-            <TournamentSettings />
-
-            <div className="rankings-columns">
-              <PlayerRankings
-                title="Top Batting"
-                entries={topBatters.map((b) => ({ id: b.id, name: b.name, teamName: b.teamName, rating: b.batRating }))}
-                emptyLabel="No player ratings yet"
+            <div className="tournament-section-panel">
+              <TournamentSettings
+                tournamentId={tournamentId}
+                tournamentName={tournament?.name ?? 'Tournament'}
               />
-              <PlayerRankings
-                title="Top Bowling"
-                entries={topBowlers.map((p) => ({ id: p.id, name: p.name, teamName: p.teamName, rating: p.bowlingRating }))}
-                emptyLabel="No player ratings yet"
-              />
+            </div>
+            <div className="tournament-section-panel">
+              <h2 className="tournament-section-head">Player ratings</h2>
+              <div className="tournament-section-body tournament-section-body--rankings">
+                <div className="rankings-columns">
+                  <PlayerRankings
+                    title="Tournament Batting"
+                    entries={rankedBatters.map((b) => ({
+                      id: b.id,
+                      name: b.name,
+                      teamName: b.teamName,
+                      rating: b.batRating,
+                    }))}
+                    emptyLabel="No player ratings yet"
+                  />
+                  <PlayerRankings
+                    title="Tournament Bowling"
+                    entries={rankedBowlers.map((p) => ({
+                      id: p.id,
+                      name: p.name,
+                      teamName: p.teamName,
+                      rating: p.bowlingRating,
+                    }))}
+                    emptyLabel="No player ratings yet"
+                  />
+                </div>
+              </div>
             </div>
           </section>
         </div>
