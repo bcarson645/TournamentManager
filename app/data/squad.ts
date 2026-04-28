@@ -1,4 +1,5 @@
 import { IPL_PLAYERS } from './iplPlayers'
+import { THE_HUNDRED_MEN_SQUADS } from './theHundredMenPlayers'
 import { getProfileForPlayer } from './playerProfile'
 import { calculateBatRating, calculateBowlRating } from './ratingBenchmarks'
 import type { CricketFormat, Gender } from './tournaments'
@@ -101,6 +102,24 @@ export function normalizeBowlStats(
 
 const KNOWN_PLAYERS: Record<string, string[]> = {
   ...IPL_PLAYERS,
+  ...THE_HUNDRED_MEN_SQUADS,
+  'blast-sussex-sharks': [
+    'Daniel Hughes',
+    'Harrison Ward',
+    'Tom Alsop',
+    'James Coles',
+    'John Simpson',
+    'Jack Carson',
+    'Danny Briggs',
+    'Henry Crocombe',
+    'Ollie Robinson',
+    'Tymal Mills',
+    'Danny Lamb',
+    'Ollie Carter',
+    'Tom Haines',
+    'Tom Clark',
+    'Brad Currie',
+  ],
 }
 
 function makePlayer(
@@ -188,13 +207,13 @@ export function makeSquadForTeam(
 
   const allPlayers: SquadPlayer[] = []
 
-  for (let i = 0; i < Math.max(knownNames.length, 22); i++) {
-    const name = i < knownNames.length ? knownNames[i] : `Player ${i + 1}`
+  for (let i = 0; i < knownNames.length; i++) {
+    const name = knownNames[i]
     const position = (i % 11) + 1
     allPlayers.push(makePlayer(teamId, i, name, position, format, gender))
   }
 
-  let startingXI = allPlayers.slice(0, 11)
+  let startingXI = allPlayers.slice(0, Math.min(11, allPlayers.length))
   const totalOvers = startingXI.reduce((s, p) => s + p.overs, 0)
   if (totalOvers > MAX_TEAM_OVERS && totalOvers > 0) {
     const scale = MAX_TEAM_OVERS / totalOvers

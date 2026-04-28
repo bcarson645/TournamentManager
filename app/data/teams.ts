@@ -36,11 +36,16 @@ export const TEAMS: Record<string, Team[]> = {
     'Sunrisers Hyderabad',
   ]),
 
-  // Men's T20 — The Hundred
+  // Men's T20 — The Hundred (squads in theHundredMenPlayers.ts / KNOWN_PLAYERS)
   't20-m-hundred': makeTeams('hundred', [
-    'Birmingham Phoenix', 'London Spirit', 'Manchester Originals',
-    'Northern Superchargers', 'Oval Invincibles', 'Southern Brave',
-    'Trent Rockets', 'Welsh Fire',
+    'Birmingham Phoenix',
+    'London Spirit',
+    'Manchester Super Giants',
+    'MI London',
+    'Southern Brave',
+    'Sunrisers Leeds',
+    'Trent Rockets',
+    'Welsh Fire',
   ]),
 
   // Men's T20 — BBL

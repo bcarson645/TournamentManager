@@ -15,7 +15,7 @@ import { getTournamentPrepProgress } from './data/squadStore'
 import Dashboard from './components/Dashboard'
 import AppNavSidebar, { type HomeNavId } from './components/AppNavSidebar'
 
-type View = 'format' | 'gender' | 'tournaments' | 'teams' | 'dashboard'
+type View = 'format' | 'gender' | 'tournaments' | 'dashboard'
 
 interface SearchResult {
   type: 'tournament' | 'team'
@@ -126,6 +126,7 @@ export default function Home() {
   const [upcomingFilterFormat, setUpcomingFilterFormat] = useState<'all' | CricketFormat>('all')
   const [upcomingFilterGender, setUpcomingFilterGender] = useState<'all' | Gender>('all')
   const [upcomingHideFullyPrepped, setUpcomingHideFullyPrepped] = useState(false)
+  const [upcomingHideSrl, setUpcomingHideSrl] = useState(false)
   const [upcomingSearch, setUpcomingSearch] = useState('')
 
   function handleFormatSelect(format: CricketFormat) {
@@ -154,11 +155,6 @@ export default function Home() {
   function handleTournamentSelect(tournamentId: string) {
     setSelectedTournamentId(tournamentId)
     setTeamIdForDashboard(null)
-    setView('teams')
-  }
-
-  function handleTeamSelect(teamId: string) {
-    setTeamIdForDashboard(teamId)
     setView('dashboard')
   }
 
@@ -172,7 +168,7 @@ export default function Home() {
       setView('dashboard')
     } else {
       setTeamIdForDashboard(null)
-      setView('teams')
+      setView('dashboard')
     }
   }
 
@@ -186,7 +182,7 @@ export default function Home() {
     setSelectedTournamentId(entry.tournament.id)
     setSearchQuery('')
     setTeamIdForDashboard(null)
-    setView('teams')
+    setView('dashboard')
   }
 
   function handleDashboardSelectTournament(
@@ -212,12 +208,6 @@ export default function Home() {
   }
 
   function goBack() {
-    if (view === 'teams') {
-      setSelectedTournamentId(null)
-      setTeamIdForDashboard(null)
-      setView('tournaments')
-      return
-    }
     if (view === 'tournaments') {
       const hasWomenTournaments =
         selectedFormat && TOURNAMENTS[selectedFormat].women.length > 0
@@ -262,9 +252,7 @@ export default function Home() {
         ? 1
         : view === 'tournaments'
           ? 2
-          : view === 'teams'
-            ? 3
-            : 0
+          : 0
   const formatLabel = selectedFormat
     ? FORMATS.find((f) => f.key === selectedFormat)?.label
     : ''
@@ -276,9 +264,6 @@ export default function Home() {
     selectedFormat && selectedGender
       ? TOURNAMENTS[selectedFormat][selectedGender]
       : []
-
-  const teamsForWizard =
-    selectedTournamentId ? (TEAMS[selectedTournamentId] ?? []) : []
 
   if (homeNav !== 'tournament-manager') {
     const label = PLACEHOLDER_LABELS[homeNav]
@@ -324,6 +309,9 @@ export default function Home() {
         (r) => !(r.prep.total > 0 && r.prep.prepped === r.prep.total),
       )
     }
+    if (upcomingHideSrl) {
+      rows = rows.filter((r) => r.format !== 'srl')
+    }
     const q = upcomingSearch.trim().toLowerCase()
     if (q) {
       rows = rows.filter(
@@ -357,18 +345,213 @@ export default function Home() {
         <div className={`step-line ${stepIndex > 0 ? 'done' : ''}`} />
         <div className={`step-dot ${stepIndex === 1 ? 'active' : stepIndex > 1 ? 'done' : ''}`}>2</div>
         <div className={`step-line ${stepIndex > 1 ? 'done' : ''}`} />
-        <div className={`step-dot ${stepIndex === 2 ? 'active' : stepIndex > 2 ? 'done' : ''}`}>3</div>
-        <div className={`step-line ${stepIndex > 2 ? 'done' : ''}`} />
-        <div className={`step-dot ${stepIndex === 3 ? 'active' : ''}`}>4</div>
+        <div className={`step-dot ${stepIndex === 2 ? 'active' : ''}`}>3</div>
       </div>
 
-      {/* Wizard: format → category → tournament → team (left column); upcoming + in progress stay beside */}
-      {(view === 'format' ||
-        view === 'gender' ||
-        view === 'tournaments' ||
-        view === 'teams') && (
+      {/* Wizard: format → category → tournament (opens dashboard); upcoming + in progress on the left */}
+      {(view === 'format' || view === 'gender' || view === 'tournaments') && (
         <>
           <div className="format-step-grid">
+            <aside className="format-step-upcoming" aria-label="Upcoming tournaments">
+              <h2 className="format-step-upcoming-title">Upcoming tournaments</h2>
+              <p className="format-step-upcoming-sub">
+                Not started or fully prepped — suggested start dates (soonest first). Filters below apply to this column and In progress.
+              </p>
+
+              <div className="format-step-filters">
+                <label className="format-step-filter">
+                  <span className="format-step-filter-label">Format</span>
+                  <select
+                    className="format-step-select"
+                    value={upcomingFilterFormat}
+                    onChange={(e) =>
+                      setUpcomingFilterFormat(e.target.value as 'all' | CricketFormat)
+                    }
+                  >
+                    <option value="all">All formats</option>
+                    {FORMATS.map((f) => (
+                      <option key={f.key} value={f.key}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="format-step-filter">
+                  <span className="format-step-filter-label">Category</span>
+                  <select
+                    className="format-step-select"
+                    value={upcomingFilterGender}
+                    onChange={(e) => setUpcomingFilterGender(e.target.value as 'all' | Gender)}
+                  >
+                    <option value="all">All</option>
+                    {GENDERS.map((g) => (
+                      <option key={g.key} value={g.key}>
+                        {g.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="format-step-filter format-step-filter-grow">
+                  <span className="format-step-filter-label">Search</span>
+                  <input
+                    type="search"
+                    className="format-step-search"
+                    placeholder="Name or country…"
+                    value={upcomingSearch}
+                    onChange={(e) => setUpcomingSearch(e.target.value)}
+                  />
+                </label>
+                <label className="format-step-filter format-step-filter-check">
+                  <input
+                    type="checkbox"
+                    checked={upcomingHideFullyPrepped}
+                    onChange={(e) => setUpcomingHideFullyPrepped(e.target.checked)}
+                  />
+                  <span>Hide fully prepped</span>
+                </label>
+                <label className="format-step-filter format-step-filter-check">
+                  <input
+                    type="checkbox"
+                    checked={upcomingHideSrl}
+                    onChange={(e) => setUpcomingHideSrl(e.target.checked)}
+                  />
+                  <span title="Simulated Reality League tournaments">Hide SRLs</span>
+                </label>
+              </div>
+
+              <div className="format-step-upcoming-list-scroll">
+              {upcomingRowsForFormat.length === 0 ? (
+                <div className="format-step-upcoming-empty">No tournaments match these filters.</div>
+              ) : (
+                <ul className="format-step-upcoming-list">
+                  {upcomingRowsForFormat.map((row) => {
+                    const fmtInfo = FORMATS.find((f) => f.key === row.format)!
+                    const genInfo = GENDERS.find((g) => g.key === row.gender)!
+                    const { prepped, total } = row.prep
+                    const prepRatio = total === 0 ? 0 : prepped / total
+                    const prepHue = prepRatio * 120
+                    return (
+                      <li key={`${row.tournament.id}-${row.format}-${row.gender}`}>
+                        <button
+                          type="button"
+                          className="format-step-upcoming-item"
+                          title="Open tournament page"
+                          onClick={() => handleUpcomingSelect(row)}
+                        >
+                          <div className="format-step-upcoming-item-top">
+                            <span className="format-step-upcoming-date">
+                              {row.startDate.toLocaleDateString(undefined, {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </span>
+                            <span className="format-step-upcoming-name">{row.tournament.name}</span>
+                            <span className="format-step-upcoming-meta">
+                              {fmtInfo.label} · {genInfo.label}
+                              {row.tournament.country ? ` · ${row.tournament.country}` : ''}
+                            </span>
+                          </div>
+                          <div className="format-step-prep">
+                            <span className="format-step-prep-label">
+                              {prepped}/{total} teams prepped
+                            </span>
+                            <div
+                              className="format-step-prep-track"
+                              role="progressbar"
+                              aria-valuenow={prepped}
+                              aria-valuemin={0}
+                              aria-valuemax={Math.max(total, 1)}
+                            >
+                              <div
+                                className="format-step-prep-fill"
+                                style={{
+                                  width: `${total === 0 ? 0 : (prepped / total) * 100}%`,
+                                  background: `hsl(${prepHue}, 72%, 42%)`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              </div>
+            </aside>
+
+            <aside className="format-step-inprogress" aria-label="In progress tournaments">
+              <h2 className="format-step-upcoming-title">In progress</h2>
+              <p className="format-step-upcoming-sub">
+                Tournaments where some teams have a saved squad but not all yet (same filters as Upcoming).
+              </p>
+
+              <div className="format-step-upcoming-list-scroll">
+              {inProgressRowsForFormat.length === 0 ? (
+                <div className="format-step-upcoming-empty">No tournaments in progress.</div>
+              ) : (
+                <ul className="format-step-upcoming-list">
+                  {inProgressRowsForFormat.map((row) => {
+                    const fmtInfo = FORMATS.find((f) => f.key === row.format)!
+                    const genInfo = GENDERS.find((g) => g.key === row.gender)!
+                    const { prepped, total } = row.prep
+                    const prepRatio = total === 0 ? 0 : prepped / total
+                    const prepHue = prepRatio * 120
+                    return (
+                      <li key={`inprog-${row.tournament.id}-${row.format}-${row.gender}`}>
+                        <button
+                          type="button"
+                          className="format-step-upcoming-item format-step-inprogress-item"
+                          title="Open tournament page"
+                          onClick={() => handleUpcomingSelect(row)}
+                        >
+                          <div className="format-step-upcoming-item-top">
+                            <div className="format-step-inprogress-date-row">
+                              <span className="format-step-upcoming-date">
+                                {row.startDate.toLocaleDateString(undefined, {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                              <span className="format-step-inprogress-badge">Resume</span>
+                            </div>
+                            <span className="format-step-upcoming-name">{row.tournament.name}</span>
+                            <span className="format-step-upcoming-meta">
+                              {fmtInfo.label} · {genInfo.label}
+                              {row.tournament.country ? ` · ${row.tournament.country}` : ''}
+                            </span>
+                          </div>
+                          <div className="format-step-prep">
+                            <span className="format-step-prep-label">
+                              {prepped}/{total} teams prepped
+                            </span>
+                            <div
+                              className="format-step-prep-track"
+                              role="progressbar"
+                              aria-valuenow={prepped}
+                              aria-valuemin={0}
+                              aria-valuemax={Math.max(total, 1)}
+                            >
+                              <div
+                                className="format-step-prep-fill"
+                                style={{
+                                  width: `${total === 0 ? 0 : (prepped / total) * 100}%`,
+                                  background: `hsl(${prepHue}, 72%, 42%)`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              </div>
+            </aside>
+
             <div className="format-step-main">
               {view === 'format' && (
                 <>
@@ -459,7 +642,9 @@ export default function Home() {
                   <h1 className="page-heading">
                     {formatLabel} — {genderLabel} Tournaments
                   </h1>
-                  <p className="page-sub">Select a tournament to manage teams and players.</p>
+                  <p className="page-sub">
+                    Open a tournament to go to its main page (overview, standings, and teams).
+                  </p>
 
                   {tournaments.length === 0 ? (
                     <div className="empty-state">
@@ -472,7 +657,17 @@ export default function Home() {
                         <div
                           key={t.id}
                           className="tournament-item"
+                          role="button"
+                          tabIndex={0}
+                          title={`Open tournament page — ${t.name}`}
+                          aria-label={`Open tournament page: ${t.name}`}
                           onClick={() => handleTournamentSelect(t.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              handleTournamentSelect(t.id)
+                            }
+                          }}
                         >
                           <div>
                             <div className="tournament-name">{t.name}</div>
@@ -487,246 +682,7 @@ export default function Home() {
                   )}
                 </>
               )}
-
-              {view === 'teams' &&
-                selectedFormat &&
-                selectedGender &&
-                selectedTournamentId && (
-                  <>
-                    <button type="button" className="back-btn" onClick={goBack}>
-                      ← Back to tournaments
-                    </button>
-                    <h1 className="page-heading">Select team</h1>
-                    <p className="page-sub">
-                      {FORMATS.find((f) => f.key === selectedFormat)?.label} ·{' '}
-                      {GENDERS.find((g) => g.key === selectedGender)?.label} ·{' '}
-                      {TOURNAMENTS[selectedFormat][selectedGender].find(
-                        (t) => t.id === selectedTournamentId,
-                      )?.name ?? 'Tournament'}
-                    </p>
-
-                    {teamsForWizard.length === 0 ? (
-                      <div className="empty-state">
-                        <div className="empty-state-icon">No teams</div>
-                        <p>No teams in this tournament yet.</p>
-                      </div>
-                    ) : (
-                      <div className="tournament-list">
-                        {teamsForWizard.map((team) => (
-                          <div
-                            key={team.id}
-                            className="tournament-item"
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleTeamSelect(team.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                handleTeamSelect(team.id)
-                              }
-                            }}
-                          >
-                            <div>
-                              <div className="tournament-name">{team.name}</div>
-                            </div>
-                            <span className="tournament-arrow">→</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
             </div>
-
-            <aside className="format-step-upcoming" aria-label="Upcoming tournaments">
-              <h2 className="format-step-upcoming-title">Upcoming tournaments</h2>
-              <p className="format-step-upcoming-sub">
-                Not started or fully prepped — suggested start dates (soonest first). Filters below apply to this column and In progress.
-              </p>
-
-              <div className="format-step-filters">
-                <label className="format-step-filter">
-                  <span className="format-step-filter-label">Format</span>
-                  <select
-                    className="format-step-select"
-                    value={upcomingFilterFormat}
-                    onChange={(e) =>
-                      setUpcomingFilterFormat(e.target.value as 'all' | CricketFormat)
-                    }
-                  >
-                    <option value="all">All formats</option>
-                    {FORMATS.map((f) => (
-                      <option key={f.key} value={f.key}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="format-step-filter">
-                  <span className="format-step-filter-label">Category</span>
-                  <select
-                    className="format-step-select"
-                    value={upcomingFilterGender}
-                    onChange={(e) => setUpcomingFilterGender(e.target.value as 'all' | Gender)}
-                  >
-                    <option value="all">All</option>
-                    {GENDERS.map((g) => (
-                      <option key={g.key} value={g.key}>
-                        {g.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="format-step-filter format-step-filter-grow">
-                  <span className="format-step-filter-label">Search</span>
-                  <input
-                    type="search"
-                    className="format-step-search"
-                    placeholder="Name or country…"
-                    value={upcomingSearch}
-                    onChange={(e) => setUpcomingSearch(e.target.value)}
-                  />
-                </label>
-                <label className="format-step-filter format-step-filter-check">
-                  <input
-                    type="checkbox"
-                    checked={upcomingHideFullyPrepped}
-                    onChange={(e) => setUpcomingHideFullyPrepped(e.target.checked)}
-                  />
-                  <span>Hide fully prepped</span>
-                </label>
-              </div>
-
-              <div className="format-step-upcoming-list-scroll">
-              {upcomingRowsForFormat.length === 0 ? (
-                <div className="format-step-upcoming-empty">No tournaments match these filters.</div>
-              ) : (
-                <ul className="format-step-upcoming-list">
-                  {upcomingRowsForFormat.map((row) => {
-                    const fmtInfo = FORMATS.find((f) => f.key === row.format)!
-                    const genInfo = GENDERS.find((g) => g.key === row.gender)!
-                    const { prepped, total } = row.prep
-                    const prepRatio = total === 0 ? 0 : prepped / total
-                    const prepHue = prepRatio * 120
-                    return (
-                      <li key={`${row.tournament.id}-${row.format}-${row.gender}`}>
-                        <button
-                          type="button"
-                          className="format-step-upcoming-item"
-                          onClick={() => handleUpcomingSelect(row)}
-                        >
-                          <div className="format-step-upcoming-item-top">
-                            <span className="format-step-upcoming-date">
-                              {row.startDate.toLocaleDateString(undefined, {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </span>
-                            <span className="format-step-upcoming-name">{row.tournament.name}</span>
-                            <span className="format-step-upcoming-meta">
-                              {fmtInfo.label} · {genInfo.label}
-                              {row.tournament.country ? ` · ${row.tournament.country}` : ''}
-                            </span>
-                          </div>
-                          <div className="format-step-prep">
-                            <span className="format-step-prep-label">
-                              {prepped}/{total} teams prepped
-                            </span>
-                            <div
-                              className="format-step-prep-track"
-                              role="progressbar"
-                              aria-valuenow={prepped}
-                              aria-valuemin={0}
-                              aria-valuemax={Math.max(total, 1)}
-                            >
-                              <div
-                                className="format-step-prep-fill"
-                                style={{
-                                  width: `${total === 0 ? 0 : (prepped / total) * 100}%`,
-                                  background: `hsl(${prepHue}, 72%, 42%)`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-              </div>
-            </aside>
-
-            <aside className="format-step-inprogress" aria-label="In progress tournaments">
-              <h2 className="format-step-upcoming-title">In progress</h2>
-              <p className="format-step-upcoming-sub">
-                Tournaments where some teams have a saved squad but not all yet (same filters as Upcoming).
-              </p>
-
-              <div className="format-step-upcoming-list-scroll">
-              {inProgressRowsForFormat.length === 0 ? (
-                <div className="format-step-upcoming-empty">No tournaments in progress.</div>
-              ) : (
-                <ul className="format-step-upcoming-list">
-                  {inProgressRowsForFormat.map((row) => {
-                    const fmtInfo = FORMATS.find((f) => f.key === row.format)!
-                    const genInfo = GENDERS.find((g) => g.key === row.gender)!
-                    const { prepped, total } = row.prep
-                    const prepRatio = total === 0 ? 0 : prepped / total
-                    const prepHue = prepRatio * 120
-                    return (
-                      <li key={`inprog-${row.tournament.id}-${row.format}-${row.gender}`}>
-                        <button
-                          type="button"
-                          className="format-step-upcoming-item format-step-inprogress-item"
-                          onClick={() => handleUpcomingSelect(row)}
-                        >
-                          <div className="format-step-upcoming-item-top">
-                            <div className="format-step-inprogress-date-row">
-                              <span className="format-step-upcoming-date">
-                                {row.startDate.toLocaleDateString(undefined, {
-                                  weekday: 'short',
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}
-                              </span>
-                              <span className="format-step-inprogress-badge">Resume</span>
-                            </div>
-                            <span className="format-step-upcoming-name">{row.tournament.name}</span>
-                            <span className="format-step-upcoming-meta">
-                              {fmtInfo.label} · {genInfo.label}
-                              {row.tournament.country ? ` · ${row.tournament.country}` : ''}
-                            </span>
-                          </div>
-                          <div className="format-step-prep">
-                            <span className="format-step-prep-label">
-                              {prepped}/{total} teams prepped
-                            </span>
-                            <div
-                              className="format-step-prep-track"
-                              role="progressbar"
-                              aria-valuenow={prepped}
-                              aria-valuemin={0}
-                              aria-valuemax={Math.max(total, 1)}
-                            >
-                              <div
-                                className="format-step-prep-fill"
-                                style={{
-                                  width: `${total === 0 ? 0 : (prepped / total) * 100}%`,
-                                  background: `hsl(${prepHue}, 72%, 42%)`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-              </div>
-            </aside>
           </div>
         </>
       )}

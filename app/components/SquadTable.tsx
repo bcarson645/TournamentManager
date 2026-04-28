@@ -90,7 +90,8 @@ function listFor(
 
 const SQUAD_TABLE_COLS = 21
 
-function buildSquadTableHeaderRows(posLabel: string, posTitle: string) {
+/** Reserves omit lock / confirm UI; column still aligned with other squad tables */
+function buildSquadTableHeaderRows(posLabel: string, posTitle: string, hideLockColumn = false) {
   return (
     <>
       <tr className="group-header-row">
@@ -132,7 +133,19 @@ function buildSquadTableHeaderRows(posLabel: string, posTitle: string) {
         <th className="th-sq-num th-bowl th-stat th-stat-bowl">Avg</th>
         <th className="th-sq-num th-bowl th-stat th-stat-bowl">Rating</th>
         <th className="th-info th-core"></th>
-        <th className="th-lock th-core">✓</th>
+        <th className={`th-lock th-core${hideLockColumn ? ' th-lock--none' : ''}`}>
+          {hideLockColumn ? (
+            <span className="th-lock-reserves-mute" title="Locks not used for reserves">
+              —
+            </span>
+          ) : (
+            <div className="th-lock-inner">
+              <span className="th-lock-check-label" aria-hidden="true">
+                ✓
+              </span>
+            </div>
+          )}
+        </th>
       </tr>
     </>
   )
@@ -221,6 +234,48 @@ export default function SquadTable({
       list[index] = { ...list[index], locked: !list[index].locked }
       onUpdate(startingXI, reserves, list)
     }
+  }
+
+  /** Lock all stats (confirm all) or, if everyone is locked, unlock all. */
+  function toggleAllLocksInSection(section: RosterSection) {
+    const list =
+      section === 'starting' ? [...startingXI] : section === 'reserves' ? [...reserves] : [...impactSubs]
+    if (list.length === 0) return
+    const allLocked = list.every((p) => p.locked)
+    const next = !allLocked
+    const mapped = list.map((p) => ({ ...p, locked: next }))
+    if (section === 'starting') onUpdate(mapped, reserves, impactSubs)
+    else if (section === 'reserves') onUpdate(startingXI, mapped, impactSubs)
+    else onUpdate(startingXI, reserves, mapped)
+  }
+
+  function lockBulkHeaderButton(section: RosterSection) {
+    const list =
+      section === 'starting' ? startingXI : section === 'reserves' ? reserves : impactSubs
+    const allLocked = list.length > 0 && list.every((p) => p.locked)
+    return (
+      <button
+        type="button"
+        className="squad-lock-toggle-all-btn squad-lock-toggle-all-btn--totals"
+        disabled={list.length === 0}
+        aria-pressed={allLocked}
+        title={
+          list.length === 0
+            ? 'No rows in this section'
+            : allLocked
+              ? 'Unlock stats for everyone in this list'
+              : 'Lock stats for everyone in this list (confirm all)'
+        }
+        onClick={() => toggleAllLocksInSection(section)}
+        aria-label={
+          allLocked
+            ? 'Unlock stats for all players in this section'
+            : 'Lock stats for all players in this section'
+        }
+      >
+        {allLocked ? 'None' : 'All'}
+      </button>
+    )
   }
 
   function handleSwap(section: RosterSection, index: number) {
@@ -361,7 +416,7 @@ export default function SquadTable({
     n = Math.max(1, Math.min(11, n))
     const list = [...listFor(section, startingXI, reserves, impactSubs)]
     const prev = list[index]!
-    if (prev.locked) return
+    if (section !== 'reserves' && prev.locked) return
     const updated: SquadPlayer = {
       ...prev,
       ratingParPosition: n,
@@ -382,7 +437,7 @@ export default function SquadTable({
   function nudgeRawAdj(section: RosterSection, index: number, delta: number) {
     const list = [...listFor(section, startingXI, reserves, impactSubs)]
     const p = list[index]!
-    if (p.locked) return
+    if (section !== 'reserves' && p.locked) return
     const newAdj = p.rawAdj + delta
     updateField(section, index, 'rawAdj', String(newAdj))
   }
@@ -477,6 +532,7 @@ export default function SquadTable({
   }
 
   function renderRow(player: SquadPlayer, index: number, section: RosterSection) {
+    const rowLocked = section !== 'reserves' && player.locked
     const isSwapTarget =
       swapSource !== null && !(swapSource.section === section && swapSource.index === index)
     const isSwapSelected = swapSource?.section === section && swapSource?.index === index
@@ -484,7 +540,7 @@ export default function SquadTable({
     return (
       <tr
         key={player.id}
-        className={`squad-row ${isSwapSelected ? 'squad-row-swap-source' : ''} ${isSelected ? 'squad-row-selected' : ''} ${player.locked ? 'squad-row-locked' : ''}`}
+        className={`squad-row ${isSwapSelected ? 'squad-row-swap-source' : ''} ${isSelected ? 'squad-row-selected' : ''} ${rowLocked ? 'squad-row-locked' : ''}`}
         draggable
         onDragStart={() => handleDragStart(section, index)}
         onDragEnter={() => handleDragEnter(section, index)}
@@ -513,7 +569,7 @@ export default function SquadTable({
               step={1}
               value={player.ratingParPosition}
               title="Par slot 1–11 for batting rating (not your row order in this list)"
-              disabled={player.locked}
+              disabled={rowLocked}
               data-section={section}
               data-row={index}
               data-col="parpos"
@@ -538,7 +594,7 @@ export default function SquadTable({
             type="number"
             className="cell-input"
             value={player.btCaz}
-            disabled={player.locked}
+            disabled={rowLocked}
             data-section={section}
             data-row={index}
             data-col={ALL_EDITABLE_FIELDS.indexOf('btCaz')}
@@ -558,7 +614,7 @@ export default function SquadTable({
             <button
               type="button"
               className="raw-adj-btn"
-              disabled={player.locked}
+              disabled={rowLocked}
               aria-label="Decrease raw adjustment by 1"
               onClick={() => nudgeRawAdj(section, index, -1)}
             >
@@ -568,7 +624,7 @@ export default function SquadTable({
               type="number"
               className="cell-input cell-input-raw-adj"
               value={player.rawAdj}
-              disabled={player.locked}
+              disabled={rowLocked}
               step="1"
               data-section={section}
               data-row={index}
@@ -580,7 +636,7 @@ export default function SquadTable({
             <button
               type="button"
               className="raw-adj-btn"
-              disabled={player.locked}
+              disabled={rowLocked}
               aria-label="Increase raw adjustment by 1"
               onClick={() => nudgeRawAdj(section, index, 1)}
             >
@@ -593,7 +649,7 @@ export default function SquadTable({
             type="number"
             className="cell-input"
             value={Math.round(player.sr * 100) / 100}
-            disabled={player.locked}
+            disabled={rowLocked}
             step="0.01"
             data-section={section}
             data-row={index}
@@ -614,7 +670,7 @@ export default function SquadTable({
           <select
             className="action-select"
             value={player.action}
-            disabled={player.locked}
+            disabled={rowLocked}
             onChange={(e) => {
               const v = e.target.value as BowlAction
               if (section === 'starting') {
@@ -645,7 +701,7 @@ export default function SquadTable({
                 type="number"
                 className="cell-input"
                 value={field === 'bowlWpo' ? (player.bowlWpo > 0 ? player[field] : '') : player[field]}
-                disabled={player.locked}
+                disabled={rowLocked}
                 step={field === 'bowlWpo' ? '0.001' : undefined}
                 data-section={section}
                 data-row={index}
@@ -669,18 +725,20 @@ export default function SquadTable({
           </button>
         </td>
         <td className="sq-lock sq-core">
-          <input
-            type="checkbox"
-            checked={player.locked}
-            onChange={() => toggleLock(section, index)}
-            title={player.locked ? 'Unlock stats' : 'Lock stats'}
-          />
+          {section !== 'reserves' && (
+            <input
+              type="checkbox"
+              checked={player.locked}
+              onChange={() => toggleLock(section, index)}
+              title={player.locked ? 'Unlock stats' : 'Lock stats'}
+            />
+          )}
         </td>
       </tr>
     )
   }
 
-  function renderTotalsRow(players: SquadPlayer[]) {
+  function renderTotalsRow(players: SquadPlayer[], section: RosterSection) {
     const sum = (fn: (p: SquadPlayer) => number) => players.reduce((acc, p) => acc + fn(p), 0)
     const totOvers = sum((p) => p.overs)
     const totWkts = sum((p) => p.wkts)
@@ -712,7 +770,10 @@ export default function SquadTable({
               ratingDp,
             )}
           </td>
-          <td colSpan={2} className="sq-core"></td>
+          <td className="sq-info sq-core sq-totals-info"></td>
+          <td className="sq-lock sq-core sq-totals-lock">
+            {section !== 'reserves' && lockBulkHeaderButton(section)}
+          </td>
         </tr>
       </tfoot>
     )
@@ -759,7 +820,7 @@ export default function SquadTable({
               {buildSquadTableHeaderRows('Pos', 'Line-up order in the starting XI (1–11)')}
             </thead>
             <tbody>{startingXI.map((p, i) => renderRow(p, i, 'starting'))}</tbody>
-            {renderTotalsRow(startingXI)}
+            {renderTotalsRow(startingXI, 'starting')}
           </table>
         </div>
       </div>
@@ -816,7 +877,7 @@ export default function SquadTable({
                   </tr>
                 )}
               </tbody>
-              {renderTotalsRow(impactSubs)}
+              {renderTotalsRow(impactSubs, 'impact')}
             </table>
           </div>
           {onAddPlayer && (
@@ -878,10 +939,11 @@ export default function SquadTable({
               {buildSquadTableHeaderRows(
                 'Rtg pos',
                 'Par batting position 1–11 for rating (bench/impact: pick the slot to compare in the par table)',
+                true,
               )}
             </thead>
             <tbody>{reserves.map((p, i) => renderRow(p, i, 'reserves'))}</tbody>
-            {renderTotalsRow(reserves)}
+            {renderTotalsRow(reserves, 'reserves')}
           </table>
         </div>
         {onAddPlayer && (
