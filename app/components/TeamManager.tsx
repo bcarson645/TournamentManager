@@ -11,6 +11,7 @@ import {
   MAX_IMPACT_SUBS,
   normalizeBowlStats,
   normalizeSquadPlayer,
+  sanitizeKeeperFlags,
 } from '../data/squad'
 import { CricketFormat, Gender } from '../data/tournaments'
 import { ratingParPosForBatCalc } from '../data/squad'
@@ -47,11 +48,11 @@ function reapplySquadRatings(
         bowlRating: calculateBowlRating(n.econ, n.bowlWpo, n.bowlAvg, n.overs, format, gender),
       }
     })
-  return {
-    startingXI: mapList(startingXI, 'starting'),
-    reserves: mapList(reserves, 'reserves'),
-    impactSubs: mapList(impactSubs, 'impact'),
-  }
+  const sx = mapList(startingXI, 'starting')
+  const rx = mapList(reserves, 'reserves')
+  const ix = mapList(impactSubs, 'impact')
+  const [s, r, i] = sanitizeKeeperFlags(sx, rx, ix)
+  return { startingXI: s, reserves: r, impactSubs: i }
 }
 
 interface MatchResult {
@@ -288,15 +289,42 @@ export default function TeamManager({
     setRibbonBowlPage((p) => Math.min(p, Math.max(0, ribbonBowlTotalPages - 1)))
   }, [rankedBowlers.length, ribbonBowlTotalPages])
 
+  useEffect(() => {
+    setSelectedPlayer((prev) => {
+      if (!prev) return prev
+      const n =
+        startingXI.find((x) => x.id === prev.id) ??
+        reserves.find((x) => x.id === prev.id) ??
+        impactSubs.find((x) => x.id === prev.id)
+      return n ?? prev
+    })
+  }, [startingXI, reserves, impactSubs])
+
   function handleUpdate(
     newStarting: SquadPlayer[],
     newReserves: SquadPlayer[],
     newImpact: SquadPlayer[],
   ) {
-    setStartingXI(newStarting)
-    setReserves(newReserves)
-    setImpactSubs(newImpact)
-    storeSquad(team.id, newStarting, newReserves, selectedGround?.id ?? null, newImpact)
+    const [sx, sr, si] = sanitizeKeeperFlags(newStarting, newReserves, newImpact)
+    setStartingXI(sx)
+    setReserves(sr)
+    setImpactSubs(si)
+    storeSquad(team.id, sx, sr, selectedGround?.id ?? null, si)
+  }
+
+  function handleToggleWicketKeeper() {
+    if (!selectedPlayer) return
+    const idx = startingXI.findIndex((p) => p.id === selectedPlayer.id)
+    if (idx < 0) return
+    const cur = startingXI[idx]!
+    const willAssign = !cur.keeper
+    const next = startingXI.map((p, i) => ({
+      ...p,
+      keeper: willAssign ? i === idx : false,
+    }))
+    setStartingXI(next)
+    storeSquad(team.id, next, reserves, selectedGround?.id ?? null, impactSubs)
+    setSelectedPlayer(next[idx]!)
   }
 
   function handleAddPlayer(dbEntry: PlayerDbEntry, target: 'reserves' | 'impact') {
@@ -340,6 +368,7 @@ export default function TeamManager({
       bowlAvg,
       bowlRating,
       locked: false,
+      keeper: false,
     }
     if (target === 'reserves') {
       const newReserves = [...reserves, newPlayer]
@@ -381,6 +410,7 @@ export default function TeamManager({
       <div className="tm-ribbon">
         {/* Left: team identity + factors + ground + form */}
         <div className="tm-ribbon-team">
+          <div className="tm-ribbon-surface tm-ribbon-surface--identity">
           <div className="tm-ribbon-identity">
             <div className="team-logo-upload team-logo-upload-ribbon" onClick={handleLogoClick} title="Click to upload team logo">
               {teamLogo ? (
@@ -444,7 +474,9 @@ export default function TeamManager({
               <div className="tm-ribbon-tournament">{tournamentName}</div>
             </div>
           </div>
+          </div>
 
+          <div className="tm-ribbon-surface tm-ribbon-surface--meta">
           {/* Home ground */}
           <div className="tm-ground">
             <div className="tm-ground-row">
@@ -510,9 +542,11 @@ export default function TeamManager({
               ))}
             </div>
           </div>
+          </div>
         </div>
 
         {/* Centre: tournament ratings table */}
+        <div className="tm-ribbon-surface tm-ribbon-surface--league">
         <div className="tm-ribbon-league">
           <div className="tm-ribbon-section-label">Tournament Ratings</div>
           <div className="tm-ribbon-league-scroll">
@@ -521,8 +555,8 @@ export default function TeamManager({
                 <tr>
                   <th>#</th>
                   <th className="mini-th-name">Team</th>
-                  <th>Bat</th>
-                  <th>Bowl</th>
+                  <th className="mini-th-bat">Bat</th>
+                  <th className="mini-th-bowl">Bowl</th>
                   <th className="mini-th-total">Total</th>
                 </tr>
               </thead>
@@ -550,11 +584,13 @@ export default function TeamManager({
             </table>
           </div>
         </div>
+        </div>
 
         {/* Right: tournament batting & bowling ladders (paged) */}
+        <div className="tm-ribbon-surface tm-ribbon-surface--rankings-wrap">
         <div className="tm-ribbon-rankings">
           <div className="tm-ribbon-rank-col">
-            <div className="tm-ribbon-section-label">Tournament Batting</div>
+            <div className="tm-ribbon-section-label tm-ribbon-section-label--bat">Tournament Batting</div>
             <div className="tm-ribbon-rank-scroll">
               {rankedBatters.length === 0 ? (
                 <div className="tm-ribbon-rank-empty">No ratings yet</div>
@@ -604,7 +640,7 @@ export default function TeamManager({
             </div>
           </div>
           <div className="tm-ribbon-rank-col">
-            <div className="tm-ribbon-section-label">Tournament Bowling</div>
+            <div className="tm-ribbon-section-label tm-ribbon-section-label--bowl">Tournament Bowling</div>
             <div className="tm-ribbon-rank-scroll">
               {rankedBowlers.length === 0 ? (
                 <div className="tm-ribbon-rank-empty">No ratings yet</div>
@@ -658,6 +694,7 @@ export default function TeamManager({
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       {/* Scrollable squad body + player stats panel (always visible) */}
@@ -688,6 +725,19 @@ export default function TeamManager({
           tournamentName={tournamentName}
           panelWidth={playerPanelWidth}
           onClose={() => setSelectedPlayer(null)}
+          squadSlot={
+            selectedPlayer
+              ? startingXI.some((p) => p.id === selectedPlayer.id)
+                ? 'starting'
+                : 'bench'
+              : null
+          }
+          playerIsKeeper={selectedPlayer?.keeper === true}
+          onToggleWicketKeeper={
+            selectedPlayer && startingXI.some((p) => p.id === selectedPlayer.id)
+              ? handleToggleWicketKeeper
+              : undefined
+          }
         />
       </div>
     </div>

@@ -7,7 +7,7 @@ import {
   type CricketFormat,
   type Gender,
 } from '../data/tournaments'
-import { getTeamsByTournament, type Team } from '../data/teams'
+import { getTeamsByTournament } from '../data/teams'
 
 type SidebarMode = 'tournament' | 'team'
 

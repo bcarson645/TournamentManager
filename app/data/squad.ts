@@ -52,6 +52,8 @@ export interface SquadPlayer {
   bowlAvg: number
   bowlRating: number
   locked: boolean
+  /** Starting XI wicket-keeper; at most one starter may be true — cleared when moved off XI. */
+  keeper?: boolean
 }
 
 /** Migrate in-memory rows from old `bowlSr` (balls/wicket) to `bowlWpo`. */
@@ -68,6 +70,19 @@ type SquadPlayerRawLoose = SquadPlayer & { rawBase?: number; rawAdj?: number; ra
 /**
  * Ensure `rawBase` / `rawAdj` / `raw` (effective) are consistent. Legacy JSON had only `raw` as direct input; that becomes the base.
  */
+/** At most one starting XI wicket-keeper; bench lists never carry `keeper`. */
+export function sanitizeKeeperFlags(
+  startingXI: SquadPlayer[],
+  reserves: SquadPlayer[],
+  impactSubs: SquadPlayer[],
+): [SquadPlayer[], SquadPlayer[], SquadPlayer[]] {
+  const kIdx = startingXI.findIndex((p) => p.keeper === true)
+  const sx = startingXI.map((p, idx) => ({ ...p, keeper: kIdx !== -1 && idx === kIdx }))
+  const rx = reserves.map((p) => ({ ...p, keeper: false }))
+  const ix = impactSubs.map((p) => ({ ...p, keeper: false }))
+  return [sx, rx, ix]
+}
+
 export function normalizeSquadPlayer(p: SquadPlayerRawLoose): SquadPlayer {
   const m = migrateLegacyBowlingFields(p)
   const hasBase = typeof m.rawBase === 'number' && !Number.isNaN(m.rawBase)
@@ -78,7 +93,8 @@ export function normalizeSquadPlayer(p: SquadPlayerRawLoose): SquadPlayer {
   const rp0 =
     typeof m.ratingParPosition === 'number' && !Number.isNaN(m.ratingParPosition) ? m.ratingParPosition : 11
   const ratingParPosition = Math.max(1, Math.min(11, Math.round(rp0)))
-  return { ...m, rawBase, rawAdj, raw, ratingParPosition }
+  const keeper = m.keeper === true
+  return { ...m, rawBase, rawAdj, raw, ratingParPosition, keeper }
 }
 
 /** Par position 1–11 for batting rating on bench rows; starting XI should use `battingPositionForParTable('starting', i)`. */
@@ -174,6 +190,7 @@ function makePlayer(
     bowlAvg,
     bowlRating,
     locked: false,
+    keeper: false,
   }
 }
 

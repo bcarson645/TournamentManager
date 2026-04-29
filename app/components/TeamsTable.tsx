@@ -54,30 +54,31 @@ export default function TeamsTable({ teams, teamBatRatings, teamBowlingRatings, 
             const bowlDisplay = teamBowlingRatings ? bowlVal.toFixed(1) : team.bowlingFactor.toFixed(1)
             const totalDisplay = (teamBatRatings || teamBowlingRatings) ? totalVal.toFixed(1) : team.totalFactor.toFixed(1)
             return (
-            <tr
-              key={team.id}
-              className={onSelectTeam ? 'team-row-clickable' : ''}
-              onClick={() => onSelectTeam?.(team.id)}
-            >
-              <td className="td-logo">
-                {(getTeamLogo(team.id) || team.logo) ? (
-                  <img src={getTeamLogo(team.id) || team.logo!} alt="" className="team-logo" />
-                ) : (
-                  <div className="team-logo-placeholder">
-                    {team.name.charAt(0)}
-                  </div>
-                )}
-              </td>
-              <td className="td-name">{team.name}</td>
-              <td className={`td-num ${teamBatRatings && (batVal > 0 ? 'rating-pos' : batVal < 0 ? 'rating-neg' : '')}`}>
-                {batDisplay}
-              </td>
-              <td className={`td-num ${teamBowlingRatings && (bowlVal > 0 ? 'rating-pos' : bowlVal < 0 ? 'rating-neg' : '')}`}>
-                {bowlDisplay}
-              </td>
-              <td className="td-num td-total">{totalDisplay}</td>
-            </tr>
-          )})}
+              <tr
+                key={team.id}
+                className={onSelectTeam ? 'team-row-clickable' : ''}
+                onClick={() => onSelectTeam?.(team.id)}
+              >
+                <td className="td-logo">
+                  {(getTeamLogo(team.id) || team.logo) ? (
+                    <img src={getTeamLogo(team.id) || team.logo!} alt="" className="team-logo" />
+                  ) : (
+                    <div className="team-logo-placeholder">
+                      {team.name.charAt(0)}
+                    </div>
+                  )}
+                </td>
+                <td className="td-name">{team.name}</td>
+                <td className={`td-num ${teamBatRatings && (batVal > 0 ? 'rating-pos' : batVal < 0 ? 'rating-neg' : '')}`}>
+                  {batDisplay}
+                </td>
+                <td className={`td-num ${teamBowlingRatings && (bowlVal > 0 ? 'rating-pos' : bowlVal < 0 ? 'rating-neg' : '')}`}>
+                  {bowlDisplay}
+                </td>
+                <td className="td-num td-total">{totalDisplay}</td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

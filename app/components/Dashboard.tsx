@@ -209,6 +209,7 @@ export default function Dashboard({
                 <div className="rankings-columns">
                   <PlayerRankings
                     title="Tournament Batting"
+                    accent="batting"
                     entries={rankedBatters.map((b) => ({
                       id: b.id,
                       name: b.name,
@@ -219,6 +220,7 @@ export default function Dashboard({
                   />
                   <PlayerRankings
                     title="Tournament Bowling"
+                    accent="bowling"
                     entries={rankedBowlers.map((p) => ({
                       id: p.id,
                       name: p.name,

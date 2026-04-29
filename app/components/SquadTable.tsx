@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useRef, useMemo, useEffect, type SVGProps } from 'react'
 import {
   SquadPlayer,
   BowlAction,
@@ -90,22 +90,87 @@ function listFor(
 
 const SQUAD_TABLE_COLS = 21
 
+function IconPerson(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden focusable={false} {...props}>
+      <path
+        fill="currentColor"
+        d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+      />
+    </svg>
+  )
+}
+
+function IconBat(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden focusable={false} {...props}>
+      <path
+        fill="currentColor"
+        d="M16.35 3.4a1.15 1.15 0 0 1 1.65 0l3.15 3.15a1.15 1.15 0 0 1 0 1.65L9.6 19.25a4.25 4.25 0 1 1-6-6L16.35 3.4z"
+      />
+      <circle cx="5.1" cy="18.7" r="2.15" fill="currentColor" />
+    </svg>
+  )
+}
+
+function IconBall(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden focusable={false} {...props}>
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+        d="M7 10.5q2.25 3 10 6.75M17 13.75Q9.55 11.85 8.5 6.25"
+      />
+    </svg>
+  )
+}
+
+/** Wicket-keeping gloves (compact icon beside name in starting XI). */
+function IconKeeperGloves(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={15} height={15} aria-hidden focusable={false} {...props}>
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.5 8.5V6a2.5 2.5 0 015 0v2.5M7 10.5c0-1.1.9-2 2-2h6c1.1 0 2 .9 2 2V19a1 1 0 01-1 1h-8a1 1 0 01-1-1v-8.5zM10 21v-4M14 21v-4"
+      />
+    </svg>
+  )
+}
+
 /** Reserves omit lock / confirm UI; column still aligned with other squad tables */
 function buildSquadTableHeaderRows(posLabel: string, posTitle: string, hideLockColumn = false) {
   return (
     <>
       <tr className="group-header-row">
         <th colSpan={5} className="group-header group-panel-title group-panel-title--player">
-          Player
+          <div className="group-panel-chip group-panel-chip--player">
+            <IconPerson className="group-panel-chip__glyph" />
+            <span className="group-panel-chip__label">Player</span>
+          </div>
         </th>
         <th colSpan={7} className="group-header group-panel-title group-panel-title--batting">
-          Batting
+          <div className="group-panel-chip group-panel-chip--batting">
+            <IconBat className="group-panel-chip__glyph" />
+            <span className="group-panel-chip__label">Batting</span>
+          </div>
         </th>
         <th colSpan={7} className="group-header group-panel-title group-panel-title--bowling">
-          Bowling
+          <div className="group-panel-chip group-panel-chip--bowling">
+            <IconBall className="group-panel-chip__glyph" />
+            <span className="group-panel-chip__label">Bowling</span>
+          </div>
         </th>
         <th colSpan={2} className="group-header group-panel-title group-panel-title--actions">
-          Actions
+          <div className="group-panel-chip group-panel-chip--actions">
+            <span className="group-panel-chip__label">Actions</span>
+          </div>
         </th>
       </tr>
       <tr className="squad-head-subrow">
@@ -587,7 +652,14 @@ export default function SquadTable({
           <PidCell playerId={player.playerId} />
         </td>
         <td className="sq-name sq-name-clickable sq-core" onClick={() => onSelectPlayer?.(player)}>
-          {player.name}
+          <span className="sq-name-inner">
+            <span className="sq-name-text">{player.name}</span>
+            {section === 'starting' && player.keeper ? (
+              <span className="sq-keeper-badge" title="Wicket-keeper">
+                <IconKeeperGloves className="sq-keeper-svg" />
+              </span>
+            ) : null}
+          </span>
         </td>
         <td className="sq-num sq-editable sq-stat sq-stat-bat">
           <input

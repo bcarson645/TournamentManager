@@ -16,6 +16,8 @@ interface PlayerRankingsProps {
   /** Players in the open squad, highlighted like the tournament team table. */
   highlightPlayerIds?: ReadonlySet<string> | string[] | null
   pageSize?: number
+  /** Heading strip: batting = blue, bowling = red */
+  accent?: 'batting' | 'bowling' | 'neutral'
 }
 
 export default function PlayerRankings({
@@ -24,6 +26,7 @@ export default function PlayerRankings({
   emptyLabel,
   highlightPlayerIds = null,
   pageSize: pageSizeProp = 10,
+  accent = 'neutral',
 }: PlayerRankingsProps) {
   const [page, setPage] = useState(0)
   const pageSize = pageSizeProp > 0 ? pageSizeProp : 10
@@ -46,8 +49,15 @@ export default function PlayerRankings({
   const showTabs = entries.length > pageSize
   const olStart = listOffset + 1
 
+  const accentClass =
+    accent === 'batting'
+      ? ' rankings-panel--accent-bat'
+      : accent === 'bowling'
+        ? ' rankings-panel--accent-bowl'
+        : ''
+
   return (
-    <div className="rankings-panel">
+    <div className={'rankings-panel' + accentClass}>
       <h3 className="rankings-title">{title}</h3>
 
       {entries.length === 0 ? (

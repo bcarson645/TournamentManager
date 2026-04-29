@@ -1309,6 +1309,22 @@ body {
   text-align: right;
 }
 
+.teams-table-head-row .teams-th-batting {
+  background: transparent;
+  border-bottom: 2px solid rgba(59, 130, 246, 0.38);
+  box-shadow:
+    inset 0 -4px 0 rgba(147, 197, 253, 0.1),
+    0 1px 0 rgba(96, 165, 250, 0.12);
+}
+
+.teams-table-head-row .teams-th-bowling {
+  background: transparent;
+  border-bottom: 2px solid rgba(248, 113, 113, 0.38);
+  box-shadow:
+    inset 0 -4px 0 rgba(254, 202, 202, 0.08),
+    0 1px 0 rgba(248, 113, 113, 0.1);
+}
+
 .teams-table-head-row th:not(:first-child) {
   border-left: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -1541,6 +1557,32 @@ body {
   margin-bottom: 0.6rem;
 }
 
+.rankings-panel--accent-bat .rankings-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.82rem;
+  margin-bottom: 0.55rem;
+  padding: 0.15rem 0 0.45rem;
+  background: transparent;
+  color: rgba(191, 219, 254, 0.95);
+  border-bottom: 2px solid rgba(96, 165, 250, 0.45);
+  box-shadow: none;
+}
+
+.rankings-panel--accent-bowl .rankings-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.82rem;
+  margin-bottom: 0.55rem;
+  padding: 0.15rem 0 0.45rem;
+  background: transparent;
+  color: rgba(254, 226, 226, 0.95);
+  border-bottom: 2px solid rgba(248, 113, 113, 0.42);
+  box-shadow: none;
+}
+
 .rankings-empty {
   color: var(--text-secondary);
   font-size: 0.82rem;
@@ -1722,8 +1764,8 @@ body {
   flex-shrink: 0;
   display: grid;
   grid-template-columns: 1.15fr 0.9fr 0.95fr;
-  gap: 0.85rem;
-  padding: 0.7rem 1.15rem;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
   background: var(--bg-ribbon);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -1731,12 +1773,52 @@ body {
   z-index: 20;
 }
 
+/* Distinct ribbon panels (identity / meta vs league tables vs ladders) */
+.tm-ribbon-surface {
+  border-radius: 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 2px 14px rgba(0, 0, 0, 0.2);
+}
+
+.tm-ribbon-surface--identity {
+  padding: 0.6rem 0.75rem;
+}
+
+.tm-ribbon-surface--meta {
+  padding: 0.52rem 0.62rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+}
+
+.tm-ribbon-surface--league,
+.tm-ribbon-surface--rankings-wrap {
+  padding: 0.5rem 0.58rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tm-ribbon-surface--league .tm-ribbon-league {
+  flex: 1;
+  min-height: 0;
+}
+
+.tm-ribbon-surface--rankings-wrap .tm-ribbon-rankings {
+  flex: 1;
+  min-height: 0;
+}
+
 /* Left: team identity */
 .tm-ribbon-team {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   min-width: 12rem;
 }
 
@@ -1919,6 +2001,44 @@ body {
   letter-spacing: 0.05em;
   color: var(--text-secondary);
   margin-bottom: 0.3rem;
+}
+
+.tm-ribbon-section-label--bat {
+  color: rgba(147, 197, 253, 0.95);
+  letter-spacing: 0.06em;
+  padding: 0 0 0.2rem;
+  margin: 0 0 0.28rem 0;
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 2px solid rgba(96, 165, 250, 0.45);
+}
+
+.tm-ribbon-section-label--bowl {
+  color: rgba(254, 202, 202, 0.92);
+  letter-spacing: 0.06em;
+  padding: 0 0 0.2rem;
+  margin: 0 0 0.28rem 0;
+  border-radius: 0;
+  background: transparent;
+  border-bottom: 2px solid rgba(248, 113, 113, 0.42);
+}
+
+.tm-mini-table th.mini-th-bat {
+  background: rgba(59, 130, 246, 0.06) !important;
+  color: rgba(226, 232, 240, 0.98);
+  border-bottom-color: rgba(96, 165, 250, 0.35);
+  box-shadow:
+    inset 0 2px 0 rgba(147, 197, 253, 0.12),
+    inset 0 -1px 0 rgba(59, 130, 246, 0.15);
+}
+
+.tm-mini-table th.mini-th-bowl {
+  background: rgba(239, 68, 68, 0.06) !important;
+  color: rgba(226, 232, 240, 0.98);
+  border-bottom-color: rgba(248, 113, 113, 0.32);
+  box-shadow:
+    inset 0 2px 0 rgba(254, 202, 202, 0.08),
+    inset 0 -1px 0 rgba(248, 113, 113, 0.14);
 }
 
 /* Centre: mini league table */
@@ -2551,62 +2671,93 @@ body {
 }
 
 /*
- * Section titles (Player / Batting / Bowling / Actions): two-tier header look —
- * subtle vertical gradient, light-grey title text, vivid top accent stripes:
- * light blue | dark blue | red | lighter sky blue (reuse light family for column 4).
+ * Section titles: contained rounded chips (no top accent stripes) —
+ * subtle borders, tinted fills, clear hierarchy vs sub-header row below.
  */
-.group-panel-title {
-  font-size: 0.88rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 0.55rem 0.5rem 0.5rem !important;
+.squad-table thead tr.group-header-row th.group-panel-title {
+  padding: 0.28rem 0.35rem 0.3rem !important;
   vertical-align: middle;
-  color: rgba(203, 213, 225, 0.95);
-  border: 1px solid rgba(51, 65, 85, 0.45);
-  border-bottom: none;
-  border-top: 3px solid rgba(148, 163, 184, 0.45);
+  background: transparent !important;
+  border: none;
+  box-shadow: none;
+}
+
+.group-panel-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.36rem;
+  width: 100%;
+  min-height: 1.85rem;
+  padding: 0.26rem 0.65rem;
+  box-sizing: border-box;
+  border-radius: 0.6rem;
+  border: 1px solid transparent;
   background: linear-gradient(
-    180deg,
-    rgba(51, 65, 85, 0.45) 0%,
-    rgba(15, 23, 42, 0.98) 100%
-  ) !important;
+    155deg,
+    rgba(71, 85, 105, 0.35) 0%,
+    rgba(15, 23, 42, 0.92) 100%
+  );
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 4px 20px rgba(0, 0, 0, 0.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    0 2px 10px rgba(0, 0, 0, 0.28);
 }
 
-.group-panel-title--player {
-  border-top-color: #94a3b8;
-  box-shadow:
-    inset 0 1px 0 rgba(148, 163, 184, 0.22),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 4px 20px rgba(0, 0, 0, 0.45) !important;
+.group-panel-chip__glyph {
+  flex-shrink: 0;
+  opacity: 0.96;
 }
 
-.group-panel-title--batting {
-  border-top-color: #1d4ed8;
-  box-shadow:
-    inset 0 1px 0 rgba(37, 99, 235, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 4px 20px rgba(0, 0, 0, 0.45) !important;
+.group-panel-chip--player .group-panel-chip__glyph,
+.group-panel-chip--batting .group-panel-chip__glyph,
+.group-panel-chip--bowling .group-panel-chip__glyph {
+  width: 18px;
+  height: 18px;
 }
 
-.group-panel-title--bowling {
-  border-top-color: #ef4444;
-  box-shadow:
-    inset 0 1px 0 rgba(248, 113, 113, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 4px 20px rgba(0, 0, 0, 0.45) !important;
+.group-panel-chip__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.012em;
+  line-height: 1.2;
+  text-transform: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-.group-panel-title--actions {
-  border-top-color: #cbd5e1;
-  box-shadow:
-    inset 0 1px 0 rgba(203, 213, 225, 0.2),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 4px 20px rgba(0, 0, 0, 0.45) !important;
+.group-panel-chip--player {
+  border-color: rgba(148, 163, 184, 0.45);
+  color: rgba(226, 232, 240, 0.98);
+  background: linear-gradient(
+    155deg,
+    rgba(100, 116, 139, 0.28) 0%,
+    rgba(30, 41, 59, 0.95) 100%
+  );
+}
+
+.group-panel-chip--batting {
+  border: 1.5px solid rgba(96, 165, 250, 0.65);
+  color: rgba(219, 234, 254, 0.96);
+  background: transparent;
+  box-shadow: none;
+}
+
+.group-panel-chip--bowling {
+  border: 1.5px solid rgba(248, 113, 113, 0.6);
+  color: rgba(254, 226, 226, 0.96);
+  background: transparent;
+  box-shadow: none;
+}
+
+.group-panel-chip--actions {
+  border-color: rgba(186, 230, 253, 0.4);
+  color: rgba(224, 242, 254, 0.98);
+  background: linear-gradient(
+    155deg,
+    rgba(14, 116, 144, 0.3) 0%,
+    rgba(15, 23, 42, 0.95) 100%
+  );
 }
 
 /* Bulk lock control under ✓ header */
@@ -2659,69 +2810,128 @@ body {
   cursor: not-allowed;
 }
 
-tr.group-header-row .group-panel-title:first-of-type {
-  border-radius: 0.5rem 0 0 0;
-}
+/* Chips carry their own border-radius inside each spanning cell — no thead row corner rounding hack */
 
-tr.group-header-row .group-panel-title:last-of-type {
-  border-radius: 0 0.5rem 0 0;
-}
+/* ─── Sub-header tiers: zoning under chips (identity | batting | bowling | actions tail) ─── */
 
-/* Column labels — near-black strip, bold white (second header tier) */
-.squad-table thead tr.squad-head-subrow th {
-  background: rgba(5, 6, 10, 0.97) !important;
-  backdrop-filter: none;
-  color: #ffffff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+/* Identity columns (swap … name) — cool neutral strip */
+.squad-table thead tr.squad-head-subrow th.th-core:nth-child(-n + 5) {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 0.45rem 0.35rem;
-  border-bottom: 1px solid rgba(30, 41, 59, 0.9);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: linear-gradient(
+    165deg,
+    rgba(71, 85, 105, 0.22) 0%,
+    rgba(21, 28, 44, 0.98) 100%
+  ) !important;
+  color: rgba(241, 245, 249, 0.95);
+  border-bottom: 1px solid rgba(51, 65, 85, 0.75);
+}
+
+/* Tail (info • lock) */
+.squad-table thead tr.squad-head-subrow th.th-core:nth-child(n + 19) {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: linear-gradient(
+    165deg,
+    rgba(14, 116, 144, 0.18) 0%,
+    rgba(18, 26, 40, 0.98) 100%
+  ) !important;
+  border-bottom: 1px solid rgba(30, 58, 90, 0.85);
+  color: rgba(248, 250, 252, 0.92);
+}
+
+/* Batting stats band — lines up under batting chip */
+.squad-table thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12),
+.squad-table thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
+  font-size: 0.615rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+}
+
+.squad-table thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12) {
+  background: rgba(59, 130, 246, 0.05) !important;
+  color: rgba(226, 232, 240, 0.98);
+}
+
+.squad-table thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
+  background: rgba(239, 68, 68, 0.05) !important;
+  color: rgba(226, 232, 240, 0.98);
+}
+
+.squad-table thead tr.squad-head-subrow th {
+  backdrop-filter: none;
+  padding: 0.45rem 0.32rem;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.88);
+}
+
+/* Coloured underlines on batting/bowling stat sub-headings (overrides generic thead border). */
+.squad-table thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12) {
+  border-bottom: 2px solid rgba(96, 165, 250, 0.45);
+}
+
+.squad-table thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
+  border-bottom: 2px solid rgba(248, 113, 113, 0.4);
 }
 
 .squad-table thead tr.squad-head-subrow th.th-name {
   text-align: left !important;
 }
 
-.th-core {
-  background: rgba(5, 6, 10, 0.97) !important;
+/* ─── Body/footer: tinted columns under each heading block ─── */
+.squad-table tbody tr.squad-row td.sq-core,
+.squad-table tfoot td.sq-core {
+  background: linear-gradient(
+    180deg,
+    rgba(51, 65, 85, 0.09) 0%,
+    var(--bg-card) 100%
+  ) !important;
 }
 
-/* Batting & bowling body/footer: neutral surface; thead subrow uses dark band above */
-.squad-table tbody td.sq-stat-bat,
-.squad-table tfoot td.sq-stat-bat {
-  background: var(--bg-card) !important;
+/* Batting / bowling columns: no vertical column stripes (fills only where needed). */
+.squad-table tbody td.sq-stat-bat:not(.sq-rating),
+.squad-table tfoot td.sq-stat-bat:not(.sq-rating) {
+  background: var(--bg-card);
 }
 
-.squad-table tbody td.sq-stat-bowl,
-.squad-table tfoot td.sq-stat-bowl {
-  background: var(--bg-card) !important;
+.squad-table tbody td.sq-num.sq-rating.sq-stat-bat.rating-pos,
+.squad-table tfoot td.sq-num.sq-rating.sq-stat-bat.rating-pos {
+  background: rgba(74, 222, 128, 0.14);
 }
 
-/* Stat abbreviations (BT CAZ, Raw, WKTS, …) — slightly smaller, softer contrast */
-.squad-table thead tr.squad-head-subrow th.th-stat-bat,
-.squad-table thead tr.squad-head-subrow th.th-stat-bowl {
-  background: rgba(5, 6, 10, 0.97) !important;
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.035em;
-  color: rgba(226, 232, 240, 0.87);
-  padding: 0.38rem 0.28rem;
-  line-height: 1.28;
+.squad-table tbody td.sq-num.sq-rating.sq-stat-bat.rating-neg,
+.squad-table tfoot td.sq-num.sq-rating.sq-stat-bat.rating-neg {
+  background: rgba(248, 113, 113, 0.14);
 }
 
-.squad-table thead tr.squad-head-subrow th:nth-child(6),
-.squad-table tbody td:nth-child(6),
-.squad-table tfoot td:nth-child(6) {
-  border-left: 1px solid var(--border-subtle);
+.squad-table tbody td.sq-num.sq-rating.sq-stat-bat:not(.rating-pos):not(.rating-neg),
+.squad-table tfoot td.sq-num.sq-rating.sq-stat-bat:not(.rating-pos):not(.rating-neg) {
+  background: var(--bg-card);
 }
 
-.squad-table thead tr.squad-head-subrow th:nth-child(12),
-.squad-table tbody td:nth-child(12),
-.squad-table tfoot td:nth-child(12) {
-  border-left: 1px solid var(--border-subtle);
+.squad-table tbody td.sq-stat-bowl:not(.sq-rating),
+.squad-table tfoot td.sq-stat-bowl:not(.sq-rating) {
+  background: var(--bg-card);
+}
+
+.squad-table tbody td.sq-num.sq-rating.sq-stat-bowl.rating-pos,
+.squad-table tfoot td.sq-num.sq-rating.sq-stat-bowl.rating-pos {
+  background: rgba(74, 222, 128, 0.14);
+}
+
+.squad-table tbody td.sq-num.sq-rating.sq-stat-bowl.rating-neg,
+.squad-table tfoot td.sq-num.sq-rating.sq-stat-bowl.rating-neg {
+  background: rgba(248, 113, 113, 0.14);
+}
+
+.squad-table tbody td.sq-num.sq-rating.sq-stat-bowl:not(.rating-pos):not(.rating-neg),
+.squad-table tfoot td.sq-num.sq-rating.sq-stat-bowl:not(.rating-pos):not(.rating-neg) {
+  background: var(--bg-card);
 }
 
 .th-bat {
@@ -2796,6 +3006,24 @@ tr.group-header-row .group-panel-title:last-of-type {
 .sq-name-clickable:hover {
   color: var(--accent);
   text-decoration: underline;
+}
+
+.sq-name-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.sq-keeper-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: rgba(147, 197, 253, 0.9);
+}
+
+.sq-name-clickable:hover .sq-keeper-badge {
+  color: rgba(224, 242, 254, 0.98);
 }
 
 .squad-row[draggable="true"] {
@@ -3138,6 +3366,38 @@ tr.group-header-row .group-panel-title:last-of-type {
   padding: 1.25rem;
 }
 
+.pp-wk-row {
+  margin: 0.35rem 0 0.75rem;
+}
+
+.pp-wk-btn {
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.32rem 0.65rem;
+  border-radius: 0.35rem;
+  border: 1px dashed rgba(96, 165, 250, 0.35);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.pp-wk-btn:hover {
+  color: rgba(224, 242, 254, 0.98);
+  border-color: rgba(96, 165, 250, 0.55);
+}
+
+.pp-wk-btn--active {
+  border-style: solid;
+  border-color: rgba(96, 165, 250, 0.45);
+  color: rgba(191, 219, 254, 0.98);
+  box-shadow: inset 0 -1px 0 rgba(147, 197, 253, 0.2);
+}
+
 .pp-tabs {
   display: flex;
   gap: 0;
@@ -3173,6 +3433,24 @@ tr.group-header-row .group-panel-title:last-of-type {
   box-shadow: inset 0 -2px 0 var(--border-hover);
 }
 
+.pp-tab-stat.pp-tab-active--bat {
+  color: rgba(224, 242, 254, 0.98);
+  background: transparent;
+  box-shadow:
+    inset 0 -2px 0 rgba(96, 165, 250, 0.75),
+    inset 2px 0 0 rgba(96, 165, 250, 0.12),
+    inset -2px 0 0 rgba(96, 165, 250, 0.12);
+}
+
+.pp-tab-stat.pp-tab-active--bowl {
+  color: rgba(254, 242, 242, 0.96);
+  background: transparent;
+  box-shadow:
+    inset 0 -2px 0 rgba(248, 113, 113, 0.72),
+    inset 2px 0 0 rgba(248, 113, 113, 0.1),
+    inset -2px 0 0 rgba(248, 113, 113, 0.1);
+}
+
 .pp-tab-panel {
   padding: 1rem 0.85rem 0.25rem;
   margin-top: 0.35rem;
@@ -3180,6 +3458,55 @@ tr.group-header-row .group-panel-title:last-of-type {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.22);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.pp-tab-panel--batting {
+  border-color: rgba(96, 165, 250, 0.28);
+  background: transparent;
+  box-shadow:
+    inset 3px 0 0 rgba(96, 165, 250, 0.28),
+    inset 0 -1px 0 rgba(96, 165, 250, 0.12);
+}
+
+.pp-tab-panel--bowling {
+  border-color: rgba(248, 113, 113, 0.26);
+  background: transparent;
+  box-shadow:
+    inset 3px 0 0 rgba(248, 113, 113, 0.26),
+    inset 0 -1px 0 rgba(248, 113, 113, 0.1);
+}
+
+.pp-section-title--bat {
+  padding: 0.15rem 0 0.35rem;
+  margin-left: 0;
+  border-radius: 0;
+  border-bottom: 2px solid rgba(96, 165, 250, 0.45);
+  border-left: none;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 rgba(147, 197, 253, 0.1);
+  color: rgba(224, 242, 254, 0.96);
+}
+
+.pp-section-title--bat-sub {
+  padding: 0.1rem 0 0.3rem;
+  margin-left: 0;
+  border-radius: 0;
+  border-left: none;
+  border-bottom: 1px dashed rgba(96, 165, 250, 0.3);
+  color: rgba(203, 213, 225, 0.94);
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.pp-section-title--bowl {
+  padding: 0.15rem 0 0.35rem;
+  margin-left: 0;
+  border-radius: 0;
+  border-bottom: 2px solid rgba(248, 113, 113, 0.4);
+  border-left: none;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 rgba(254, 202, 202, 0.08);
+  color: rgba(254, 226, 226, 0.96);
 }
 
 /* Header */

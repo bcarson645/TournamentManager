@@ -16,6 +16,10 @@ interface PlayerDetailPanelProps {
   tournamentName: string
   panelWidth: number
   onClose: () => void
+  /** When set, show squad-only actions (e.g. assign WK for starting XI). */
+  squadSlot?: 'starting' | 'bench' | null
+  playerIsKeeper?: boolean
+  onToggleWicketKeeper?: () => void
 }
 
 type StatsTab = 'batting' | 'bowling'
@@ -58,6 +62,9 @@ export default function PlayerDetailPanel({
   tournamentName,
   panelWidth,
   onClose,
+  squadSlot = null,
+  playerIsKeeper = false,
+  onToggleWicketKeeper,
 }: PlayerDetailPanelProps) {
   const [profile, setProfile] = useState<PlayerProfile>(() =>
     player ? getProfileForPlayer(player.name) : getProfileForPlayer(''),
@@ -152,7 +159,7 @@ export default function PlayerDetailPanel({
               onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))}
             />
           </div>
-          <button className="pp-close" onClick={onClose} title="Close">×</button>
+          <button className="pp-close" onClick={onClose} title="Close">×          </button>
         </div>
 
         <div className="pp-tabs" role="tablist" aria-label="Batting and bowling stats">
@@ -162,7 +169,10 @@ export default function PlayerDetailPanel({
             id="pp-tab-batting"
             aria-selected={statsTab === 'batting'}
             aria-controls="pp-panel-batting"
-            className={`pp-tab ${statsTab === 'batting' ? 'pp-tab-active' : ''}`}
+            className={
+              'pp-tab pp-tab-stat pp-tab-stat--bat' +
+              (statsTab === 'batting' ? ' pp-tab-active pp-tab-active--bat' : '')
+            }
             onClick={() => setStatsTab('batting')}
           >
             Batting
@@ -173,22 +183,42 @@ export default function PlayerDetailPanel({
             id="pp-tab-bowling"
             aria-selected={statsTab === 'bowling'}
             aria-controls="pp-panel-bowling"
-            className={`pp-tab ${statsTab === 'bowling' ? 'pp-tab-active' : ''}`}
+            className={
+              'pp-tab pp-tab-stat pp-tab-stat--bowl' +
+              (statsTab === 'bowling' ? ' pp-tab-active pp-tab-active--bowl' : '')
+            }
             onClick={() => setStatsTab('bowling')}
           >
             Bowling
           </button>
         </div>
 
+        {squadSlot === 'starting' && onToggleWicketKeeper && (
+          <div className="pp-wk-row">
+            <button
+              type="button"
+              className={'pp-wk-btn' + (playerIsKeeper ? ' pp-wk-btn--active' : '')}
+              onClick={onToggleWicketKeeper}
+              title={
+                playerIsKeeper
+                  ? 'This player is the wicket-keeper. Click to clear.'
+                  : 'Mark this starting XI player as wicket-keeper.'
+              }
+            >
+              {playerIsKeeper ? 'Clear WK' : 'Assign WK'}
+            </button>
+          </div>
+        )}
+
         {statsTab === 'batting' && (
           <div
-            className="pp-tab-panel"
+            className="pp-tab-panel pp-tab-panel--batting"
             id="pp-panel-batting"
             role="tabpanel"
             aria-labelledby="pp-tab-batting"
           >
             <div className="pp-section">
-              <h3 className="pp-section-title">Career Batting</h3>
+              <h3 className="pp-section-title pp-section-title--bat">Career Batting</h3>
               <div className="pp-stat-grid">
                 {(
                   [
@@ -211,7 +241,7 @@ export default function PlayerDetailPanel({
             </div>
 
             <div className="pp-section">
-              <h3 className="pp-section-title">Recent Performance (Last 10 Innings)</h3>
+              <h3 className="pp-section-title pp-section-title--bat-sub">Recent Performance (Last 10 Innings)</h3>
               {profile.recentInnings.length === 0 ? (
                 <div className="pp-empty">No recent innings data</div>
               ) : (
@@ -233,7 +263,7 @@ export default function PlayerDetailPanel({
             </div>
 
             <div className="pp-section">
-              <h3 className="pp-section-title">{tournamentName} History</h3>
+              <h3 className="pp-section-title pp-section-title--bat-sub">{tournamentName} History</h3>
               {profile.tournamentHistory.length === 0 ? (
                 <div className="pp-empty">No previous tournament records</div>
               ) : (
@@ -270,13 +300,13 @@ export default function PlayerDetailPanel({
 
         {statsTab === 'bowling' && (
           <div
-            className="pp-tab-panel"
+            className="pp-tab-panel pp-tab-panel--bowling"
             id="pp-panel-bowling"
             role="tabpanel"
             aria-labelledby="pp-tab-bowling"
           >
             <div className="pp-section">
-              <h3 className="pp-section-title">Career Bowling</h3>
+              <h3 className="pp-section-title pp-section-title--bowl">Career Bowling</h3>
               <div className="pp-stat-grid">
                 {(
                   [
