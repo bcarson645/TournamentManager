@@ -8,9 +8,17 @@ interface TeamsTableProps {
   teamBatRatings?: Record<string, number>
   teamBowlingRatings?: Record<string, number>
   onSelectTeam?: (teamId: string) => void
+  /** Chart button per row opens the team analytics overlay (name/row still open squad). */
+  onOpenTeamAnalytics?: (teamId: string) => void
 }
 
-export default function TeamsTable({ teams, teamBatRatings, teamBowlingRatings, onSelectTeam }: TeamsTableProps) {
+export default function TeamsTable({
+  teams,
+  teamBatRatings,
+  teamBowlingRatings,
+  onSelectTeam,
+  onOpenTeamAnalytics,
+}: TeamsTableProps) {
   if (teams.length === 0) {
     return (
       <div className="empty-state">
@@ -68,7 +76,28 @@ export default function TeamsTable({ teams, teamBatRatings, teamBowlingRatings, 
                     </div>
                   )}
                 </td>
-                <td className="td-name">{team.name}</td>
+                <td className="td-name td-name-with-actions">
+                  <span className="td-name-text">{team.name}</span>
+                  {onOpenTeamAnalytics ? (
+                    <button
+                      type="button"
+                      className="td-analytics-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onOpenTeamAnalytics(team.id)
+                      }}
+                      title="Team analytics (demo data)"
+                      aria-label={`Open analytics for ${team.name}`}
+                    >
+                      <svg viewBox="0 0 24 24" width={18} height={18} aria-hidden focusable={false}>
+                        <path
+                          fill="currentColor"
+                          d="M3 3v18h18v-2H5V3H3zm4 14h2V9H7v8zm5 0h2v-4h-2v4zm5 0h2V7h-2v10z"
+                        />
+                      </svg>
+                    </button>
+                  ) : null}
+                </td>
                 <td className={`td-num ${teamBatRatings && (batVal > 0 ? 'rating-pos' : batVal < 0 ? 'rating-neg' : '')}`}>
                   {batDisplay}
                 </td>

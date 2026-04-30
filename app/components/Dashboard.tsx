@@ -17,6 +17,7 @@ import PlayerRankings from './PlayerRankings'
 import TournamentSettings from './TournamentSettings'
 import TeamManager from './TeamManager'
 import FixtureList from './FixtureList'
+import TeamAnalyticsPanel from './TeamAnalyticsPanel'
 
 interface DashboardProps {
   format: CricketFormat
@@ -37,6 +38,7 @@ export default function Dashboard({
   onGoHome,
 }: DashboardProps) {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(initialTeamId)
+  const [analyticsTeamId, setAnalyticsTeamId] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState(2026)
 
   const currentYear = 2026
@@ -84,66 +86,91 @@ export default function Dashboard({
     ? teams.find((t) => t.id === selectedTeamId) ?? null
     : null
 
+  const analyticsTeam =
+    analyticsTeamId != null ? teams.find((t) => t.id === analyticsTeamId) ?? null : null
+
+  /** Team analytics docked beside squad (same slot as player panel), not fullscreen overlay */
+  const teamAnalyticsDocked =
+    selectedTeam != null && analyticsTeam != null && analyticsTeam.id === selectedTeam.id
+
   function handleSelectTeam(teamId: string) {
+    setAnalyticsTeamId(null)
     setSelectedTeamId(teamId)
   }
 
   function handleBackToDashboard() {
     setSelectedTeamId(null)
+    setAnalyticsTeamId(null)
   }
 
   function handleTournamentSwitch(f: CricketFormat, g: Gender, tId: string) {
     setSelectedTeamId(null)
+    setAnalyticsTeamId(null)
     onSelectTournament(f, g, tId)
   }
 
   // Team manager view
   if (selectedTeam) {
     return (
-      <div className="dashboard-layout">
-        <Sidebar
-          mode="team"
-          currentFormat={format}
-          currentGender={gender}
-          currentTournamentId={tournamentId}
-          currentTeamId={selectedTeamId}
-          onSelectTournament={handleTournamentSwitch}
-          onSelectTeam={handleSelectTeam}
-          onBackToDashboard={handleBackToDashboard}
-          onGoHome={onGoHome}
-        />
-
-        <main className="dashboard-main dashboard-main-no-pad">
-          <TeamManager
-            format={format}
-            gender={gender}
-            tournamentId={tournamentId}
-            team={selectedTeam}
-            tournamentName={tournament?.name ?? ''}
-            allTeams={teams}
-            teamBatRatings={teamBatRatings}
-            teamBowlingRatings={teamBowlingRatings}
-            rankedBatters={rankedBatters}
-            rankedBowlers={rankedBowlers}
+      <>
+        <div className="dashboard-layout">
+          <Sidebar
+            mode="team"
+            currentFormat={format}
+            currentGender={gender}
+            currentTournamentId={tournamentId}
+            currentTeamId={selectedTeamId}
+            onSelectTournament={handleTournamentSwitch}
+            onSelectTeam={handleSelectTeam}
+            onBackToDashboard={handleBackToDashboard}
+            onGoHome={onGoHome}
           />
-        </main>
-      </div>
+
+          <main className="dashboard-main dashboard-main-no-pad">
+            <TeamManager
+              format={format}
+              gender={gender}
+              tournamentId={tournamentId}
+              team={selectedTeam}
+              tournamentName={tournament?.name ?? ''}
+              allTeams={teams}
+              teamBatRatings={teamBatRatings}
+              teamBowlingRatings={teamBowlingRatings}
+              rankedBatters={rankedBatters}
+              rankedBowlers={rankedBowlers}
+              onOpenTeamAnalytics={() => setAnalyticsTeamId(selectedTeam.id)}
+              teamAnalyticsOpen={teamAnalyticsDocked}
+              onCloseTeamAnalytics={() => setAnalyticsTeamId(null)}
+            />
+          </main>
+        </div>
+        {analyticsTeam && !teamAnalyticsDocked ? (
+          <TeamAnalyticsPanel
+            team={analyticsTeam}
+            batRating={teamBatRatings[analyticsTeam.id] ?? 0}
+            bowlRating={teamBowlingRatings[analyticsTeam.id] ?? 0}
+            tournamentName={tournament?.name ?? 'Tournament'}
+            onClose={() => setAnalyticsTeamId(null)}
+          />
+        ) : null}
+      </>
     )
   }
 
   // Tournament overview
   return (
-    <div className="dashboard-layout">
-      <Sidebar
-        mode="tournament"
-        currentFormat={format}
-        currentGender={gender}
-        currentTournamentId={tournamentId}
-        onSelectTournament={handleTournamentSwitch}
-        onGoHome={onGoHome}
-      />
+    <>
+      <div className="dashboard-layout">
+        <Sidebar
+          mode="tournament"
+          currentFormat={format}
+          currentGender={gender}
+          currentTournamentId={tournamentId}
+          onSelectTournament={handleTournamentSwitch}
+          onGoHome={onGoHome}
+        />
 
-      <main className="dashboard-main">
+        <main className="dashboard-main">
         <div className="dashboard-header">
           <div className="dashboard-header-top">
             <div>
@@ -185,6 +212,10 @@ export default function Dashboard({
                   teamBatRatings={teamBatRatings}
                   teamBowlingRatings={teamBowlingRatings}
                   onSelectTeam={handleSelectTeam}
+                  onOpenTeamAnalytics={(id) => {
+                    setSelectedTeamId(id)
+                    setAnalyticsTeamId(id)
+                  }}
                 />
               </div>
             </div>
@@ -236,5 +267,20 @@ export default function Dashboard({
         </div>
       </main>
     </div>
+
+    {analyticsTeam ? (
+      <TeamAnalyticsPanel
+        team={analyticsTeam}
+        batRating={teamBatRatings[analyticsTeam.id] ?? 0}
+        bowlRating={teamBowlingRatings[analyticsTeam.id] ?? 0}
+        tournamentName={tournament?.name ?? 'Tournament'}
+        onClose={() => setAnalyticsTeamId(null)}
+        onGoToSquad={() => {
+          setAnalyticsTeamId(null)
+          setSelectedTeamId(analyticsTeam.id)
+        }}
+      />
+    ) : null}
+    </>
   )
 }

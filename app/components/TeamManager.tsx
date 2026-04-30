@@ -20,6 +20,7 @@ import { PlayerDbEntry } from '../data/playerDatabase'
 import { GROUNDS, Ground } from '../data/grounds'
 import SquadTable from './SquadTable'
 import PlayerDetailPanel from './PlayerDetailPanel'
+import TeamAnalyticsPanel from './TeamAnalyticsPanel'
 import { getTeamLogo, setTeamLogo as storeTeamLogo } from '../data/logoStore'
 import { getStoredSquad, storeSquad } from '../data/squadStore'
 import { getProfileForPlayer } from '../data/playerProfile'
@@ -123,6 +124,11 @@ interface TeamManagerProps {
   rankedBatters: RankedBatter[]
   /** Full tournament bowling ladder. */
   rankedBowlers: RankedBowler[]
+  /** Open team-wide analytics drawer (demo / layout). */
+  onOpenTeamAnalytics?: () => void
+  /** Team analytics shown in the player panel column (does not block squad). */
+  teamAnalyticsOpen?: boolean
+  onCloseTeamAnalytics?: () => void
 }
 
 export default function TeamManager({
@@ -136,6 +142,9 @@ export default function TeamManager({
   teamBowlingRatings,
   rankedBatters,
   rankedBowlers,
+  onOpenTeamAnalytics,
+  teamAnalyticsOpen = false,
+  onCloseTeamAnalytics,
 }: TeamManagerProps) {
   const { impactSubEnabled } = useTournamentOptions(tournamentId)
   const [teamLogo, setTeamLogo] = useState<string | null>(getTeamLogo(team.id) ?? team.logo ?? null)
@@ -434,6 +443,22 @@ export default function TeamManager({
             <div className="tm-ribbon-identity-text">
               <div className="tm-ribbon-name-row">
                 <h1 className="tm-ribbon-name">{team.name}</h1>
+                {onOpenTeamAnalytics ? (
+                  <button
+                    type="button"
+                    className="tm-ribbon-analytics-btn"
+                    onClick={onOpenTeamAnalytics}
+                    title="Team analytics (demo data)"
+                    aria-label="Open team analytics"
+                  >
+                    <svg viewBox="0 0 24 24" width={20} height={20} aria-hidden focusable={false}>
+                      <path
+                        fill="currentColor"
+                        d="M3 3v18h18v-2H5V3H3zm4 14h2V9H7v8zm5 0h2v-4h-2v4zm5 0h2V7h-2v10z"
+                      />
+                    </svg>
+                  </button>
+                ) : null}
                 <div className="tm-ribbon-factors" aria-label="Squad rating totals (Starting XI)">
                   <div className="factor-pill-sm factor-pill-inline factor-pill-ribbon">
                     <span className="factor-label-sm">Bat</span>
@@ -717,28 +742,40 @@ export default function TeamManager({
           className="tm-panel-resize-handle"
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize player stats panel"
+          aria-label="Resize side panel"
           onMouseDown={handlePanelResizeStart}
         />
-        <PlayerDetailPanel
-          player={selectedPlayer}
-          tournamentName={tournamentName}
-          panelWidth={playerPanelWidth}
-          onClose={() => setSelectedPlayer(null)}
-          squadSlot={
-            selectedPlayer
-              ? startingXI.some((p) => p.id === selectedPlayer.id)
-                ? 'starting'
-                : 'bench'
-              : null
-          }
-          playerIsKeeper={selectedPlayer?.keeper === true}
-          onToggleWicketKeeper={
-            selectedPlayer && startingXI.some((p) => p.id === selectedPlayer.id)
-              ? handleToggleWicketKeeper
-              : undefined
-          }
-        />
+        {teamAnalyticsOpen ? (
+          <TeamAnalyticsPanel
+            team={team}
+            batRating={teamBatRatings[team.id] ?? 0}
+            bowlRating={teamBowlingRatings[team.id] ?? 0}
+            tournamentName={tournamentName}
+            onClose={() => onCloseTeamAnalytics?.()}
+            mode="docked"
+            panelWidth={playerPanelWidth}
+          />
+        ) : (
+          <PlayerDetailPanel
+            player={selectedPlayer}
+            tournamentName={tournamentName}
+            panelWidth={playerPanelWidth}
+            onClose={() => setSelectedPlayer(null)}
+            squadSlot={
+              selectedPlayer
+                ? startingXI.some((p) => p.id === selectedPlayer.id)
+                  ? 'starting'
+                  : 'bench'
+                : null
+            }
+            playerIsKeeper={selectedPlayer?.keeper === true}
+            onToggleWicketKeeper={
+              selectedPlayer && startingXI.some((p) => p.id === selectedPlayer.id)
+                ? handleToggleWicketKeeper
+                : undefined
+            }
+          />
+        )}
       </div>
     </div>
   )

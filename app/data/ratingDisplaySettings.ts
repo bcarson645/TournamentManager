@@ -4,6 +4,7 @@
  */
 
 const STORAGE_KEY = 'tm-squad-rating-dp'
+const STORAGE_KEY_VALUE_STEPPERS = 'tm-squad-value-steppers'
 
 export type SquadRatingDecimalPlaces = 0 | 1 | 2
 
@@ -17,6 +18,16 @@ export function readSquadRatingDp(): SquadRatingDecimalPlaces {
 export function writeSquadRatingDp(dp: SquadRatingDecimalPlaces): void {
   if (typeof window === 'undefined') return
   localStorage.setItem(STORAGE_KEY, String(dp))
+}
+
+export function readSquadValueSteppers(): boolean {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem(STORAGE_KEY_VALUE_STEPPERS) === '1'
+}
+
+export function writeSquadValueSteppers(enabled: boolean): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(STORAGE_KEY_VALUE_STEPPERS, enabled ? '1' : '0')
 }
 
 export function formatSquadRatingDisplay(value: number, dp: SquadRatingDecimalPlaces): string {

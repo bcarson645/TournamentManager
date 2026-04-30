@@ -15,7 +15,9 @@ import { calculateBatRating, calculateBowlRating, roundRatingToStoredDecimals } 
 import {
   formatSquadRatingDisplay,
   readSquadRatingDp,
+  readSquadValueSteppers,
   writeSquadRatingDp,
+  writeSquadValueSteppers,
   type SquadRatingDecimalPlaces,
 } from '../data/ratingDisplaySettings'
 
@@ -54,6 +56,12 @@ function PidCell({ playerId }: { playerId: string }) {
 const ALL_EDITABLE_FIELDS = ['btCaz', 'rawAdj', 'sr', 'overs', 'econ', 'bowlWpo'] as const
 type EditableField = (typeof ALL_EDITABLE_FIELDS)[number]
 const BOWL_EDITABLE: EditableField[] = ['overs', 'econ', 'bowlWpo']
+
+const STEP_BT_CAZ = 1
+const STEP_SR_CAZ = 0.01
+const STEP_OVERS = 0.1
+const STEP_ECON = 0.1
+const STEP_BOWL_SR_WPO = 0.01
 
 type RosterSection = 'starting' | 'reserves' | 'impact'
 
@@ -123,22 +131,6 @@ function IconBall(props: SVGProps<SVGSVGElement>) {
         strokeWidth="1.35"
         strokeLinecap="round"
         d="M7 10.5q2.25 3 10 6.75M17 13.75Q9.55 11.85 8.5 6.25"
-      />
-    </svg>
-  )
-}
-
-/** Wicket-keeping gloves (compact icon beside name in starting XI). */
-function IconKeeperGloves(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" width={15} height={15} aria-hidden focusable={false} {...props}>
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M8.5 8.5V6a2.5 2.5 0 015 0v2.5M7 10.5c0-1.1.9-2 2-2h6c1.1 0 2 .9 2 2V19a1 1 0 01-1 1h-8a1 1 0 01-1-1v-8.5zM10 21v-4M14 21v-4"
       />
     </svg>
   )
@@ -278,9 +270,11 @@ export default function SquadTable({
   const [addOpenRes, setAddOpenRes] = useState(false)
   const [addOpenImp, setAddOpenImp] = useState(false)
   const [ratingDp, setRatingDp] = useState<SquadRatingDecimalPlaces>(1)
+  const [valueSteppers, setValueSteppers] = useState(false)
 
   useEffect(() => {
     setRatingDp(readSquadRatingDp())
+    setValueSteppers(readSquadValueSteppers())
   }, [])
   const dragItem = useRef<{ section: RosterSection; index: number } | null>(null)
   const dragOver = useRef<{ section: RosterSection; index: number } | null>(null)
@@ -507,6 +501,22 @@ export default function SquadTable({
     updateField(section, index, 'rawAdj', String(newAdj))
   }
 
+  /** Step sizes: BT CAZ ±1, SR.CAZ ±0.01, overs/econ ±0.1, bowling SR (WPO) ±0.01 */
+  function nudgeValueField(section: RosterSection, index: number, field: EditableField, delta: number) {
+    const list = [...listFor(section, startingXI, reserves, impactSubs)]
+    const p = list[index]!
+    if (section !== 'reserves' && p.locked) return
+    let cur = field === 'bowlWpo' && !(p.bowlWpo > 0) ? 0 : (p[field] as number)
+    if (!Number.isFinite(cur)) cur = 0
+    let next = cur + delta
+    if (field === 'btCaz' || field === 'overs') {
+      next = Math.round(next * 10) / 10
+    } else if (field === 'econ' || field === 'bowlWpo') {
+      next = Math.round(next * 100) / 100
+    }
+    updateField(section, index, field, String(next))
+  }
+
   /** For ArrowDown at last row: Starting → Impact → Reserves. */
   function nextSectionIndex(section: RosterSection) {
     if (!impactSubEnabled) {
@@ -656,24 +666,70 @@ export default function SquadTable({
             <span className="sq-name-text">{player.name}</span>
             {section === 'starting' && player.keeper ? (
               <span className="sq-keeper-badge" title="Wicket-keeper">
-                <IconKeeperGloves className="sq-keeper-svg" />
+                <img
+                  src="/wk-keeper-gloves.png"
+                  alt=""
+                  width={16}
+                  height={16}
+                  className="sq-keeper-img"
+                  decoding="async"
+                />
               </span>
             ) : null}
           </span>
         </td>
-        <td className="sq-num sq-editable sq-stat sq-stat-bat">
-          <input
-            type="number"
-            className="cell-input"
-            value={player.btCaz}
-            disabled={rowLocked}
-            data-section={section}
-            data-row={index}
-            data-col={ALL_EDITABLE_FIELDS.indexOf('btCaz')}
-            onChange={(e) => updateField(section, index, 'btCaz', e.target.value)}
-            onKeyDown={(e) => handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('btCaz'))}
-            onFocus={(e) => e.target.select()}
-          />
+        <td
+          className={`sq-num sq-editable sq-stat sq-stat-bat${valueSteppers ? ' sq-cell-value-stepper' : ''}`}
+        >
+          {valueSteppers ? (
+            <div className="sq-value-stepper sq-value-stepper--spin-end">
+              <input
+                type="number"
+                className="cell-input cell-input-sq-step"
+                value={player.btCaz}
+                disabled={rowLocked}
+                data-section={section}
+                data-row={index}
+                data-col={ALL_EDITABLE_FIELDS.indexOf('btCaz')}
+                onChange={(e) => updateField(section, index, 'btCaz', e.target.value)}
+                onKeyDown={(e) => handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('btCaz'))}
+                onFocus={(e) => e.target.select()}
+              />
+              <div className="sq-value-spin-col" role="group" aria-label="BT CAZ stepper">
+                <button
+                  type="button"
+                  className="sq-value-spin-btn"
+                  disabled={rowLocked}
+                  aria-label="Increase BT CAZ by 1"
+                  onClick={() => nudgeValueField(section, index, 'btCaz', STEP_BT_CAZ)}
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  className="sq-value-spin-btn"
+                  disabled={rowLocked}
+                  aria-label="Decrease BT CAZ by 1"
+                  onClick={() => nudgeValueField(section, index, 'btCaz', -STEP_BT_CAZ)}
+                >
+                  ▼
+                </button>
+              </div>
+            </div>
+          ) : (
+            <input
+              type="number"
+              className="cell-input"
+              value={player.btCaz}
+              disabled={rowLocked}
+              data-section={section}
+              data-row={index}
+              data-col={ALL_EDITABLE_FIELDS.indexOf('btCaz')}
+              onChange={(e) => updateField(section, index, 'btCaz', e.target.value)}
+              onKeyDown={(e) => handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('btCaz'))}
+              onFocus={(e) => e.target.select()}
+            />
+          )}
         </td>
         <td
           className="sq-num sq-stat sq-stat-bat sq-raw-base"
@@ -716,20 +772,60 @@ export default function SquadTable({
             </button>
           </div>
         </td>
-        <td className="sq-num sq-editable sq-stat sq-stat-bat">
-          <input
-            type="number"
-            className="cell-input"
-            value={Math.round(player.sr * 100) / 100}
-            disabled={rowLocked}
-            step="0.01"
-            data-section={section}
-            data-row={index}
-            data-col={ALL_EDITABLE_FIELDS.indexOf('sr')}
-            onChange={(e) => updateField(section, index, 'sr', e.target.value)}
-            onKeyDown={(e) => handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('sr'))}
-            onFocus={(e) => e.target.select()}
-          />
+        <td
+          className={`sq-num sq-editable sq-stat sq-stat-bat${valueSteppers ? ' sq-cell-value-stepper' : ''}`}
+        >
+          {valueSteppers ? (
+            <div className="sq-value-stepper sq-value-stepper--spin-end">
+              <input
+                type="number"
+                className="cell-input cell-input-sq-step"
+                value={Math.round(player.sr * 100) / 100}
+                disabled={rowLocked}
+                step="0.01"
+                data-section={section}
+                data-row={index}
+                data-col={ALL_EDITABLE_FIELDS.indexOf('sr')}
+                onChange={(e) => updateField(section, index, 'sr', e.target.value)}
+                onKeyDown={(e) => handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('sr'))}
+                onFocus={(e) => e.target.select()}
+              />
+              <div className="sq-value-spin-col" role="group" aria-label="SR.CAZ stepper">
+                <button
+                  type="button"
+                  className="sq-value-spin-btn"
+                  disabled={rowLocked}
+                  aria-label="Increase SR.CAZ by 0.01"
+                  onClick={() => nudgeValueField(section, index, 'sr', STEP_SR_CAZ)}
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  className="sq-value-spin-btn"
+                  disabled={rowLocked}
+                  aria-label="Decrease SR.CAZ by 0.01"
+                  onClick={() => nudgeValueField(section, index, 'sr', -STEP_SR_CAZ)}
+                >
+                  ▼
+                </button>
+              </div>
+            </div>
+          ) : (
+            <input
+              type="number"
+              className="cell-input"
+              value={Math.round(player.sr * 100) / 100}
+              disabled={rowLocked}
+              step="0.01"
+              data-section={section}
+              data-row={index}
+              data-col={ALL_EDITABLE_FIELDS.indexOf('sr')}
+              onChange={(e) => updateField(section, index, 'sr', e.target.value)}
+              onKeyDown={(e) => handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('sr'))}
+              onFocus={(e) => e.target.select()}
+            />
+          )}
         </td>
         <td className="sq-num sq-stat sq-stat-bat">{player.fours.toFixed(1)}</td>
         <td className="sq-num sq-stat sq-stat-bat">{player.sixes.toFixed(1)}</td>
@@ -767,21 +863,70 @@ export default function SquadTable({
         <td className="sq-num sq-stat sq-stat-bowl">{player.wkts.toFixed(1)}</td>
         {BOWL_EDITABLE.map((field) => {
           const colIdx = ALL_EDITABLE_FIELDS.indexOf(field)
+          const delta =
+            field === 'overs' ? STEP_OVERS : field === 'econ' ? STEP_ECON : STEP_BOWL_SR_WPO
+          const label =
+            field === 'overs'
+              ? ('Overs' as const)
+              : field === 'econ'
+                ? ('Economy rate' as const)
+                : ('Bowling SR' as const)
           return (
-            <td key={field} className="sq-num sq-editable sq-stat sq-stat-bowl">
-              <input
-                type="number"
-                className="cell-input"
-                value={field === 'bowlWpo' ? (player.bowlWpo > 0 ? player[field] : '') : player[field]}
-                disabled={rowLocked}
-                step={field === 'bowlWpo' ? '0.001' : undefined}
-                data-section={section}
-                data-row={index}
-                data-col={colIdx}
-                onChange={(e) => updateField(section, index, field, e.target.value)}
-                onKeyDown={(e) => handleCellKeyDown(e, section, index, colIdx)}
-                onFocus={(e) => e.target.select()}
-              />
+            <td
+              key={field}
+              className={`sq-num sq-editable sq-stat sq-stat-bowl${valueSteppers ? ' sq-cell-value-stepper' : ''}`}
+            >
+              {valueSteppers ? (
+                <div className="sq-value-stepper sq-value-stepper--spin-end">
+                  <input
+                    type="number"
+                    className="cell-input cell-input-sq-step"
+                    value={field === 'bowlWpo' ? (player.bowlWpo > 0 ? player[field] : '') : player[field]}
+                    disabled={rowLocked}
+                    step={field === 'bowlWpo' ? '0.01' : '0.1'}
+                    data-section={section}
+                    data-row={index}
+                    data-col={colIdx}
+                    onChange={(e) => updateField(section, index, field, e.target.value)}
+                    onKeyDown={(e) => handleCellKeyDown(e, section, index, colIdx)}
+                    onFocus={(e) => e.target.select()}
+                  />
+                  <div className="sq-value-spin-col" role="group" aria-label={`${label} stepper`}>
+                    <button
+                      type="button"
+                      className="sq-value-spin-btn"
+                      disabled={rowLocked}
+                      aria-label={`Increase ${label} by ${delta}`}
+                      onClick={() => nudgeValueField(section, index, field, delta)}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="sq-value-spin-btn"
+                      disabled={rowLocked}
+                      aria-label={`Decrease ${label} by ${delta}`}
+                      onClick={() => nudgeValueField(section, index, field, -delta)}
+                    >
+                      ▼
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  className="cell-input"
+                  value={field === 'bowlWpo' ? (player.bowlWpo > 0 ? player[field] : '') : player[field]}
+                  disabled={rowLocked}
+                  step={field === 'bowlWpo' ? '0.001' : undefined}
+                  data-section={section}
+                  data-row={index}
+                  data-col={colIdx}
+                  onChange={(e) => updateField(section, index, field, e.target.value)}
+                  onKeyDown={(e) => handleCellKeyDown(e, section, index, colIdx)}
+                  onFocus={(e) => e.target.select()}
+                />
+              )}
             </td>
           )
         })}
@@ -859,35 +1004,54 @@ export default function SquadTable({
   const addResultsRes = useMemo(() => searchPlayers(addQueryRes, existingNames), [addQueryRes, existingNames])
   const addResultsImp = useMemo(() => searchPlayers(addQueryImp, existingNames), [addQueryImp, existingNames])
 
+  const squadTableClass = `squad-table${valueSteppers ? ' squad-table--value-steppers' : ''}`
+
   return (
     <div className="squad-table-container">
       <div className="squad-section squad-section-panel">
         <div className="squad-section-header-row">
           <h3 className="squad-section-title">Starting XI</h3>
-          <label className="squad-rating-dp-control" title="Decimal places for Bat and Bowl rating columns">
-            <span className="squad-dp-icon" aria-hidden>
-              ⚙
-            </span>
-            <span className="sr-only">Rating decimal places</span>
-            <select
-              className="squad-rating-dp-select"
-              value={ratingDp}
-              onChange={(e) => {
-                const v = Number(e.target.value) as SquadRatingDecimalPlaces
-                if (v === 0 || v === 1 || v === 2) {
-                  setRatingDp(v)
-                  writeSquadRatingDp(v)
-                }
-              }}
+          <div className="squad-section-header-controls">
+            <label
+              className="squad-value-steppers-control"
+              title="Slightly wider stat cells with steppers hidden until you hover the cell or focus the input (±1 / ±0.01 / ±0.1). RAW ADJ always has buttons. Touch: steppers stay visible."
             >
-              <option value={0}>Ratings: 0 dp</option>
-              <option value={1}>Ratings: 1 dp</option>
-              <option value={2}>Ratings: 2 dp</option>
-            </select>
-          </label>
+              <input
+                type="checkbox"
+                checked={valueSteppers}
+                onChange={(e) => {
+                  const checked = e.target.checked
+                  setValueSteppers(checked)
+                  writeSquadValueSteppers(checked)
+                }}
+              />
+              <span>Value steppers</span>
+            </label>
+            <label className="squad-rating-dp-control" title="Decimal places for Bat and Bowl rating columns">
+              <span className="squad-dp-icon" aria-hidden>
+                ⚙
+              </span>
+              <span className="sr-only">Rating decimal places</span>
+              <select
+                className="squad-rating-dp-select"
+                value={ratingDp}
+                onChange={(e) => {
+                  const v = Number(e.target.value) as SquadRatingDecimalPlaces
+                  if (v === 0 || v === 1 || v === 2) {
+                    setRatingDp(v)
+                    writeSquadRatingDp(v)
+                  }
+                }}
+              >
+                <option value={0}>Ratings: 0 dp</option>
+                <option value={1}>Ratings: 1 dp</option>
+                <option value={2}>Ratings: 2 dp</option>
+              </select>
+            </label>
+          </div>
         </div>
         <div className="squad-table-wrap">
-          <table className="squad-table">
+          <table className={squadTableClass}>
             <thead>
               {buildSquadTableHeaderRows('Pos', 'Line-up order in the starting XI (1–11)')}
             </thead>
@@ -901,7 +1065,7 @@ export default function SquadTable({
         <div className="squad-section squad-section-panel">
           <h3 className="squad-section-title">Impact subs</h3>
           <div className="squad-table-wrap">
-            <table className="squad-table">
+            <table className={squadTableClass}>
               <thead>
                 {buildSquadTableHeaderRows(
                   'Rtg pos',
@@ -1006,7 +1170,7 @@ export default function SquadTable({
       <div className="squad-section squad-section-panel">
         <h3 className="squad-section-title">Reserves</h3>
         <div className="squad-table-wrap">
-          <table className="squad-table">
+          <table className={squadTableClass}>
             <thead>
               {buildSquadTableHeaderRows(
                 'Rtg pos',

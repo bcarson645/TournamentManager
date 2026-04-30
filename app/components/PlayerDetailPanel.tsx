@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, type CSSProperties } from 'react'
+import { useState, useRef, useEffect, useMemo, type CSSProperties } from 'react'
 import { SquadPlayer } from '../data/squad'
 import {
   PlayerProfile,
@@ -10,6 +10,8 @@ import {
   RecentInnings,
   TournamentRecord,
 } from '../data/playerProfile'
+import { generatePlayerDeepBatting, generatePlayerDeepBowling } from '../data/playerAnalyticsMock'
+import { BattingDeepPanels, BowlingDeepPanels, H2hPlaceholder } from './PlayerAnalyticsSegments'
 
 interface PlayerDetailPanelProps {
   player: SquadPlayer | null
@@ -22,7 +24,7 @@ interface PlayerDetailPanelProps {
   onToggleWicketKeeper?: () => void
 }
 
-type StatsTab = 'batting' | 'bowling'
+type StatsTab = 'batting' | 'bowling' | 'h2h'
 
 /** Stored as SR.CAZ (per ball); player stats UI uses traditional SR per 100 balls. */
 function srPer100FromCaz(caz: number): number {
@@ -71,6 +73,15 @@ export default function PlayerDetailPanel({
   )
   const [statsTab, setStatsTab] = useState<StatsTab>('batting')
   const photoRef = useRef<HTMLInputElement>(null)
+
+  const deepBat = useMemo(
+    () => (player ? generatePlayerDeepBatting(player.id) : null),
+    [player?.id],
+  )
+  const deepBowl = useMemo(
+    () => (player ? generatePlayerDeepBowling(player.id) : null),
+    [player?.id],
+  )
 
   useEffect(() => {
     if (player) setProfile(getProfileForPlayer(player.name))
@@ -123,101 +134,126 @@ export default function PlayerDetailPanel({
 
   return (
     <aside className="pp-panel" style={panelStyle}>
-      <div className="pp-panel-scroll">
-        <div className="pp-header">
-          <div
-            className="pp-photo-wrap"
-            onClick={() => photoRef.current?.click()}
-            title="Click to upload photo"
-          >
-            {profile.photo ? (
-              <img src={profile.photo} alt="" className="pp-photo" />
-            ) : (
-              <div className="pp-photo-placeholder">
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <circle cx="12" cy="8" r="4" />
-                  <path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8" />
-                </svg>
-              </div>
-            )}
-            <div className="pp-photo-overlay">✎</div>
-            <input
-              ref={photoRef}
-              type="file"
-              accept="image/*"
-              className="team-logo-input"
-              onChange={handlePhotoChange}
-            />
+      <div className="pp-panel-body">
+        <div className="pp-panel-chrome">
+          <div className="pp-header">
+            <div
+              className="pp-photo-wrap"
+              onClick={() => photoRef.current?.click()}
+              title="Click to upload photo"
+            >
+              {profile.photo ? (
+                <img src={profile.photo} alt="" className="pp-photo" />
+              ) : (
+                <div className="pp-photo-placeholder">
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="12" cy="8" r="4" />
+                    <path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8" />
+                  </svg>
+                </div>
+              )}
+              <div className="pp-photo-overlay">✎</div>
+              <input
+                ref={photoRef}
+                type="file"
+                accept="image/*"
+                className="team-logo-input"
+                onChange={handlePhotoChange}
+              />
+            </div>
+            <div className="pp-header-info">
+              <div className="pp-name">{player.name}</div>
+              <input
+                type="text"
+                className="pp-country-input"
+                placeholder="Country"
+                value={profile.country}
+                onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))}
+              />
+            </div>
+            <button className="pp-close" onClick={onClose} title="Close">×          </button>
           </div>
-          <div className="pp-header-info">
-            <div className="pp-name">{player.name}</div>
-            <input
-              type="text"
-              className="pp-country-input"
-              placeholder="Country"
-              value={profile.country}
-              onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))}
-            />
-          </div>
-          <button className="pp-close" onClick={onClose} title="Close">×          </button>
-        </div>
 
-        <div className="pp-tabs" role="tablist" aria-label="Batting and bowling stats">
-          <button
-            type="button"
-            role="tab"
-            id="pp-tab-batting"
-            aria-selected={statsTab === 'batting'}
-            aria-controls="pp-panel-batting"
-            className={
-              'pp-tab pp-tab-stat pp-tab-stat--bat' +
-              (statsTab === 'batting' ? ' pp-tab-active pp-tab-active--bat' : '')
-            }
-            onClick={() => setStatsTab('batting')}
-          >
-            Batting
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="pp-tab-bowling"
-            aria-selected={statsTab === 'bowling'}
-            aria-controls="pp-panel-bowling"
-            className={
-              'pp-tab pp-tab-stat pp-tab-stat--bowl' +
-              (statsTab === 'bowling' ? ' pp-tab-active pp-tab-active--bowl' : '')
-            }
-            onClick={() => setStatsTab('bowling')}
-          >
-            Bowling
-          </button>
-        </div>
-
-        {squadSlot === 'starting' && onToggleWicketKeeper && (
-          <div className="pp-wk-row">
+          <div className="pp-tabs" role="tablist" aria-label="Batting bowling and head-to-head">
             <button
               type="button"
-              className={'pp-wk-btn' + (playerIsKeeper ? ' pp-wk-btn--active' : '')}
-              onClick={onToggleWicketKeeper}
-              title={
-                playerIsKeeper
-                  ? 'This player is the wicket-keeper. Click to clear.'
-                  : 'Mark this starting XI player as wicket-keeper.'
+              role="tab"
+              id="pp-tab-batting"
+              aria-selected={statsTab === 'batting'}
+              aria-controls="pp-panel-batting"
+              className={
+                'pp-tab pp-tab-stat pp-tab-stat--bat' +
+                (statsTab === 'batting' ? ' pp-tab-active pp-tab-active--bat' : '')
               }
+              onClick={() => setStatsTab('batting')}
             >
-              {playerIsKeeper ? 'Clear WK' : 'Assign WK'}
+              Batting
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="pp-tab-bowling"
+              aria-selected={statsTab === 'bowling'}
+              aria-controls="pp-panel-bowling"
+              className={
+                'pp-tab pp-tab-stat pp-tab-stat--bowl' +
+                (statsTab === 'bowling' ? ' pp-tab-active pp-tab-active--bowl' : '')
+              }
+              onClick={() => setStatsTab('bowling')}
+            >
+              Bowling
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="pp-tab-h2h"
+              aria-selected={statsTab === 'h2h'}
+              aria-controls="pp-panel-h2h"
+              className={
+                'pp-tab pp-tab-stat pp-tab-stat--h2h' +
+                (statsTab === 'h2h' ? ' pp-tab-active pp-tab-active--h2h' : '')
+              }
+              onClick={() => setStatsTab('h2h')}
+            >
+              H2H
             </button>
           </div>
-        )}
 
-        {statsTab === 'batting' && (
+          {squadSlot === 'starting' && onToggleWicketKeeper && (
+            <div className="pp-wk-row">
+              <button
+                type="button"
+                className={'pp-wk-btn' + (playerIsKeeper ? ' pp-wk-btn--active' : '')}
+                onClick={onToggleWicketKeeper}
+                title={
+                  playerIsKeeper
+                    ? 'This player is the wicket-keeper. Click to clear.'
+                    : 'Mark this starting XI player as wicket-keeper.'
+                }
+              >
+                <img
+                  src="/wk-keeper-gloves.png"
+                  alt=""
+                  width={18}
+                  height={18}
+                  className="pp-wk-gloves"
+                  decoding="async"
+                />
+                <span>{playerIsKeeper ? 'Clear WK' : 'Assign WK'}</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="pp-panel-scroll pp-panel-scroll--body">
+          {statsTab === 'batting' && (
           <div
             className="pp-tab-panel pp-tab-panel--batting"
             id="pp-panel-batting"
             role="tabpanel"
             aria-labelledby="pp-tab-batting"
           >
-            <div className="pp-section">
+            <div className="pp-section pp-section--career-overview">
               <h3 className="pp-section-title pp-section-title--bat">Career Batting</h3>
               <div className="pp-stat-grid">
                 {(
@@ -239,6 +275,14 @@ export default function PlayerDetailPanel({
                 ))}
               </div>
             </div>
+
+            <div className="pp-detail-divider">
+              <span className="pp-detail-divider-text">Analytics & benchmarks</span>
+            </div>
+
+            {deepBat ? (
+              <BattingDeepPanels deep={deepBat} squadBtCaz={player.btCaz} squadRaw={player.raw} />
+            ) : null}
 
             <div className="pp-section">
               <h3 className="pp-section-title pp-section-title--bat-sub">Recent Performance (Last 10 Innings)</h3>
@@ -305,7 +349,7 @@ export default function PlayerDetailPanel({
             role="tabpanel"
             aria-labelledby="pp-tab-bowling"
           >
-            <div className="pp-section">
+            <div className="pp-section pp-section--career-overview">
               <h3 className="pp-section-title pp-section-title--bowl">Career Bowling</h3>
               <div className="pp-stat-grid">
                 {(
@@ -327,8 +371,26 @@ export default function PlayerDetailPanel({
                 ))}
               </div>
             </div>
+
+            <div className="pp-detail-divider">
+              <span className="pp-detail-divider-text">Analytics & benchmarks</span>
+            </div>
+
+            {deepBowl ? <BowlingDeepPanels deep={deepBowl} squadEcon={player.econ} /> : null}
           </div>
         )}
+
+          {statsTab === 'h2h' && (
+            <div
+              className="pp-tab-panel pp-tab-panel--h2h"
+              id="pp-panel-h2h"
+              role="tabpanel"
+              aria-labelledby="pp-tab-h2h"
+            >
+              <H2hPlaceholder />
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   )
