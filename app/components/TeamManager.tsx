@@ -376,16 +376,11 @@ export default function TeamManager({
     }
   }
 
-  function handleCreateCustomPlayer(name: string, target: 'reserves' | 'impact') {
+  function handleCreateCustomPlayer(name: string) {
     const trimmed = name.trim()
     if (!trimmed) return
-    if (target === 'impact' && impactSubs.length >= MAX_IMPACT_SUBS) return
     const p = createCustomSquadBlank(team.id, trimmed, format, gender)
-    if (target === 'reserves') {
-      handleUpdate(startingXI, [...reserves, p], impactSubs)
-    } else {
-      handleUpdate(startingXI, reserves, [...impactSubs, p])
-    }
+    handleUpdate(startingXI, [...reserves, p], impactSubs)
     setSelectedPlayer(p)
   }
 

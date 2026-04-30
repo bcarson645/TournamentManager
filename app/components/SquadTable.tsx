@@ -271,8 +271,8 @@ interface SquadTableProps {
   selectedPlayerId?: string | null
   onSelectPlayer?: (player: SquadPlayer) => void
   onAddPlayer?: (dbEntry: PlayerDbEntry, target: 'reserves' | 'impact') => void
-  /** Add a named player with blank (zero) stats for manual editing. */
-  onCreateCustomPlayer?: (name: string, target: 'reserves' | 'impact') => void
+  /** Add a named player with blank (zero) stats to reserves for manual editing. */
+  onCreateCustomPlayer?: (name: string) => void
 }
 
 export default function SquadTable({
@@ -294,7 +294,6 @@ export default function SquadTable({
   const [addOpenRes, setAddOpenRes] = useState(false)
   const [addOpenImp, setAddOpenImp] = useState(false)
   const [customReserveName, setCustomReserveName] = useState('')
-  const [customImpactName, setCustomImpactName] = useState('')
   const [ratingDp, setRatingDp] = useState<SquadRatingDecimalPlaces>(1)
   const [valueSteppers, setValueSteppers] = useState(false)
   const [hideBatRawCols, setHideBatRawCols] = useState(false)
@@ -1226,42 +1225,6 @@ export default function SquadTable({
                   <p className="squad-add-cap">Maximum {MAX_IMPACT_SUBS}.</p>
                 )}
               </div>
-              {onCreateCustomPlayer ? (
-                <div className="squad-add-custom">
-                  <span className="squad-add-custom-label">Custom player</span>
-                  <div className="squad-add-custom-row">
-                    <input
-                      type="text"
-                      className="squad-add-input squad-add-custom-input"
-                      placeholder="Full name…"
-                      value={customImpactName}
-                      onChange={(e) => setCustomImpactName(e.target.value)}
-                      disabled={impactSubs.length >= MAX_IMPACT_SUBS}
-                      onKeyDown={(e) => {
-                        if (e.key !== 'Enter') return
-                        e.preventDefault()
-                        const q = customImpactName.trim()
-                        if (!q || impactSubs.length >= MAX_IMPACT_SUBS) return
-                        onCreateCustomPlayer(q, 'impact')
-                        setCustomImpactName('')
-                      }}
-                      aria-label="Custom player name for impact subs"
-                    />
-                    <button
-                      type="button"
-                      className="squad-add-custom-btn"
-                      disabled={!customImpactName.trim() || impactSubs.length >= MAX_IMPACT_SUBS}
-                      onClick={() => {
-                        onCreateCustomPlayer(customImpactName.trim(), 'impact')
-                        setCustomImpactName('')
-                      }}
-                    >
-                      Add blank to impact
-                    </button>
-                  </div>
-                  <p className="squad-add-custom-hint">Zeroed stats — edit in the squad table.</p>
-                </div>
-              ) : null}
             </div>
           )}
         </div>
@@ -1340,7 +1303,7 @@ export default function SquadTable({
                       e.preventDefault()
                       const q = customReserveName.trim()
                       if (!q) return
-                      onCreateCustomPlayer(q, 'reserves')
+                      onCreateCustomPlayer(q)
                       setCustomReserveName('')
                     }}
                     aria-label="Custom player name for reserves"
@@ -1350,7 +1313,7 @@ export default function SquadTable({
                     className="squad-add-custom-btn"
                     disabled={!customReserveName.trim()}
                     onClick={() => {
-                      onCreateCustomPlayer(customReserveName.trim(), 'reserves')
+                      onCreateCustomPlayer(customReserveName.trim())
                       setCustomReserveName('')
                     }}
                   >
