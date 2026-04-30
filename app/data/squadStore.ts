@@ -18,13 +18,88 @@ interface StoredSquad {
 
 const store: Record<string, StoredSquad> = {}
 
-/** Bumps when any squad is saved — use with `useSyncExternalStore` so UI ratings refresh. */
+/** Bumps when squads hydrate or mutate — use with `useSyncExternalStore` so UI refreshes. */
 let squadStoreVersion = 0
 const squadStoreListeners = new Set<() => void>()
 
 function notifySquadStoreChanged(): void {
   squadStoreVersion += 1
   squadStoreListeners.forEach((l) => l())
+}
+
+/**
+ * `localStorage` key for drafted squads (same origin only). Clearing site data wipes this too.
+ */
+export const SQUAD_DRAFTS_STORAGE_KEY = 'tm-squad-snapshots-v1'
+
+/** Browser-only: full squad drafts (starting XI, reserves, impact subs, venue) keyed by team id. */
+const PERSISTENCE_KEY = SQUAD_DRAFTS_STORAGE_KEY
+const PERSISTENCE_VERSION = 1
+const PERSIST_DEBOUNCE_MS = 175
+
+function isLikelyStoredSquad(v: unknown): v is StoredSquad {
+  if (!v || typeof v !== 'object') return false
+  const o = v as Record<string, unknown>
+  const lists = ['startingXI', 'reserves', 'impactSubs'] as const
+  for (const k of lists) {
+    const a = o[k]
+    if (k !== 'impactSubs' && !Array.isArray(a)) return false
+    if (k === 'impactSubs' && a !== undefined && !Array.isArray(a)) return false
+  }
+  return o.groundId === null || typeof o.groundId === 'string'
+}
+
+let persistPending: ReturnType<typeof setTimeout> | null = null
+
+/** Write all squads to `localStorage` (call after edits; normally debounced + flush on unload). */
+function flushPersistSquadsToStorage(): void {
+  if (typeof window === 'undefined') return
+  if (persistPending !== null) {
+    clearTimeout(persistPending)
+    persistPending = null
+  }
+  try {
+    const payload = { v: PERSISTENCE_VERSION, squads: store }
+    window.localStorage.setItem(PERSISTENCE_KEY, JSON.stringify(payload))
+  } catch {
+    // Quota, private mode, SSR bridge — drafts stay in RAM only until next successful write.
+  }
+}
+
+function schedulePersistSquads(): void {
+  if (typeof window === 'undefined') return
+  if (persistPending !== null) clearTimeout(persistPending)
+  persistPending = setTimeout(() => {
+    persistPending = null
+    flushPersistSquadsToStorage()
+  }, PERSIST_DEBOUNCE_MS)
+}
+
+/** Load persisted squads as soon as this module runs in the browser. */
+function hydrateSquadsOnce(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const raw = window.localStorage.getItem(PERSISTENCE_KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw) as { v?: number; squads?: unknown }
+    if (parsed?.v !== PERSISTENCE_VERSION || !parsed.squads || typeof parsed.squads !== 'object') return false
+    let touched = false
+    for (const [teamId, squad] of Object.entries(parsed.squads as Record<string, unknown>)) {
+      if (isLikelyStoredSquad(squad)) {
+        store[teamId] = squad
+        touched = true
+      }
+    }
+    return touched
+  } catch {
+    return false
+  }
+}
+
+if (typeof window !== 'undefined') {
+  const hadPersistedData = hydrateSquadsOnce()
+  if (hadPersistedData) notifySquadStoreChanged()
+  window.addEventListener('pagehide', flushPersistSquadsToStorage)
 }
 
 /** Subscribe to squad mutations (after `storeSquad`). */
@@ -56,6 +131,24 @@ export function storeSquad(
   impactSubs: SquadPlayer[] = [],
 ): void {
   store[teamId] = { startingXI: capStartingXIOvers(startingXI), reserves, impactSubs, groundId }
+  notifySquadStoreChanged()
+  schedulePersistSquads()
+}
+
+/** Clears persisted squad drafts from this browser plus the in-memory cache. */
+export function clearAllPersistedSquads(): void {
+  if (persistPending !== null && typeof window !== 'undefined') {
+    clearTimeout(persistPending)
+    persistPending = null
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.removeItem(PERSISTENCE_KEY)
+    } catch {
+      /* ignore */
+    }
+  }
+  for (const id of Object.keys(store)) delete store[id]
   notifySquadStoreChanged()
 }
 

@@ -1,6 +1,7 @@
+import { BLAST_MEN_SQUADS } from './blastMenSquads'
 import { IPL_PLAYERS } from './iplPlayers'
 import { THE_HUNDRED_MEN_SQUADS } from './theHundredMenPlayers'
-import { getProfileForPlayer } from './playerProfile'
+import { makeDefaultProfile, getProfileForPlayer } from './playerProfile'
 import { calculateBatRating, calculateBowlRating } from './ratingBenchmarks'
 import type { CricketFormat, Gender } from './tournaments'
 
@@ -119,23 +120,7 @@ export function normalizeBowlStats(
 const KNOWN_PLAYERS: Record<string, string[]> = {
   ...IPL_PLAYERS,
   ...THE_HUNDRED_MEN_SQUADS,
-  'blast-sussex-sharks': [
-    'Daniel Hughes',
-    'Harrison Ward',
-    'Tom Alsop',
-    'James Coles',
-    'John Simpson',
-    'Jack Carson',
-    'Danny Briggs',
-    'Henry Crocombe',
-    'Ollie Robinson',
-    'Tymal Mills',
-    'Danny Lamb',
-    'Ollie Carter',
-    'Tom Haines',
-    'Tom Clark',
-    'Brad Currie',
-  ],
+  ...BLAST_MEN_SQUADS,
 }
 
 function makePlayer(
@@ -183,6 +168,65 @@ function makePlayer(
     ratingParPosition,
     batRating,
     action: 'SEAM' as BowlAction,
+    wkts,
+    overs,
+    econ,
+    bowlWpo,
+    bowlAvg,
+    bowlRating,
+    locked: false,
+    keeper: false,
+  }
+}
+
+/** New bench/impact player with default (zero) stats for manual editing — not seeded from KNOWN_STATS. */
+export function createCustomSquadBlank(
+  teamId: string,
+  displayName: string,
+  format: CricketFormat = 't20',
+  gender: Gender = 'men',
+): SquadPlayer {
+  const name = displayName.trim() || 'Custom player'
+  const rid =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  const id = `${teamId}-custom-${rid}`
+  const playerId = String(Math.floor(10000000 + Math.random() * 89999999)).padStart(8, '0')
+
+  const profile = makeDefaultProfile()
+  const bat = profile.careerBatting
+  const bowl = profile.careerBowling
+  const btCaz = bat.average || 0
+  const rawBase = bat.average ? Math.round(bat.average * 0.85 * 10) / 10 : 0
+  const rawAdj = 0
+  const raw = Math.round((rawBase + rawAdj) * 10) / 10
+  const sr = bat.strikeRate ?? 0
+  const ratingParPosition = 11
+  const batRating = calculateBatRating(btCaz, raw, sr, ratingParPosition, format, gender)
+
+  const econ = bowl.economy || 0
+  const ballsPerWicket = bowl.strikeRate || 0
+  const bowlWpo = ballsPerWicket > 0 ? 6 / ballsPerWicket : 0
+  const overs = 0
+
+  const { wkts, bowlAvg } = calcWktsAndBowlAvg(overs, econ, bowlWpo)
+  const bowlRating = calculateBowlRating(econ, bowlWpo, bowlAvg, overs, format, gender)
+
+  return {
+    id,
+    playerId,
+    name,
+    btCaz,
+    rawBase,
+    rawAdj,
+    raw,
+    sr,
+    fours: 0,
+    sixes: 0,
+    ratingParPosition,
+    batRating,
+    action: 'SEAM',
     wkts,
     overs,
     econ,

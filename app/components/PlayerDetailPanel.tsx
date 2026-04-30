@@ -22,6 +22,8 @@ interface PlayerDetailPanelProps {
   squadSlot?: 'starting' | 'bench' | null
   playerIsKeeper?: boolean
   onToggleWicketKeeper?: () => void
+  /** Remove this player from Starting XI, reserves, or impact (with confirm). */
+  onRemoveFromSquad?: () => void
 }
 
 type StatsTab = 'batting' | 'bowling' | 'h2h'
@@ -67,6 +69,7 @@ export default function PlayerDetailPanel({
   squadSlot = null,
   playerIsKeeper = false,
   onToggleWicketKeeper,
+  onRemoveFromSquad,
 }: PlayerDetailPanelProps) {
   const [profile, setProfile] = useState<PlayerProfile>(() =>
     player ? getProfileForPlayer(player.name) : getProfileForPlayer(''),
@@ -219,28 +222,35 @@ export default function PlayerDetailPanel({
             </button>
           </div>
 
-          {squadSlot === 'starting' && onToggleWicketKeeper && (
-            <div className="pp-wk-row">
-              <button
-                type="button"
-                className={'pp-wk-btn' + (playerIsKeeper ? ' pp-wk-btn--active' : '')}
-                onClick={onToggleWicketKeeper}
-                title={
-                  playerIsKeeper
-                    ? 'This player is the wicket-keeper. Click to clear.'
-                    : 'Mark this starting XI player as wicket-keeper.'
-                }
-              >
-                <img
-                  src="/wk-keeper-gloves.png"
-                  alt=""
-                  width={18}
-                  height={18}
-                  className="pp-wk-gloves"
-                  decoding="async"
-                />
-                <span>{playerIsKeeper ? 'Clear WK' : 'Assign WK'}</span>
-              </button>
+          {((squadSlot === 'starting' && onToggleWicketKeeper) || onRemoveFromSquad) && (
+            <div className="pp-squad-actions-row">
+              {squadSlot === 'starting' && onToggleWicketKeeper ? (
+                <button
+                  type="button"
+                  className={'pp-wk-btn' + (playerIsKeeper ? ' pp-wk-btn--active' : '')}
+                  onClick={onToggleWicketKeeper}
+                  title={
+                    playerIsKeeper
+                      ? 'This player is the wicket-keeper. Click to clear.'
+                      : 'Mark this starting XI player as wicket-keeper.'
+                  }
+                >
+                  <img
+                    src="/wk-keeper-gloves.png"
+                    alt=""
+                    width={18}
+                    height={18}
+                    className="pp-wk-gloves"
+                    decoding="async"
+                  />
+                  <span>{playerIsKeeper ? 'Clear WK' : 'Assign WK'}</span>
+                </button>
+              ) : null}
+              {onRemoveFromSquad ? (
+                <button type="button" className="pp-remove-squad-btn" onClick={onRemoveFromSquad}>
+                  Remove from squad
+                </button>
+              ) : null}
             </div>
           )}
         </div>

@@ -348,10 +348,141 @@ export default function Home() {
         <div className={`step-dot ${stepIndex === 2 ? 'active' : ''}`}>3</div>
       </div>
 
-      {/* Wizard: format → category → tournament (opens dashboard); upcoming + in progress on the left */}
+      {/* Wizard: format → category → tournament (left); upcoming centre; in progress right */}
       {(view === 'format' || view === 'gender' || view === 'tournaments') && (
         <>
           <div className="format-step-grid">
+            <div className="format-step-main">
+              {view === 'format' && (
+                <>
+              <h1 className="page-heading">Select Format</h1>
+              <p className="page-sub">Choose the format of cricket you want to manage, or search for a tournament or team.</p>
+
+              {/* Search bar */}
+              <div className="search-container">
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Search tournaments or teams..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchResults.length > 0 && (
+                  <ul className="search-results">
+                    {searchResults.map((r, i) => (
+                      <li
+                        key={`${r.type}-${r.tournamentId}-${r.teamId ?? i}`}
+                        className="search-result-item"
+                        onClick={() => handleSearchSelect(r)}
+                      >
+                        <span className={`search-result-badge ${r.type === 'team' ? 'badge-team' : 'badge-tournament'}`}>
+                          {r.type === 'team' ? 'Team' : 'Tournament'}
+                        </span>
+                        <div className="search-result-text">
+                          <span className="search-result-label">{r.label}</span>
+                          <span className="search-result-sub">{r.sublabel}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {searchQuery.trim().length >= 2 && searchResults.length === 0 && (
+                  <div className="search-no-results">No results found</div>
+                )}
+              </div>
+
+              {/* Format list */}
+              <div className="format-list">
+                {FORMATS.map((f) => (
+                  <div
+                    key={f.key}
+                    className="format-list-item"
+                    onClick={() => handleFormatSelect(f.key)}
+                  >
+                    <div className="format-list-info">
+                      <span className="format-list-label">{f.label}</span>
+                      <span className="format-list-desc">{f.description}</span>
+                    </div>
+                    <span className="format-list-arrow">→</span>
+                  </div>
+                ))}
+              </div>
+                </>
+              )}
+
+              {view === 'gender' && (
+                <>
+                  <button type="button" className="back-btn" onClick={goBack}>
+                    ← Back to formats
+                  </button>
+                  <h1 className="page-heading">{formatLabel} — Select Category</h1>
+                  <p className="page-sub">Choose which category of tournaments to view.</p>
+                  <div className="format-list">
+                    {GENDERS.map((g) => (
+                      <div
+                        key={g.key}
+                        className="format-list-item"
+                        onClick={() => handleGenderSelect(g.key)}
+                      >
+                        <div className="format-list-info">
+                          <span className="format-list-label">{g.label}</span>
+                        </div>
+                        <span className="format-list-arrow">→</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {view === 'tournaments' && (
+                <>
+                  <button type="button" className="back-btn" onClick={goBack}>
+                    ← Back to category
+                  </button>
+                  <h1 className="page-heading">
+                    {formatLabel} — {genderLabel} Tournaments
+                  </h1>
+                  <p className="page-sub">
+                    Open a tournament to go to its main page (overview, standings, and teams).
+                  </p>
+
+                  {tournaments.length === 0 ? (
+                    <div className="empty-state">
+                      <div className="empty-state-icon">No tournaments</div>
+                      <p>No tournaments available yet.</p>
+                    </div>
+                  ) : (
+                    <div className="tournament-list">
+                      {tournaments.map((t) => (
+                        <div
+                          key={t.id}
+                          className="tournament-item"
+                          role="button"
+                          tabIndex={0}
+                          title={`Open tournament page — ${t.name}`}
+                          aria-label={`Open tournament page: ${t.name}`}
+                          onClick={() => handleTournamentSelect(t.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              handleTournamentSelect(t.id)
+                            }
+                          }}
+                        >
+                          <div>
+                            <div className="tournament-name">{t.name}</div>
+                            {t.country && (
+                              <div className="tournament-meta">{t.country}</div>
+                            )}
+                          </div>
+                          <span className="tournament-arrow">→</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
             <aside className="format-step-upcoming" aria-label="Upcoming tournaments">
               <h2 className="format-step-upcoming-title">Upcoming tournaments</h2>
               <p className="format-step-upcoming-sub">
@@ -552,137 +683,6 @@ export default function Home() {
               </div>
             </aside>
 
-            <div className="format-step-main">
-              {view === 'format' && (
-                <>
-              <h1 className="page-heading">Select Format</h1>
-              <p className="page-sub">Choose the format of cricket you want to manage, or search for a tournament or team.</p>
-
-              {/* Search bar */}
-              <div className="search-container">
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="Search tournaments or teams..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchResults.length > 0 && (
-                  <ul className="search-results">
-                    {searchResults.map((r, i) => (
-                      <li
-                        key={`${r.type}-${r.tournamentId}-${r.teamId ?? i}`}
-                        className="search-result-item"
-                        onClick={() => handleSearchSelect(r)}
-                      >
-                        <span className={`search-result-badge ${r.type === 'team' ? 'badge-team' : 'badge-tournament'}`}>
-                          {r.type === 'team' ? 'Team' : 'Tournament'}
-                        </span>
-                        <div className="search-result-text">
-                          <span className="search-result-label">{r.label}</span>
-                          <span className="search-result-sub">{r.sublabel}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-                  <div className="search-no-results">No results found</div>
-                )}
-              </div>
-
-              {/* Format list */}
-              <div className="format-list">
-                {FORMATS.map((f) => (
-                  <div
-                    key={f.key}
-                    className="format-list-item"
-                    onClick={() => handleFormatSelect(f.key)}
-                  >
-                    <div className="format-list-info">
-                      <span className="format-list-label">{f.label}</span>
-                      <span className="format-list-desc">{f.description}</span>
-                    </div>
-                    <span className="format-list-arrow">→</span>
-                  </div>
-                ))}
-              </div>
-                </>
-              )}
-
-              {view === 'gender' && (
-                <>
-                  <button type="button" className="back-btn" onClick={goBack}>
-                    ← Back to formats
-                  </button>
-                  <h1 className="page-heading">{formatLabel} — Select Category</h1>
-                  <p className="page-sub">Choose which category of tournaments to view.</p>
-                  <div className="format-list">
-                    {GENDERS.map((g) => (
-                      <div
-                        key={g.key}
-                        className="format-list-item"
-                        onClick={() => handleGenderSelect(g.key)}
-                      >
-                        <div className="format-list-info">
-                          <span className="format-list-label">{g.label}</span>
-                        </div>
-                        <span className="format-list-arrow">→</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {view === 'tournaments' && (
-                <>
-                  <button type="button" className="back-btn" onClick={goBack}>
-                    ← Back to category
-                  </button>
-                  <h1 className="page-heading">
-                    {formatLabel} — {genderLabel} Tournaments
-                  </h1>
-                  <p className="page-sub">
-                    Open a tournament to go to its main page (overview, standings, and teams).
-                  </p>
-
-                  {tournaments.length === 0 ? (
-                    <div className="empty-state">
-                      <div className="empty-state-icon">No tournaments</div>
-                      <p>No tournaments available yet.</p>
-                    </div>
-                  ) : (
-                    <div className="tournament-list">
-                      {tournaments.map((t) => (
-                        <div
-                          key={t.id}
-                          className="tournament-item"
-                          role="button"
-                          tabIndex={0}
-                          title={`Open tournament page — ${t.name}`}
-                          aria-label={`Open tournament page: ${t.name}`}
-                          onClick={() => handleTournamentSelect(t.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault()
-                              handleTournamentSelect(t.id)
-                            }
-                          }}
-                        >
-                          <div>
-                            <div className="tournament-name">{t.name}</div>
-                            {t.country && (
-                              <div className="tournament-meta">{t.country}</div>
-                            )}
-                          </div>
-                          <span className="tournament-arrow">→</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
           </div>
         </>
       )}

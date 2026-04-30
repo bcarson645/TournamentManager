@@ -5,6 +5,7 @@
 
 const STORAGE_KEY = 'tm-squad-rating-dp'
 const STORAGE_KEY_VALUE_STEPPERS = 'tm-squad-value-steppers'
+const STORAGE_KEY_HIDE_BAT_RAW = 'tm-squad-hide-bat-raw-cols'
 
 export type SquadRatingDecimalPlaces = 0 | 1 | 2
 
@@ -28,6 +29,17 @@ export function readSquadValueSteppers(): boolean {
 export function writeSquadValueSteppers(enabled: boolean): void {
   if (typeof window === 'undefined') return
   localStorage.setItem(STORAGE_KEY_VALUE_STEPPERS, enabled ? '1' : '0')
+}
+
+/** Hide “Raw” (effective average) and “RAW ADJ” columns on squad tables. */
+export function readSquadHideBatRawColumns(): boolean {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem(STORAGE_KEY_HIDE_BAT_RAW) === '1'
+}
+
+export function writeSquadHideBatRawColumns(hide: boolean): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(STORAGE_KEY_HIDE_BAT_RAW, hide ? '1' : '0')
 }
 
 export function formatSquadRatingDisplay(value: number, dp: SquadRatingDecimalPlaces): string {

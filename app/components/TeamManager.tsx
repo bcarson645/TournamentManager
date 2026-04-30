@@ -9,6 +9,7 @@ import {
   makeSquadForTeam,
   calcWktsAndBowlAvg,
   MAX_IMPACT_SUBS,
+  createCustomSquadBlank,
   normalizeBowlStats,
   normalizeSquadPlayer,
   sanitizeKeeperFlags,
@@ -334,6 +335,58 @@ export default function TeamManager({
     setStartingXI(next)
     storeSquad(team.id, next, reserves, selectedGround?.id ?? null, impactSubs)
     setSelectedPlayer(next[idx]!)
+  }
+
+  function handleRemovePlayerFromSquad() {
+    if (!selectedPlayer) return
+    if (
+      !window.confirm(
+        `Remove ${selectedPlayer.name} from this squad? They can be added again from the database or as a custom player.`,
+      )
+    ) {
+      return
+    }
+    const id = selectedPlayer.id
+    const inXi = startingXI.findIndex((p) => p.id === id)
+    if (inXi >= 0) {
+      handleUpdate(
+        startingXI.filter((p) => p.id !== id),
+        reserves,
+        impactSubs,
+      )
+      setSelectedPlayer(null)
+      return
+    }
+    if (reserves.some((p) => p.id === id)) {
+      handleUpdate(
+        startingXI,
+        reserves.filter((p) => p.id !== id),
+        impactSubs,
+      )
+      setSelectedPlayer(null)
+      return
+    }
+    if (impactSubs.some((p) => p.id === id)) {
+      handleUpdate(
+        startingXI,
+        reserves,
+        impactSubs.filter((p) => p.id !== id),
+      )
+      setSelectedPlayer(null)
+    }
+  }
+
+  function handleCreateCustomPlayer(name: string, target: 'reserves' | 'impact') {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    if (target === 'impact' && impactSubs.length >= MAX_IMPACT_SUBS) return
+    const p = createCustomSquadBlank(team.id, trimmed, format, gender)
+    if (target === 'reserves') {
+      handleUpdate(startingXI, [...reserves, p], impactSubs)
+    } else {
+      handleUpdate(startingXI, reserves, [...impactSubs, p])
+    }
+    setSelectedPlayer(p)
   }
 
   function handleAddPlayer(dbEntry: PlayerDbEntry, target: 'reserves' | 'impact') {
@@ -736,6 +789,7 @@ export default function TeamManager({
             selectedPlayerId={selectedPlayer?.id ?? null}
             onSelectPlayer={(p) => setSelectedPlayer(p)}
             onAddPlayer={handleAddPlayer}
+            onCreateCustomPlayer={handleCreateCustomPlayer}
           />
         </div>
         <div
@@ -774,6 +828,7 @@ export default function TeamManager({
                 ? handleToggleWicketKeeper
                 : undefined
             }
+            onRemoveFromSquad={selectedPlayer ? handleRemovePlayerFromSquad : undefined}
           />
         )}
       </div>

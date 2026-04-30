@@ -14,8 +14,10 @@ import type { CricketFormat, Gender } from '../data/tournaments'
 import { calculateBatRating, calculateBowlRating, roundRatingToStoredDecimals } from '../data/ratingBenchmarks'
 import {
   formatSquadRatingDisplay,
+  readSquadHideBatRawColumns,
   readSquadRatingDp,
   readSquadValueSteppers,
+  writeSquadHideBatRawColumns,
   writeSquadRatingDp,
   writeSquadValueSteppers,
   type SquadRatingDecimalPlaces,
@@ -96,7 +98,16 @@ function listFor(
   return newI
 }
 
-const SQUAD_TABLE_COLS = 21
+function editableNavOrder(hideBatRawCols: boolean): number[] {
+  return hideBatRawCols ? [0, 2, 3, 4, 5] : ALL_EDITABLE_FIELDS.map((_, i) => i)
+}
+
+function neighbourEditableCol(current: number, dir: -1 | 1, hideBatRawCols: boolean): number {
+  const ord = editableNavOrder(hideBatRawCols)
+  const idx = ord.indexOf(current)
+  if (idx < 0) return ord[0] ?? current
+  return ord[Math.max(0, Math.min(ord.length - 1, idx + dir))]
+}
 
 function IconPerson(props: SVGProps<SVGSVGElement>) {
   return (
@@ -137,7 +148,13 @@ function IconBall(props: SVGProps<SVGSVGElement>) {
 }
 
 /** Reserves omit lock / confirm UI; column still aligned with other squad tables */
-function buildSquadTableHeaderRows(posLabel: string, posTitle: string, hideLockColumn = false) {
+function buildSquadTableHeaderRows(
+  posLabel: string,
+  posTitle: string,
+  hideLockColumn = false,
+  hideBatRawCols = false,
+) {
+  const battingColSpan = hideBatRawCols ? 5 : 7
   return (
     <>
       <tr className="group-header-row">
@@ -147,7 +164,7 @@ function buildSquadTableHeaderRows(posLabel: string, posTitle: string, hideLockC
             <span className="group-panel-chip__label">Player</span>
           </div>
         </th>
-        <th colSpan={7} className="group-header group-panel-title group-panel-title--batting">
+        <th colSpan={battingColSpan} className="group-header group-panel-title group-panel-title--batting">
           <div className="group-panel-chip group-panel-chip--batting">
             <IconBat className="group-panel-chip__glyph" />
             <span className="group-panel-chip__label">Batting</span>
@@ -174,10 +191,14 @@ function buildSquadTableHeaderRows(posLabel: string, posTitle: string, hideLockC
         <th className="th-pid th-core">Player ID</th>
         <th className="th-name th-core">Name</th>
         <th className="th-sq-num th-bat th-stat th-stat-bat">BT CAZ</th>
-        <th className="th-sq-num th-bat th-stat th-stat-bat" title="Effective average (base + ADJ) used for rating">
-          Raw
-        </th>
-        <th className="th-sq-num th-bat th-stat th-stat-bat th-raw-adj">RAW ADJ</th>
+        {!hideBatRawCols ? (
+          <>
+            <th className="th-sq-num th-bat th-stat th-stat-bat" title="Effective average (base + ADJ) used for rating">
+              Raw
+            </th>
+            <th className="th-sq-num th-bat th-stat th-stat-bat th-raw-adj">RAW ADJ</th>
+          </>
+        ) : null}
         <th className="th-sq-num th-bat th-stat th-stat-bat">SR.CAZ</th>
         <th className="th-sq-num th-bat th-stat th-stat-bat">4s</th>
         <th className="th-sq-num th-bat th-stat th-stat-bat">6s</th>
@@ -250,6 +271,8 @@ interface SquadTableProps {
   selectedPlayerId?: string | null
   onSelectPlayer?: (player: SquadPlayer) => void
   onAddPlayer?: (dbEntry: PlayerDbEntry, target: 'reserves' | 'impact') => void
+  /** Add a named player with blank (zero) stats for manual editing. */
+  onCreateCustomPlayer?: (name: string, target: 'reserves' | 'impact') => void
 }
 
 export default function SquadTable({
@@ -263,18 +286,23 @@ export default function SquadTable({
   selectedPlayerId,
   onSelectPlayer,
   onAddPlayer,
+  onCreateCustomPlayer,
 }: SquadTableProps) {
   const [swapSource, setSwapSource] = useState<{ section: RosterSection; index: number } | null>(null)
   const [addQueryRes, setAddQueryRes] = useState('')
   const [addQueryImp, setAddQueryImp] = useState('')
   const [addOpenRes, setAddOpenRes] = useState(false)
   const [addOpenImp, setAddOpenImp] = useState(false)
+  const [customReserveName, setCustomReserveName] = useState('')
+  const [customImpactName, setCustomImpactName] = useState('')
   const [ratingDp, setRatingDp] = useState<SquadRatingDecimalPlaces>(1)
   const [valueSteppers, setValueSteppers] = useState(false)
+  const [hideBatRawCols, setHideBatRawCols] = useState(false)
 
   useEffect(() => {
     setRatingDp(readSquadRatingDp())
     setValueSteppers(readSquadValueSteppers())
+    setHideBatRawCols(readSquadHideBatRawColumns())
   }, [])
   const dragItem = useRef<{ section: RosterSection; index: number } | null>(null)
   const dragOver = useRef<{ section: RosterSection; index: number } | null>(null)
@@ -572,9 +600,9 @@ export default function SquadTable({
     let nextCol = colIndex
     let nextSection: RosterSection = section
     if (key === 'ArrowRight') {
-      nextCol = Math.min(colIndex + 1, ALL_EDITABLE_FIELDS.length - 1)
+      nextCol = neighbourEditableCol(colIndex, 1, hideBatRawCols)
     } else if (key === 'ArrowLeft') {
-      nextCol = Math.max(colIndex - 1, 0)
+      nextCol = neighbourEditableCol(colIndex, -1, hideBatRawCols)
     } else if (key === 'ArrowDown') {
       const maxRow =
         (section === 'starting' ? startingXI.length : section === 'reserves' ? reserves.length : impactSubs.length) -
@@ -692,7 +720,9 @@ export default function SquadTable({
                 data-row={index}
                 data-col={ALL_EDITABLE_FIELDS.indexOf('btCaz')}
                 onChange={(e) => updateField(section, index, 'btCaz', e.target.value)}
-                onKeyDown={(e) => handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('btCaz'))}
+                onKeyDown={(e) =>
+                  handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('btCaz'))
+                }
                 onFocus={(e) => e.target.select()}
               />
               <div className="sq-value-spin-col" role="group" aria-label="BT CAZ stepper">
@@ -731,47 +761,53 @@ export default function SquadTable({
             />
           )}
         </td>
-        <td
-          className="sq-num sq-stat sq-stat-bat sq-raw-base"
-          title={`Base ${player.rawBase.toFixed(1)} + RAW ADJ ${player.rawAdj >= 0 ? '+' : ''}${player.rawAdj} → effective for rating`}
-        >
-          {player.raw.toFixed(1)}
-        </td>
-        <td className="sq-num sq-editable sq-stat sq-stat-bat sq-raw-adj-cell">
-          <div className="raw-adj-stepper">
-            <button
-              type="button"
-              className="raw-adj-btn"
-              disabled={rowLocked}
-              aria-label="Decrease raw adjustment by 1"
-              onClick={() => nudgeRawAdj(section, index, -1)}
+        {!hideBatRawCols ? (
+          <>
+            <td
+              className="sq-num sq-stat sq-stat-bat sq-raw-base"
+              title={`Base ${player.rawBase.toFixed(1)} + RAW ADJ ${player.rawAdj >= 0 ? '+' : ''}${player.rawAdj} → effective for rating`}
             >
-              −
-            </button>
-            <input
-              type="number"
-              className="cell-input cell-input-raw-adj"
-              value={player.rawAdj}
-              disabled={rowLocked}
-              step="1"
-              data-section={section}
-              data-row={index}
-              data-col={ALL_EDITABLE_FIELDS.indexOf('rawAdj')}
-              onChange={(e) => updateField(section, index, 'rawAdj', e.target.value)}
-              onKeyDown={(e) => handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('rawAdj'))}
-              onFocus={(e) => e.target.select()}
-            />
-            <button
-              type="button"
-              className="raw-adj-btn"
-              disabled={rowLocked}
-              aria-label="Increase raw adjustment by 1"
-              onClick={() => nudgeRawAdj(section, index, 1)}
-            >
-              +
-            </button>
-          </div>
-        </td>
+              {player.raw.toFixed(1)}
+            </td>
+            <td className="sq-num sq-editable sq-stat sq-stat-bat sq-raw-adj-cell">
+              <div className="raw-adj-stepper">
+                <button
+                  type="button"
+                  className="raw-adj-btn"
+                  disabled={rowLocked}
+                  aria-label="Decrease raw adjustment by 1"
+                  onClick={() => nudgeRawAdj(section, index, -1)}
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  className="cell-input cell-input-raw-adj"
+                  value={player.rawAdj}
+                  disabled={rowLocked}
+                  step="1"
+                  data-section={section}
+                  data-row={index}
+                  data-col={ALL_EDITABLE_FIELDS.indexOf('rawAdj')}
+                  onChange={(e) => updateField(section, index, 'rawAdj', e.target.value)}
+                  onKeyDown={(e) =>
+                    handleCellKeyDown(e, section, index, ALL_EDITABLE_FIELDS.indexOf('rawAdj'))
+                  }
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  type="button"
+                  className="raw-adj-btn"
+                  disabled={rowLocked}
+                  aria-label="Increase raw adjustment by 1"
+                  onClick={() => nudgeRawAdj(section, index, 1)}
+                >
+                  +
+                </button>
+              </div>
+            </td>
+          </>
+        ) : null}
         <td
           className={`sq-num sq-editable sq-stat sq-stat-bat${valueSteppers ? ' sq-cell-value-stepper' : ''}`}
         >
@@ -967,8 +1003,12 @@ export default function SquadTable({
             Totals
           </td>
           <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.btCaz).toFixed(1)}</td>
-          <td className="sq-num sq-stat sq-stat-bat sq-raw-base">{sum((p) => p.raw).toFixed(1)}</td>
-          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.rawAdj).toFixed(0)}</td>
+          {!hideBatRawCols ? (
+            <>
+              <td className="sq-num sq-stat sq-stat-bat sq-raw-base">{sum((p) => p.raw).toFixed(1)}</td>
+              <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.rawAdj).toFixed(0)}</td>
+            </>
+          ) : null}
           <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.sr).toFixed(2)}</td>
           <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.fours).toFixed(1)}</td>
           <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.sixes).toFixed(1)}</td>
@@ -1004,7 +1044,14 @@ export default function SquadTable({
   const addResultsRes = useMemo(() => searchPlayers(addQueryRes, existingNames), [addQueryRes, existingNames])
   const addResultsImp = useMemo(() => searchPlayers(addQueryImp, existingNames), [addQueryImp, existingNames])
 
-  const squadTableClass = `squad-table${valueSteppers ? ' squad-table--value-steppers' : ''}`
+  const squadColumnCount = hideBatRawCols ? 19 : 21
+  const squadTableClass = [
+    'squad-table',
+    valueSteppers ? 'squad-table--value-steppers' : '',
+    hideBatRawCols ? 'squad-table--hide-bat-raw' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div className="squad-table-container">
@@ -1012,6 +1059,21 @@ export default function SquadTable({
         <div className="squad-section-header-row">
           <h3 className="squad-section-title">Starting XI</h3>
           <div className="squad-section-header-controls">
+            <label
+              className="squad-hide-raw-control"
+              title="Hide the Raw (effective average) and RAW ADJ columns. Adjustments still apply in the background; show columns again to edit RAW ADJ."
+            >
+              <input
+                type="checkbox"
+                checked={hideBatRawCols}
+                onChange={(e) => {
+                  const checked = e.target.checked
+                  setHideBatRawCols(checked)
+                  writeSquadHideBatRawColumns(checked)
+                }}
+              />
+              <span>Hide Raw / RAW ADJ</span>
+            </label>
             <label
               className="squad-value-steppers-control"
               title="Slightly wider stat cells with steppers hidden until you hover the cell or focus the input (±1 / ±0.01 / ±0.1). RAW ADJ always has buttons. Touch: steppers stay visible."
@@ -1053,7 +1115,7 @@ export default function SquadTable({
         <div className="squad-table-wrap">
           <table className={squadTableClass}>
             <thead>
-              {buildSquadTableHeaderRows('Pos', 'Line-up order in the starting XI (1–11)')}
+              {buildSquadTableHeaderRows('Pos', 'Line-up order in the starting XI (1–11)', false, hideBatRawCols)}
             </thead>
             <tbody>{startingXI.map((p, i) => renderRow(p, i, 'starting'))}</tbody>
             {renderTotalsRow(startingXI, 'starting')}
@@ -1070,6 +1132,8 @@ export default function SquadTable({
                 {buildSquadTableHeaderRows(
                   'Rtg pos',
                   'Par batting position 1–11 for rating (bench/impact: pick the slot to compare in the par table)',
+                  false,
+                  hideBatRawCols,
                 )}
               </thead>
               <tbody>
@@ -1079,7 +1143,7 @@ export default function SquadTable({
                     onDragEnter={() => handleDragEnter('impact', 0)}
                     onDragOver={(e) => e.preventDefault()}
                   >
-                    <td colSpan={SQUAD_TABLE_COLS} className="squad-drop-slot-cell">
+                    <td colSpan={squadColumnCount} className="squad-drop-slot-cell">
                       <span className="squad-drop-slot-hint">Drop or ⇅ to add</span>
                       <button
                         type="button"
@@ -1099,7 +1163,7 @@ export default function SquadTable({
                     onDragEnter={() => handleDragEnter('impact', impactSubs.length)}
                     onDragOver={(e) => e.preventDefault()}
                   >
-                    <td colSpan={SQUAD_TABLE_COLS} className="squad-drop-slot-cell">
+                    <td colSpan={squadColumnCount} className="squad-drop-slot-cell">
                       <span className="squad-drop-slot-hint">Drop to add</span>
                       <button
                         type="button"
@@ -1162,6 +1226,42 @@ export default function SquadTable({
                   <p className="squad-add-cap">Maximum {MAX_IMPACT_SUBS}.</p>
                 )}
               </div>
+              {onCreateCustomPlayer ? (
+                <div className="squad-add-custom">
+                  <span className="squad-add-custom-label">Custom player</span>
+                  <div className="squad-add-custom-row">
+                    <input
+                      type="text"
+                      className="squad-add-input squad-add-custom-input"
+                      placeholder="Full name…"
+                      value={customImpactName}
+                      onChange={(e) => setCustomImpactName(e.target.value)}
+                      disabled={impactSubs.length >= MAX_IMPACT_SUBS}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return
+                        e.preventDefault()
+                        const q = customImpactName.trim()
+                        if (!q || impactSubs.length >= MAX_IMPACT_SUBS) return
+                        onCreateCustomPlayer(q, 'impact')
+                        setCustomImpactName('')
+                      }}
+                      aria-label="Custom player name for impact subs"
+                    />
+                    <button
+                      type="button"
+                      className="squad-add-custom-btn"
+                      disabled={!customImpactName.trim() || impactSubs.length >= MAX_IMPACT_SUBS}
+                      onClick={() => {
+                        onCreateCustomPlayer(customImpactName.trim(), 'impact')
+                        setCustomImpactName('')
+                      }}
+                    >
+                      Add blank to impact
+                    </button>
+                  </div>
+                  <p className="squad-add-custom-hint">Zeroed stats — edit in the squad table.</p>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
@@ -1176,6 +1276,7 @@ export default function SquadTable({
                 'Rtg pos',
                 'Par batting position 1–11 for rating (bench/impact: pick the slot to compare in the par table)',
                 true,
+                hideBatRawCols,
               )}
             </thead>
             <tbody>{reserves.map((p, i) => renderRow(p, i, 'reserves'))}</tbody>
@@ -1224,6 +1325,41 @@ export default function SquadTable({
                 <div className="squad-add-empty">No players found</div>
               )}
             </div>
+            {onCreateCustomPlayer ? (
+              <div className="squad-add-custom">
+                <span className="squad-add-custom-label">Custom player</span>
+                <div className="squad-add-custom-row">
+                  <input
+                    type="text"
+                    className="squad-add-input squad-add-custom-input"
+                    placeholder="Full name…"
+                    value={customReserveName}
+                    onChange={(e) => setCustomReserveName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return
+                      e.preventDefault()
+                      const q = customReserveName.trim()
+                      if (!q) return
+                      onCreateCustomPlayer(q, 'reserves')
+                      setCustomReserveName('')
+                    }}
+                    aria-label="Custom player name for reserves"
+                  />
+                  <button
+                    type="button"
+                    className="squad-add-custom-btn"
+                    disabled={!customReserveName.trim()}
+                    onClick={() => {
+                      onCreateCustomPlayer(customReserveName.trim(), 'reserves')
+                      setCustomReserveName('')
+                    }}
+                  >
+                    Add blank to reserves
+                  </button>
+                </div>
+                <p className="squad-add-custom-hint">Zeroed stats — edit in the squad table.</p>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

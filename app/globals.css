@@ -206,11 +206,11 @@ body {
   margin-bottom: 2rem;
 }
 
-/* Format step: main + upcoming + in progress */
+/* Format step: select format (main) | upcoming | in progress — left to right */
 /* --format-step-panel-h: room below header / steps / padding for sticky tournament columns */
 .format-step-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr) minmax(280px, 1.2fr);
+  grid-template-columns: minmax(280px, 1.2fr) minmax(320px, 1fr) minmax(320px, 1fr);
   gap: clamp(1.25rem, 2.2vw, 2rem);
   align-items: start;
 }
@@ -2660,6 +2660,21 @@ body {
   accent-color: var(--accent, #3b82f6);
 }
 
+.squad-hide-raw-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.squad-hide-raw-control input {
+  accent-color: var(--accent, #3b82f6);
+}
+
 .squad-rating-dp-control {
   display: inline-flex;
   align-items: center;
@@ -2918,8 +2933,8 @@ body {
   border-bottom: 1px solid rgba(51, 65, 85, 0.75);
 }
 
-/* Tail (info • lock) */
-.squad-table thead tr.squad-head-subrow th.th-core:nth-child(n + 19) {
+/* Tail (info • lock) — 21-col layout */
+.squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th.th-core:nth-child(n + 19) {
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -2933,9 +2948,9 @@ body {
   color: rgba(248, 250, 252, 0.92);
 }
 
-/* Batting stats band — lines up under batting chip */
-.squad-table thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12),
-.squad-table thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
+/* Batting stats band — lines up under batting chip (21-col) */
+.squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12),
+.squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
   font-size: 0.615rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -2943,12 +2958,12 @@ body {
   line-height: 1.35;
 }
 
-.squad-table thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12) {
+.squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12) {
   background: rgba(59, 130, 246, 0.05) !important;
   color: rgba(226, 232, 240, 0.98);
 }
 
-.squad-table thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
+.squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
   background: rgba(239, 68, 68, 0.05) !important;
   color: rgba(226, 232, 240, 0.98);
 }
@@ -2960,11 +2975,47 @@ body {
 }
 
 /* Coloured underlines on batting/bowling stat sub-headings (overrides generic thead border). */
-.squad-table thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12) {
+.squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12) {
   border-bottom: 2px solid rgba(96, 165, 250, 0.45);
 }
 
-.squad-table thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
+.squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
+  border-bottom: 2px solid rgba(248, 113, 113, 0.4);
+}
+
+/* 19-col layout: batting chip spans 5 data cols (no Raw / RAW ADJ). */
+.squad-table.squad-table--hide-bat-raw thead tr.squad-head-subrow th.th-core:nth-child(n + 18) {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: linear-gradient(
+    165deg,
+    rgba(14, 116, 144, 0.18) 0%,
+    rgba(18, 26, 40, 0.98) 100%
+  ) !important;
+  border-bottom: 1px solid rgba(30, 58, 90, 0.85);
+  color: rgba(248, 250, 252, 0.92);
+}
+
+.squad-table.squad-table--hide-bat-raw thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 10),
+.squad-table.squad-table--hide-bat-raw thead tr.squad-head-subrow th:nth-child(n + 11):nth-child(-n + 17) {
+  font-size: 0.615rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
+}
+
+.squad-table.squad-table--hide-bat-raw thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 10) {
+  background: rgba(59, 130, 246, 0.05) !important;
+  color: rgba(226, 232, 240, 0.98);
+  border-bottom: 2px solid rgba(96, 165, 250, 0.45);
+}
+
+.squad-table.squad-table--hide-bat-raw thead tr.squad-head-subrow th:nth-child(n + 11):nth-child(-n + 17) {
+  background: rgba(239, 68, 68, 0.05) !important;
+  color: rgba(226, 232, 240, 0.98);
   border-bottom: 2px solid rgba(248, 113, 113, 0.4);
 }
 
@@ -3355,6 +3406,28 @@ body {
   box-sizing: border-box;
 }
 
+/* Hide Raw / RAW ADJ — shift stepped column indices (−2 after BT CAZ). */
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers thead tr.squad-head-subrow > th:nth-child(6),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers thead tr.squad-head-subrow > th:nth-child(7),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers thead tr.squad-head-subrow > th:nth-child(13),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers thead tr.squad-head-subrow > th:nth-child(14),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers thead tr.squad-head-subrow > th:nth-child(15),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tbody tr.squad-row > td:nth-child(6),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tbody tr.squad-row > td:nth-child(7),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tbody tr.squad-row > td:nth-child(13),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tbody tr.squad-row > td:nth-child(14),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tbody tr.squad-row > td:nth-child(15),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(2),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(3),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(9),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(10),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(11) {
+  width: var(--sq-stepper-col-wide);
+  min-width: var(--sq-stepper-col-wide);
+  max-width: none;
+  box-sizing: border-box;
+}
+
 .sq-value-stepper.sq-value-stepper--spin-end {
   display: inline-flex;
   flex-direction: row;
@@ -3655,7 +3728,7 @@ body {
   padding-bottom: 0.85rem;
 }
 
-.pp-panel-chrome .pp-wk-row {
+.pp-panel-chrome .pp-squad-actions-row {
   margin: 0.5rem 0 0.25rem;
 }
 
@@ -3762,7 +3835,11 @@ body {
   border-color: var(--border-subtle);
 }
 
-.pp-wk-row {
+.pp-squad-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
   margin: 0.35rem 0 0.75rem;
 }
 
@@ -4296,6 +4373,88 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: 0.4rem;
   margin-bottom: 0.25rem;
+}
+
+.squad-add-custom {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.squad-add-custom-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 0.4rem;
+}
+
+.squad-add-custom-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+
+.squad-add-custom-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.squad-add-custom-btn {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  border-radius: 0.35rem;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.squad-add-custom-btn:hover:not(:disabled) {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.5);
+}
+
+.squad-add-custom-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.squad-add-custom-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.pp-remove-squad-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 0.35rem;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.pp-remove-squad-btn:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.55);
 }
 
 /* ========== Squad Totals Row ========== */
