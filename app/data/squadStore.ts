@@ -6,8 +6,11 @@ import {
   MAX_TEAM_OVERS,
   calcWktsAndBowlAvg,
 } from './squad'
+import { BLAST_MEN_SQUADS, BLAST_SQUAD_TEMPLATE_VERSION } from './blastMenSquads'
 import { calculateBowlRating, roundRatingToStoredDecimals } from './ratingBenchmarks'
 import { TEAMS } from './teams'
+
+const BLAST_TEAM_IDS = new Set(Object.keys(BLAST_MEN_SQUADS))
 
 interface StoredSquad {
   startingXI: SquadPlayer[]
@@ -59,7 +62,11 @@ function flushPersistSquadsToStorage(): void {
     persistPending = null
   }
   try {
-    const payload = { v: PERSISTENCE_VERSION, squads: store }
+    const payload = {
+      v: PERSISTENCE_VERSION,
+      blastTemplateVersion: BLAST_SQUAD_TEMPLATE_VERSION,
+      squads: store,
+    }
     window.localStorage.setItem(PERSISTENCE_KEY, JSON.stringify(payload))
   } catch {
     // Quota, private mode, SSR bridge — drafts stay in RAM only until next successful write.
@@ -81,10 +88,19 @@ function hydrateSquadsOnce(): boolean {
   try {
     const raw = window.localStorage.getItem(PERSISTENCE_KEY)
     if (!raw) return false
-    const parsed = JSON.parse(raw) as { v?: number; squads?: unknown }
+    const parsed = JSON.parse(raw) as {
+      v?: number
+      blastTemplateVersion?: number
+      squads?: unknown
+    }
     if (parsed?.v !== PERSISTENCE_VERSION || !parsed.squads || typeof parsed.squads !== 'object') return false
+    const savedBlastVer = parsed.blastTemplateVersion ?? 0
+    const blastPersistStale = savedBlastVer !== BLAST_SQUAD_TEMPLATE_VERSION
     let touched = false
     for (const [teamId, squad] of Object.entries(parsed.squads as Record<string, unknown>)) {
+      if (blastPersistStale && BLAST_TEAM_IDS.has(teamId)) {
+        continue
+      }
       if (isLikelyStoredSquad(squad)) {
         store[teamId] = squad
         touched = true

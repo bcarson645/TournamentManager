@@ -5,6 +5,12 @@
  * Updated from 2026 county Vitality Blast squads (spreadsheet handoff).
  */
 
+/**
+ * Increment when `BLAST_MEN_SQUADS` changes. `squadStore` skips stale persisted squads for
+ * these team ids so the app re-seeds from the lists below instead of old `localStorage` drafts.
+ */
+export const BLAST_SQUAD_TEMPLATE_VERSION = 2
+
 export const BLAST_MEN_SQUADS: Record<string, string[]> = {
   'blast-derbyshire-falcons': [
     'Aneurin Donald',
