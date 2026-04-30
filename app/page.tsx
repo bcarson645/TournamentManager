@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import {
   FORMATS,
   GENDERS,
@@ -11,7 +11,11 @@ import {
   type Tournament,
 } from './data/tournaments'
 import { TEAMS } from './data/teams'
-import { getTournamentPrepProgress } from './data/squadStore'
+import {
+  getSquadStoreVersion,
+  getTournamentPrepProgress,
+  subscribeSquadStore,
+} from './data/squadStore'
 import Dashboard from './components/Dashboard'
 import AppNavSidebar, { type HomeNavId } from './components/AppNavSidebar'
 
@@ -68,20 +72,92 @@ function hashSeed(s: string): number {
   return Math.abs(h) || 1
 }
 
-function shuffleInPlace<T>(arr: T[]): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
+/** Same totals as live prep progress, but prepped always 0 (matches SSR with empty squad store). */
+function prepProgressEmptySnapshot(tournamentId: string): { prepped: number; total: number } {
+  return { prepped: 0, total: (TEAMS[tournamentId] ?? []).length }
 }
 
+type TournamentPoolEntry = ReturnType<typeof getAllTournamentEntries>[number]
+
+/** Deterministic pseudo start date — avoids SSR vs client timezone / calendar drift. */
 function syntheticStartDate(id: string, format: string, gender: string): Date {
-  const daysAhead = (hashSeed(`${id}|${format}|${gender}`) % 100) + 1
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() + daysAhead)
-  return d
+  const day = ((hashSeed(`${id}|${format}|${gender}`) - 1) % 365) + 1
+  return new Date(Date.UTC(2026, 0, day))
+}
+
+const STABLE_TOURNAMENT_POOL: TournamentPoolEntry[] = (() => {
+  const c = [...getAllTournamentEntries()]
+  c.sort((a, b) => {
+    const ka = `${a.format}\x00${a.gender}\x00${a.tournament.id}`
+    const kb = `${b.format}\x00${b.gender}\x00${b.tournament.id}`
+    return ka.localeCompare(kb)
+  })
+  return c
+})()
+
+type HomeRailRow = {
+  format: CricketFormat
+  gender: Gender
+  tournament: Tournament
+  startDate: Date
+  prep: { prepped: number; total: number }
+}
+
+function computeHomeTournamentRailRows(
+  opts: {
+    upcomingFilterFormat: 'all' | CricketFormat
+    upcomingFilterGender: 'all' | Gender
+    upcomingHideFullyPrepped: boolean
+    upcomingHideSrl: boolean
+    upcomingSearch: string
+  },
+  getPrep: (tournamentId: string) => { prepped: number; total: number },
+): { upcomingRowsForFormat: HomeRailRow[]; inProgressRowsForFormat: HomeRailRow[] } {
+  let rows: HomeRailRow[] = STABLE_TOURNAMENT_POOL.map((e) => ({
+    format: e.format,
+    gender: e.gender,
+    tournament: e.tournament,
+    startDate: syntheticStartDate(e.tournament.id, e.format, e.gender),
+    prep: getPrep(e.tournament.id),
+  }))
+  if (opts.upcomingFilterFormat !== 'all') {
+    rows = rows.filter((r) => r.format === opts.upcomingFilterFormat)
+  }
+  if (opts.upcomingFilterGender !== 'all') {
+    rows = rows.filter((r) => r.gender === opts.upcomingFilterGender)
+  }
+  if (opts.upcomingHideFullyPrepped) {
+    rows = rows.filter(
+      (r) => !(r.prep.total > 0 && r.prep.prepped === r.prep.total),
+    )
+  }
+  if (opts.upcomingHideSrl) {
+    rows = rows.filter((r) => r.format !== 'srl')
+  }
+  const q = opts.upcomingSearch.trim().toLowerCase()
+  if (q) {
+    rows = rows.filter(
+      (r) =>
+        r.tournament.name.toLowerCase().includes(q) ||
+        (r.tournament.country?.toLowerCase().includes(q) ?? false),
+    )
+  }
+
+  const isInProgress = (r: HomeRailRow) =>
+    r.prep.total > 0 && r.prep.prepped > 0 && r.prep.prepped < r.prep.total
+
+  const inProgressRowsForFormat = rows
+    .filter(isInProgress)
+    .sort(
+      (a, b) =>
+        b.prep.prepped / b.prep.total - a.prep.prepped / a.prep.total,
+    )
+
+  const upcomingRowsForFormat = rows
+    .filter((r) => !isInProgress(r))
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
+
+  return { upcomingRowsForFormat, inProgressRowsForFormat }
 }
 
 const PLACEHOLDER_LABELS: Record<Exclude<HomeNavId, 'tournament-manager'>, string> = {
@@ -113,21 +189,42 @@ export default function Home() {
       .slice(0, 12)
   }, [searchQuery, searchIndex])
 
-  type UpcomingRow = {
-    format: CricketFormat
-    gender: Gender
-    tournament: Tournament
-    startDate: Date
-    prep: { prepped: number; total: number }
-  }
-
-  const shuffledTournamentPoolRef = useRef<ReturnType<typeof getAllTournamentEntries> | null>(null)
-
   const [upcomingFilterFormat, setUpcomingFilterFormat] = useState<'all' | CricketFormat>('all')
   const [upcomingFilterGender, setUpcomingFilterGender] = useState<'all' | Gender>('all')
   const [upcomingHideFullyPrepped, setUpcomingHideFullyPrepped] = useState(false)
   const [upcomingHideSrl, setUpcomingHideSrl] = useState(false)
   const [upcomingSearch, setUpcomingSearch] = useState('')
+
+  /** Prevents SSR vs client mismatches while squad prep counts only exist in the browser. */
+  const squadStoreVersion = useSyncExternalStore(
+    subscribeSquadStore,
+    getSquadStoreVersion,
+    getSquadStoreVersion,
+  )
+  const [homeRailMounted, setHomeRailMounted] = useState(false)
+  useEffect(() => setHomeRailMounted(true), [])
+  const { upcomingRowsForFormat, inProgressRowsForFormat } = useMemo(
+    () =>
+      computeHomeTournamentRailRows(
+        {
+          upcomingFilterFormat,
+          upcomingFilterGender,
+          upcomingHideFullyPrepped,
+          upcomingHideSrl,
+          upcomingSearch,
+        },
+        homeRailMounted ? getTournamentPrepProgress : prepProgressEmptySnapshot,
+      ),
+    [
+      squadStoreVersion,
+      homeRailMounted,
+      upcomingFilterFormat,
+      upcomingFilterGender,
+      upcomingHideFullyPrepped,
+      upcomingHideSrl,
+      upcomingSearch,
+    ],
+  )
 
   function handleFormatSelect(format: CricketFormat) {
     setSelectedFormat(format)
@@ -280,59 +377,6 @@ export default function Home() {
         </main>
       </div>
     )
-  }
-
-  if (!shuffledTournamentPoolRef.current) {
-    const c = [...getAllTournamentEntries()]
-    shuffleInPlace(c)
-    shuffledTournamentPoolRef.current = c
-  }
-
-  let upcomingRowsForFormat: UpcomingRow[] = []
-  let inProgressRowsForFormat: UpcomingRow[] = []
-  if (shuffledTournamentPoolRef.current) {
-    let rows: UpcomingRow[] = shuffledTournamentPoolRef.current.map((e) => ({
-      format: e.format,
-      gender: e.gender,
-      tournament: e.tournament,
-      startDate: syntheticStartDate(e.tournament.id, e.format, e.gender),
-      prep: getTournamentPrepProgress(e.tournament.id),
-    }))
-    if (upcomingFilterFormat !== 'all') {
-      rows = rows.filter((r) => r.format === upcomingFilterFormat)
-    }
-    if (upcomingFilterGender !== 'all') {
-      rows = rows.filter((r) => r.gender === upcomingFilterGender)
-    }
-    if (upcomingHideFullyPrepped) {
-      rows = rows.filter(
-        (r) => !(r.prep.total > 0 && r.prep.prepped === r.prep.total),
-      )
-    }
-    if (upcomingHideSrl) {
-      rows = rows.filter((r) => r.format !== 'srl')
-    }
-    const q = upcomingSearch.trim().toLowerCase()
-    if (q) {
-      rows = rows.filter(
-        (r) =>
-          r.tournament.name.toLowerCase().includes(q) ||
-          (r.tournament.country?.toLowerCase().includes(q) ?? false),
-      )
-    }
-
-    const isInProgress = (r: UpcomingRow) =>
-      r.prep.total > 0 && r.prep.prepped > 0 && r.prep.prepped < r.prep.total
-
-    inProgressRowsForFormat = rows
-      .filter(isInProgress)
-      .sort(
-        (a, b) =>
-          b.prep.prepped / b.prep.total - a.prep.prepped / a.prep.total,
-      )
-    upcomingRowsForFormat = rows
-      .filter((r) => !isInProgress(r))
-      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
   }
 
   return (
@@ -571,10 +615,11 @@ export default function Home() {
                         >
                           <div className="format-step-upcoming-item-top">
                             <span className="format-step-upcoming-date">
-                              {row.startDate.toLocaleDateString(undefined, {
+                              {row.startDate.toLocaleDateString('en-GB', {
                                 weekday: 'short',
                                 month: 'short',
                                 day: 'numeric',
+                                timeZone: 'UTC',
                               })}
                             </span>
                             <span className="format-step-upcoming-name">{row.tournament.name}</span>
@@ -640,10 +685,11 @@ export default function Home() {
                           <div className="format-step-upcoming-item-top">
                             <div className="format-step-inprogress-date-row">
                               <span className="format-step-upcoming-date">
-                                {row.startDate.toLocaleDateString(undefined, {
+                                {row.startDate.toLocaleDateString('en-GB', {
                                   weekday: 'short',
                                   month: 'short',
                                   day: 'numeric',
+                                  timeZone: 'UTC',
                                 })}
                               </span>
                               <span className="format-step-inprogress-badge">Resume</span>

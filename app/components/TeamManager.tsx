@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useRef, useMemo, useEffect, useSyncExternalStore } from 'react'
 import { Team } from '../data/teams'
 import { RankedBatter, RankedBowler } from '../data/squadStore'
 import {
@@ -23,7 +23,12 @@ import SquadTable from './SquadTable'
 import PlayerDetailPanel from './PlayerDetailPanel'
 import TeamAnalyticsPanel from './TeamAnalyticsPanel'
 import { getTeamLogo, setTeamLogo as storeTeamLogo } from '../data/logoStore'
-import { getStoredSquad, storeSquad } from '../data/squadStore'
+import {
+  getStoredSquad,
+  getSquadStoreVersion,
+  storeSquad,
+  subscribeSquadStore,
+} from '../data/squadStore'
 import { getProfileForPlayer } from '../data/playerProfile'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
 
@@ -147,6 +152,7 @@ export default function TeamManager({
   teamAnalyticsOpen = false,
   onCloseTeamAnalytics,
 }: TeamManagerProps) {
+  const squadStoreVersion = useSyncExternalStore(subscribeSquadStore, getSquadStoreVersion, getSquadStoreVersion)
   const { impactSubEnabled } = useTournamentOptions(tournamentId)
   const [teamLogo, setTeamLogo] = useState<string | null>(getTeamLogo(team.id) ?? team.logo ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -257,7 +263,7 @@ export default function TeamManager({
     setSelectedPlayer(null)
     setTeamLogo(getTeamLogo(team.id) ?? team.logo ?? null)
     setGroundSearch('')
-  }, [team.id, format, gender])
+  }, [team.id, format, gender, squadStoreVersion])
 
   const avgFirstInnings = useMemo(() => generateAvgScore(team.id), [team.id])
   const last10 = useMemo(() => generateLast10(team.id), [team.id])

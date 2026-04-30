@@ -1,7 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getTournamentOptions, setTournamentImpactSubEnabled } from '../data/tournamentOptions'
+import {
+  getTournamentOptions,
+  setTournamentImpactSubEnabled,
+  resetTournamentOptionsToDefaults,
+} from '../data/tournamentOptions'
+import { TEAMS } from '../data/teams'
+import { clearPersistedSquadsForTournament } from '../data/squadStore'
+import { clearTeamLogos } from '../data/logoStore'
 
 const OPTIONS = [
   { key: 'market', label: 'Market Configuration' },
@@ -24,6 +31,20 @@ export default function TournamentSettings({ tournamentId, tournamentName }: Tou
   useEffect(() => {
     setImpactSubEnabled(getTournamentOptions(tournamentId).impactSubEnabled)
   }, [tournamentId])
+
+  function handleResetTournamentToPredefined() {
+    const n = TEAMS[tournamentId]?.length ?? 0
+    const ok = window.confirm(
+      `Reset "${tournamentName}" to predefined?\n\n` +
+        `This removes saved data for all ${n} team${n === 1 ? '' : 's'} in this tournament: squads (XI, bench, impact), home ground picks, and uploaded logos. Tournament options (e.g. Impact sub) go back to defaults. This cannot be undone.`,
+    )
+    if (!ok) return
+    const ids = (TEAMS[tournamentId] ?? []).map((t) => t.id)
+    clearTeamLogos(ids)
+    resetTournamentOptionsToDefaults(tournamentId)
+    clearPersistedSquadsForTournament(tournamentId)
+    setImpactSubEnabled(false)
+  }
 
   if (activePage) {
     const opt = OPTIONS.find((o) => o.key === activePage)!
@@ -57,6 +78,21 @@ export default function TournamentSettings({ tournamentId, tournamentName }: Tou
                   <strong>Impact sub / Impact player</strong>
                 </span>
               </label>
+
+              <div className="settings-reset-section">
+                <h4 className="settings-reset-title">Reset tournament</h4>
+                <p className="settings-reset-hint">
+                  Restore predefined squads from the app data, clear saved grounds and custom logos for every
+                  team here, and reset options above to defaults.
+                </p>
+                <button
+                  type="button"
+                  className="settings-reset-btn"
+                  onClick={handleResetTournamentToPredefined}
+                >
+                  Hard reset to predefined
+                </button>
+              </div>
             </div>
           ) : (
             <p className="settings-placeholder-text">Content for {opt.label} will be configured here.</p>

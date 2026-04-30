@@ -151,6 +151,25 @@ export function storeSquad(
   schedulePersistSquads()
 }
 
+/**
+ * Drops saved drafts for every team in this tournament so squads reopen from predefined
+ * rosters (`makeSquadForTeam` / KNOWN_PLAYERS). Other tournaments’ drafts stay intact.
+ */
+export function clearPersistedSquadsForTournament(tournamentId: string): void {
+  const teams = TEAMS[tournamentId]
+  if (!teams?.length) return
+  let changed = false
+  for (const t of teams) {
+    if (store[t.id] !== undefined) {
+      delete store[t.id]
+      changed = true
+    }
+  }
+  if (!changed) return
+  notifySquadStoreChanged()
+  schedulePersistSquads()
+}
+
 /** Clears persisted squad drafts from this browser plus the in-memory cache. */
 export function clearAllPersistedSquads(): void {
   if (persistPending !== null && typeof window !== 'undefined') {

@@ -7,3 +7,7 @@ export function getTeamLogo(teamId: string): string | null {
 export function setTeamLogo(teamId: string, dataUrl: string): void {
   logoStore[teamId] = dataUrl
 }
+
+export function clearTeamLogos(teamIds: string[]): void {
+  for (const id of teamIds) delete logoStore[id]
+}

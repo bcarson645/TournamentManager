@@ -33,3 +33,12 @@ export function setTournamentImpactSubEnabled(tournamentId: string, enabled: boo
   localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
   window.dispatchEvent(new CustomEvent('tournament-opts-changed', { detail: { tournamentId } }))
 }
+
+/** Remove persisted options so this tournament uses defaults (e.g. after “reset”). */
+export function resetTournamentOptionsToDefaults(tournamentId: string): void {
+  if (typeof window === 'undefined') return
+  const all = readAll()
+  delete all[tournamentId]
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
+  window.dispatchEvent(new CustomEvent('tournament-opts-changed', { detail: { tournamentId } }))
+}
