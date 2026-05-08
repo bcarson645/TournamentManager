@@ -9,6 +9,8 @@ interface RankEntry {
   rating: number
 }
 
+type ValueSemantics = 'higher-better' | 'lower-better'
+
 interface PlayerRankingsProps {
   title: string
   entries: RankEntry[]
@@ -18,6 +20,10 @@ interface PlayerRankingsProps {
   pageSize?: number
   /** Heading strip: batting = blue, bowling = red */
   accent?: 'batting' | 'bowling' | 'neutral'
+  /** How to format the numeric cell (default: one decimal). */
+  formatValue?: (n: number) => string
+  /** For pill coloring: lower is better (econ, avg, balls/wkt). */
+  valueSemantics?: ValueSemantics
 }
 
 export default function PlayerRankings({
@@ -27,9 +33,25 @@ export default function PlayerRankings({
   highlightPlayerIds = null,
   pageSize: pageSizeProp = 10,
   accent = 'neutral',
+  formatValue,
+  valueSemantics = 'higher-better',
 }: PlayerRankingsProps) {
   const [page, setPage] = useState(0)
   const pageSize = pageSizeProp > 0 ? pageSizeProp : 10
+
+  function displayValue(n: number): string {
+    if (formatValue) return formatValue(n)
+    if (!Number.isFinite(n)) return '—'
+    return n.toFixed(1)
+  }
+
+  function valueClass(n: number): string {
+    if (!Number.isFinite(n)) return ''
+    if (valueSemantics === 'lower-better') {
+      return n <= 0 ? '' : ' rating-pos'
+    }
+    return n > 0 ? ' rating-pos' : n < 0 ? ' rating-neg' : ''
+  }
 
   const totalPages = Math.max(1, Math.ceil(entries.length / pageSize))
 
@@ -99,14 +121,10 @@ export default function PlayerRankings({
                   <span
                     className={
                       'rankings-value' +
-                      (p.rating > 0
-                        ? ' rating-pos'
-                        : p.rating < 0
-                          ? ' rating-neg'
-                          : '')
+                      valueClass(p.rating)
                     }
                   >
-                    {p.rating.toFixed(1)}
+                    {displayValue(p.rating)}
                   </span>
                 </li>
               )

@@ -12,6 +12,7 @@ import {
   type TeamAnalyticsSnapshot,
 } from '../data/teamAnalyticsMock'
 import { getTeamLogo } from '../data/logoStore'
+import { teamAggregateRatingClass } from '../data/ratingDisplaySettings'
 
 interface TeamAnalyticsPanelProps {
   team: Team
@@ -282,13 +283,18 @@ export default function TeamAnalyticsPanel({
 
         <div className="tap-chip-row">
           <span className="tap-chip tap-chip-bat">
-            XI bat Σ <strong>{batRating.toFixed(1)}</strong>
+            XI bat Σ{' '}
+            <strong className={teamAggregateRatingClass(batRating)}>{batRating.toFixed(1)}</strong>
           </span>
           <span className="tap-chip tap-chip-bowl">
-            XI bowl Σ <strong>{bowlRating.toFixed(1)}</strong>
+            XI bowl Σ{' '}
+            <strong className={teamAggregateRatingClass(bowlRating)}>{bowlRating.toFixed(1)}</strong>
           </span>
           <span className="tap-chip tap-chip-total">
-            Blend <strong>{((batRating + bowlRating) / 2).toFixed(1)}</strong>
+            Blend{' '}
+            <strong className={teamAggregateRatingClass((batRating + bowlRating) / 2)}>
+              {((batRating + bowlRating) / 2).toFixed(1)}
+            </strong>
           </span>
         </div>
 

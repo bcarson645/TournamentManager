@@ -23,6 +23,24 @@ export const FORMATS: FormatInfo[] = [
   { key: 'other', label: 'Other', description: 'Additional formats', icon: '📋' },
 ]
 
+/** Typical scheduled overs per innings for squad allocation checks (totals row). */
+export function scheduledInningsOversForFormat(format: CricketFormat): number {
+  switch (format) {
+    case 't10':
+      return 10
+    case 't20':
+      return 20
+    case 'lista':
+      return 50
+    case 'firstclass':
+      return 90
+    case 'srl':
+    case 'other':
+    default:
+      return 20
+  }
+}
+
 export const GENDERS: { key: Gender; label: string; icon: string }[] = [
   { key: 'men', label: "Men's", icon: '♂' },
   { key: 'women', label: "Women's", icon: '♀' },

@@ -1,16 +1,29 @@
 'use client'
 
-import { useState, useMemo, useSyncExternalStore } from 'react'
+import { useState, useMemo, useSyncExternalStore, useEffect } from 'react'
 import { CricketFormat, Gender, FORMATS, GENDERS, TOURNAMENTS } from '../data/tournaments'
 import { getTeamsByTournament } from '../data/teams'
 import {
   getTeamBatRatingTotal,
   getTeamBowlRatingTotal,
-  getRankedBatters,
-  getRankedBowlers,
+  getDashboardBatRankings,
+  getDashboardBowlRankings,
   getSquadStoreVersion,
   subscribeSquadStore,
 } from '../data/squadStore'
+import {
+  readDashboardBatMetric,
+  readDashboardBowlMetric,
+  writeDashboardBatMetric,
+  writeDashboardBowlMetric,
+  formatDashboardBatMetricValue,
+  formatDashboardBowlMetricValue,
+  dashboardBowlMetricValueSemantics,
+  dashboardBatMetricOptionLabel,
+  dashboardBowlMetricOptionLabel,
+  type DashboardBatMetric,
+  type DashboardBowlMetric,
+} from '../data/ratingDisplaySettings'
 import Sidebar from './Sidebar'
 import TeamsTable from './TeamsTable'
 import PlayerRankings from './PlayerRankings'
@@ -18,6 +31,9 @@ import TournamentSettings from './TournamentSettings'
 import TeamManager from './TeamManager'
 import FixtureList from './FixtureList'
 import TeamAnalyticsPanel from './TeamAnalyticsPanel'
+import { useTournamentOptions } from '../hooks/useTournamentOptions'
+
+const SIDEBAR_COLLAPSED_KEY = 'tm-sidebar-collapsed'
 
 interface DashboardProps {
   format: CricketFormat
@@ -40,6 +56,25 @@ export default function Dashboard({
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(initialTeamId)
   const [analyticsTeamId, setAnalyticsTeamId] = useState<string | null>(null)
   const [selectedYear, setSelectedYear] = useState(2026)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [dashBatMetric, setDashBatMetric] = useState<DashboardBatMetric>('batRating')
+  const [dashBowlMetric, setDashBowlMetric] = useState<DashboardBowlMetric>('bowlRating')
+
+  useEffect(() => {
+    setSidebarCollapsed(typeof window !== 'undefined' && localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1')
+    setDashBatMetric(readDashboardBatMetric())
+    setDashBowlMetric(readDashboardBowlMetric())
+  }, [])
+
+  function toggleSidebarCollapsed() {
+    setSidebarCollapsed((c) => {
+      const next = !c
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0')
+      }
+      return next
+    })
+  }
 
   const currentYear = 2026
   const years = useMemo(() => {
@@ -54,32 +89,35 @@ export default function Dashboard({
 
   const teams = getTeamsByTournament(tournamentId)
 
+  const tournamentOpts = useTournamentOptions(tournamentId)
+  const ratingParScore = tournamentOpts.ratingParScore
+
   const squadStoreVersion = useSyncExternalStore(subscribeSquadStore, getSquadStoreVersion, getSquadStoreVersion)
 
   const teamBatRatings = useMemo(() => {
     const map: Record<string, number> = {}
     for (const t of teams) {
-      map[t.id] = getTeamBatRatingTotal(t.id)
+      map[t.id] = getTeamBatRatingTotal(t.id, ratingParScore)
     }
     return map
-  }, [teams, squadStoreVersion])
+  }, [teams, squadStoreVersion, ratingParScore])
 
   const teamBowlingRatings = useMemo(() => {
     const map: Record<string, number> = {}
     for (const t of teams) {
-      map[t.id] = getTeamBowlRatingTotal(t.id)
+      map[t.id] = getTeamBowlRatingTotal(t.id, ratingParScore)
     }
     return map
-  }, [teams, squadStoreVersion])
+  }, [teams, squadStoreVersion, ratingParScore])
 
   const rankedBatters = useMemo(
-    () => getRankedBatters(teams),
-    [teams, squadStoreVersion],
+    () => getDashboardBatRankings(teams, dashBatMetric),
+    [teams, squadStoreVersion, dashBatMetric],
   )
 
   const rankedBowlers = useMemo(
-    () => getRankedBowlers(teams),
-    [teams, squadStoreVersion],
+    () => getDashboardBowlRankings(teams, dashBowlMetric),
+    [teams, squadStoreVersion, dashBowlMetric],
   )
 
   const selectedTeam = selectedTeamId
@@ -113,7 +151,11 @@ export default function Dashboard({
   if (selectedTeam) {
     return (
       <>
-        <div className="dashboard-layout">
+        <div
+          className={
+            'dashboard-layout' + (sidebarCollapsed ? ' dashboard-layout--sidebar-collapsed' : '')
+          }
+        >
           <Sidebar
             mode="team"
             currentFormat={format}
@@ -124,6 +166,8 @@ export default function Dashboard({
             onSelectTeam={handleSelectTeam}
             onBackToDashboard={handleBackToDashboard}
             onGoHome={onGoHome}
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={toggleSidebarCollapsed}
           />
 
           <main className="dashboard-main dashboard-main-no-pad">
@@ -136,8 +180,6 @@ export default function Dashboard({
               allTeams={teams}
               teamBatRatings={teamBatRatings}
               teamBowlingRatings={teamBowlingRatings}
-              rankedBatters={rankedBatters}
-              rankedBowlers={rankedBowlers}
               onOpenTeamAnalytics={() => setAnalyticsTeamId(selectedTeam.id)}
               teamAnalyticsOpen={teamAnalyticsDocked}
               onCloseTeamAnalytics={() => setAnalyticsTeamId(null)}
@@ -160,7 +202,11 @@ export default function Dashboard({
   // Tournament overview
   return (
     <>
-      <div className="dashboard-layout">
+      <div
+        className={
+          'dashboard-layout' + (sidebarCollapsed ? ' dashboard-layout--sidebar-collapsed' : '')
+        }
+      >
         <Sidebar
           mode="tournament"
           currentFormat={format}
@@ -168,6 +214,8 @@ export default function Dashboard({
           currentTournamentId={tournamentId}
           onSelectTournament={handleTournamentSwitch}
           onGoHome={onGoHome}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={toggleSidebarCollapsed}
         />
 
         <main className="dashboard-main">
@@ -237,28 +285,72 @@ export default function Dashboard({
             <div className="tournament-section-panel">
               <h2 className="tournament-section-head">Player ratings</h2>
               <div className="tournament-section-body tournament-section-body--rankings">
+                <div className="rankings-metric-bar">
+                  <label className="rankings-metric-label">
+                    <span>Batting</span>
+                    <select
+                      className="rankings-metric-select"
+                      value={dashBatMetric}
+                      onChange={(e) => {
+                        const v = e.target.value as DashboardBatMetric
+                        setDashBatMetric(v)
+                        writeDashboardBatMetric(v)
+                      }}
+                      aria-label="Batting ranking metric"
+                    >
+                      {(['batRating', 'btCaz', 'srCaz'] as const).map((k) => (
+                        <option key={k} value={k}>
+                          {dashboardBatMetricOptionLabel(k)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="rankings-metric-label">
+                    <span>Bowling</span>
+                    <select
+                      className="rankings-metric-select"
+                      value={dashBowlMetric}
+                      onChange={(e) => {
+                        const v = e.target.value as DashboardBowlMetric
+                        setDashBowlMetric(v)
+                        writeDashboardBowlMetric(v)
+                      }}
+                      aria-label="Bowling ranking metric"
+                    >
+                      {(['bowlRating', 'bowlAvg', 'econ', 'bowlBpw'] as const).map((k) => (
+                        <option key={k} value={k}>
+                          {dashboardBowlMetricOptionLabel(k)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <div className="rankings-columns">
                   <PlayerRankings
-                    title="Tournament Batting"
+                    title={'Tournament Batting · ' + dashboardBatMetricOptionLabel(dashBatMetric)}
                     accent="batting"
                     entries={rankedBatters.map((b) => ({
                       id: b.id,
                       name: b.name,
                       teamName: b.teamName,
-                      rating: b.batRating,
+                      rating: b.value,
                     }))}
                     emptyLabel="No player ratings yet"
+                    formatValue={(n) => formatDashboardBatMetricValue(dashBatMetric, n)}
+                    valueSemantics="higher-better"
                   />
                   <PlayerRankings
-                    title="Tournament Bowling"
+                    title={'Tournament Bowling · ' + dashboardBowlMetricOptionLabel(dashBowlMetric)}
                     accent="bowling"
                     entries={rankedBowlers.map((p) => ({
                       id: p.id,
                       name: p.name,
                       teamName: p.teamName,
-                      rating: p.bowlingRating,
+                      rating: p.value,
                     }))}
                     emptyLabel="No player ratings yet"
+                    formatValue={(n) => formatDashboardBowlMetricValue(dashBowlMetric, n)}
+                    valueSemantics={dashboardBowlMetricValueSemantics(dashBowlMetric)}
                   />
                 </div>
               </div>

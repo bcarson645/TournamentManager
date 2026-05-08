@@ -5,7 +5,10 @@ import { makeDefaultProfile, getProfileForPlayer } from './playerProfile'
 import { calculateBatRating, calculateBowlRating } from './ratingBenchmarks'
 import type { CricketFormat, Gender } from './tournaments'
 
-export type BowlAction = 'SEAM' | 'SPIN'
+export type BowlAction = 'SEAM' | 'OFS' | 'LEG'
+
+/** Guidance only (e.g. Vitality Blast): typical max overseas in XI — UI compares against this. */
+export const MAX_OVERSEAS_XI_HINT = 4
 
 export const MAX_TEAM_OVERS = 20
 /** Pre-named impact / substitute pool (e.g. IPL-style bench). */
@@ -55,6 +58,10 @@ export interface SquadPlayer {
   locked: boolean
   /** Starting XI wicket-keeper; at most one starter may be true — cleared when moved off XI. */
   keeper?: boolean
+  /** Overseas player (squad planning / limits); not auto-derived. */
+  overseas?: boolean
+  /** Free-form note visible to anyone editing the squad (persisted with squad). */
+  note?: string
 }
 
 /** Migrate in-memory rows from old `bowlSr` (balls/wicket) to `bowlWpo`. */
@@ -66,7 +73,18 @@ export function migrateLegacyBowlingFields(p: SquadPlayer & { bowlSr?: number })
   return { ...p, bowlWpo: p.bowlWpo ?? 0 }
 }
 
-type SquadPlayerRawLoose = SquadPlayer & { rawBase?: number; rawAdj?: number; ratingParPosition?: number }
+type SquadPlayerRawLoose = SquadPlayer & {
+  rawBase?: number
+  rawAdj?: number
+  ratingParPosition?: number
+  action?: string
+}
+
+function normalizeBowlAction(a: unknown): BowlAction {
+  if (a === 'OFS' || a === 'LEG') return a
+  if (a === 'SPIN') return 'OFS'
+  return 'SEAM'
+}
 
 /**
  * Ensure `rawBase` / `rawAdj` / `raw` (effective) are consistent. Legacy JSON had only `raw` as direct input; that becomes the base.
@@ -95,7 +113,10 @@ export function normalizeSquadPlayer(p: SquadPlayerRawLoose): SquadPlayer {
     typeof m.ratingParPosition === 'number' && !Number.isNaN(m.ratingParPosition) ? m.ratingParPosition : 11
   const ratingParPosition = Math.max(1, Math.min(11, Math.round(rp0)))
   const keeper = m.keeper === true
-  return { ...m, rawBase, rawAdj, raw, ratingParPosition, keeper }
+  const overseas = m.overseas === true
+  const note = typeof m.note === 'string' ? m.note.slice(0, 4000) : undefined
+  const action = normalizeBowlAction(m.action)
+  return { ...m, rawBase, rawAdj, raw, ratingParPosition, keeper, overseas, note, action }
 }
 
 /** Par position 1–11 for batting rating on bench rows; starting XI should use `battingPositionForParTable('starting', i)`. */
@@ -176,6 +197,7 @@ function makePlayer(
     bowlRating,
     locked: false,
     keeper: false,
+    overseas: false,
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { Team } from '../data/teams'
 import { getTeamLogo } from '../data/logoStore'
+import { teamAggregateRatingClass } from '../data/ratingDisplaySettings'
 
 interface TeamsTableProps {
   teams: Team[]
@@ -98,13 +99,37 @@ export default function TeamsTable({
                     </button>
                   ) : null}
                 </td>
-                <td className={`td-num ${teamBatRatings && (batVal > 0 ? 'rating-pos' : batVal < 0 ? 'rating-neg' : '')}`}>
+                <td
+                  className={[
+                    'td-num',
+                    teamBatRatings ? teamAggregateRatingClass(batVal) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
                   {batDisplay}
                 </td>
-                <td className={`td-num ${teamBowlingRatings && (bowlVal > 0 ? 'rating-pos' : bowlVal < 0 ? 'rating-neg' : '')}`}>
+                <td
+                  className={[
+                    'td-num',
+                    teamBowlingRatings ? teamAggregateRatingClass(bowlVal) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
                   {bowlDisplay}
                 </td>
-                <td className="td-num td-total">{totalDisplay}</td>
+                <td
+                  className={[
+                    'td-num',
+                    'td-total',
+                    teamBatRatings && teamBowlingRatings ? teamAggregateRatingClass(totalVal) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {totalDisplay}
+                </td>
               </tr>
             )
           })}

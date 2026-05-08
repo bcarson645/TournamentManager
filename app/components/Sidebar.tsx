@@ -21,6 +21,9 @@ interface SidebarProps {
   onSelectTeam?: (teamId: string) => void
   onBackToDashboard?: () => void
   onGoHome: () => void
+  /** Narrow strip: expand to browse teams / tournaments. */
+  collapsed?: boolean
+  onToggleCollapsed?: () => void
 }
 
 export default function Sidebar({
@@ -33,6 +36,8 @@ export default function Sidebar({
   onSelectTeam,
   onBackToDashboard,
   onGoHome,
+  collapsed = false,
+  onToggleCollapsed,
 }: SidebarProps) {
   const formatInfo = FORMATS.find((f) => f.key === currentFormat)!
   const genderInfo = GENDERS.find((g) => g.key === currentGender)!
@@ -43,11 +48,26 @@ export default function Sidebar({
   const teams = getTeamsByTournament(currentTournamentId)
 
   return (
-    <aside className="sidebar">
-      <button className="sidebar-home" onClick={onGoHome}>
-        ← All Formats
-      </button>
+    <aside className={'sidebar' + (collapsed ? ' sidebar--collapsed' : '')}>
+      <div className="sidebar-toolbar">
+        {onToggleCollapsed ? (
+          <button
+            type="button"
+            className="sidebar-collapse-toggle"
+            onClick={onToggleCollapsed}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+          >
+            {collapsed ? '»' : '«'}
+          </button>
+        ) : null}
+        <button className="sidebar-home" onClick={onGoHome} title="All formats">
+          {collapsed ? '←' : '← All Formats'}
+        </button>
+      </div>
 
+      {!collapsed && (
+      <>
       <div className="sidebar-section">
         <div className="sidebar-section-label">Format</div>
         <div className="sidebar-current">
@@ -135,6 +155,8 @@ export default function Sidebar({
             </ul>
           </div>
         </>
+      )}
+      </>
       )}
     </aside>
   )

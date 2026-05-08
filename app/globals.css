@@ -1082,6 +1082,65 @@ body {
   padding-top: 0.75rem;
 }
 
+.sidebar-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0 0.75rem 0.6rem;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 0.35rem;
+}
+
+.sidebar-toolbar .sidebar-home {
+  width: 100%;
+  margin: 0;
+}
+
+.sidebar-collapse-toggle {
+  display: block;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.sidebar-collapse-toggle:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
+.sidebar--collapsed {
+  width: 3.1rem;
+  flex-shrink: 0;
+  padding: 0.35rem 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.sidebar--collapsed .sidebar-toolbar {
+  padding: 0.25rem 0.35rem 0.5rem;
+  align-items: stretch;
+}
+
+.sidebar--collapsed .sidebar-home {
+  width: auto;
+  margin: 0;
+  padding: 0.45rem 0.15rem;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
 /* ---------- Dashboard main ---------- */
 
 .dashboard-main {
@@ -1238,6 +1297,38 @@ body {
 .tournament-section-body--rankings .rankings-columns {
   margin: 0;
   gap: 0.6rem;
+}
+
+.rankings-metric-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin: 0 0 0.65rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rankings-metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.rankings-metric-select {
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.45rem;
+  border-radius: 0.3rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 .tournament-section-panel .rankings-panel {
@@ -1540,6 +1631,45 @@ body {
   display: block;
   font-weight: 600;
   margin-bottom: 0.25rem;
+}
+
+.settings-par-score-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  margin-top: 1.1rem;
+  font-size: 0.86rem;
+  color: var(--text-primary);
+}
+
+.settings-par-score-label {
+  display: block;
+}
+
+.settings-par-score-meta {
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.settings-par-score-input {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  max-width: 7rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.settings-par-score-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 .settings-toggle-hint {
@@ -2083,6 +2213,34 @@ body {
   border-radius: 0;
   background: transparent;
   border-bottom: 2px solid rgba(248, 113, 113, 0.42);
+}
+
+.tm-ribbon-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.tm-ribbon-section-head .tm-ribbon-section-label {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.tm-ribbon-metric-select {
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 0.22rem 0.3rem;
+  border-radius: 0.3rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  max-width: 5.8rem;
+  text-transform: none;
+  letter-spacing: 0.02em;
 }
 
 .tm-mini-table th.mini-th-bat {
@@ -3172,6 +3330,7 @@ body {
 
 .squad-row-locked .cell-input,
 .squad-row-locked .action-select,
+.squad-row-locked .bowl-action-select-trigger,
 .squad-row-locked .raw-adj-btn,
 .squad-row-locked .sq-value-spin-btn,
 .squad-row-locked .cell-input-pos {
@@ -3439,11 +3598,11 @@ body {
 .squad-table--value-steppers tbody tr.squad-row > td:nth-child(15),
 .squad-table--value-steppers tbody tr.squad-row > td:nth-child(16),
 .squad-table--value-steppers tbody tr.squad-row > td:nth-child(17),
-.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(2),
-.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(5),
-.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(11),
-.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(12),
-.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(13) {
+.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(6),
+.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(9),
+.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(15),
+.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(16),
+.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(17) {
   width: var(--sq-stepper-col-wide);
   min-width: var(--sq-stepper-col-wide);
   max-width: none;
@@ -3461,11 +3620,11 @@ body {
 .squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tbody tr.squad-row > td:nth-child(13),
 .squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tbody tr.squad-row > td:nth-child(14),
 .squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tbody tr.squad-row > td:nth-child(15),
-.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(2),
-.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(3),
-.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(9),
-.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(10),
-.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(11) {
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(6),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(7),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(13),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(14),
+.squad-table.squad-table--hide-bat-raw.squad-table--value-steppers tfoot tr.squad-totals-row > td:nth-child(15) {
   width: var(--sq-stepper-col-wide);
   min-width: var(--sq-stepper-col-wide);
   max-width: none;
@@ -3610,6 +3769,132 @@ body {
 .action-select:focus {
   outline: 1px solid var(--accent);
   border-color: var(--accent);
+}
+
+/* Bowl action: compact letter trigger; menu is a separate high-contrast panel */
+.bowl-action-select {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.bowl-action-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.08rem;
+  box-sizing: border-box;
+  width: auto;
+  min-width: 1.5rem;
+  max-width: 2.65rem;
+  min-height: 1.3rem;
+  padding: 0.1rem 0.22rem 0.1rem 0.18rem;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  /* Opaque chip — reads clearly on workspace stripes */
+  background: var(--input-cell-bg);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.22rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.bowl-action-select-trigger:hover:not(:disabled) {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: #1e2d45;
+  color: var(--text-primary);
+}
+
+.bowl-action-select-trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.bowl-action-select-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 2px);
+  z-index: 40;
+  margin: 0;
+  padding: 0.16rem 0;
+  list-style: none;
+  /* Much darker than workspace (#1a2d4a) so the panel reads as a solid sheet */
+  background: var(--bg-primary);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  border-radius: 0.3rem;
+  box-shadow:
+    0 0.5rem 1.25rem rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  isolation: isolate;
+  pointer-events: auto;
+  backdrop-filter: none;
+  opacity: 1;
+}
+
+.bowl-action-select-menu--fixed {
+  right: auto;
+}
+
+.bowl-action-select-option {
+  display: flex;
+  align-items: baseline;
+  gap: 0.28rem;
+  width: 100%;
+  padding: 0.26rem 0.4rem;
+  font: inherit;
+  font-size: 0.65rem;
+  text-align: left;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.bowl-action-select-option:hover {
+  background: var(--input-cell-bg);
+}
+
+.bowl-action-select-option.is-active {
+  background: #0c2533;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.bowl-action-select-letter {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bowl-action-select-caret {
+  font-size: 0.5rem;
+  line-height: 1;
+  opacity: 0.55;
+  margin-top: 0.06rem;
+}
+
+.bowl-action-select-option-short {
+  flex: 0 0 auto;
+  font-weight: 700;
+  width: 1.15rem;
+  color: var(--accent);
+}
+
+.bowl-action-select-option-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 /* Info button */
@@ -4501,6 +4786,183 @@ body {
   border-color: rgba(239, 68, 68, 0.55);
 }
 
+.pp-name-row-chrome {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.pp-note-chip {
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.12rem 0.35rem;
+  border-radius: 0.25rem;
+  background: rgba(251, 191, 36, 0.18);
+  color: rgba(253, 230, 138, 0.98);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.pp-overseas-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.35rem;
+  border: 1px dashed rgba(165, 180, 252, 0.38);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.pp-overseas-btn:hover {
+  color: rgba(224, 231, 255, 0.96);
+  border-color: rgba(129, 140, 248, 0.55);
+}
+
+.pp-overseas-btn--active {
+  border-style: solid;
+  border-color: rgba(129, 140, 248, 0.48);
+  color: rgba(199, 210, 254, 0.98);
+  box-shadow: inset 0 -1px 0 rgba(165, 180, 252, 0.2);
+}
+
+.pp-overseas-plane {
+  flex-shrink: 0;
+  opacity: 0.92;
+}
+
+.pp-note-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: rgba(253, 230, 138, 0.95);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.38);
+  border-radius: 0.35rem;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.pp-note-btn:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(251, 191, 36, 0.52);
+}
+
+.pp-note-btn--open {
+  border-color: rgba(251, 191, 36, 0.58);
+  background: rgba(245, 158, 11, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.15);
+}
+
+.pp-squad-actions-block {
+  position: relative;
+  z-index: 3;
+}
+
+.pp-note-popover {
+  margin-top: 0.35rem;
+  margin-bottom: 0.2rem;
+  padding: 0;
+  max-width: 100%;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow:
+    0 0.35rem 1rem rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.pp-note-popover-form {
+  padding: 0.75rem 0.85rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pp-note-popover-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.pp-note-popover-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.pp-note-popover-textarea {
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  resize: vertical;
+  min-height: 4.5rem;
+  max-height: 12rem;
+}
+
+.pp-note-popover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  margin-top: 0.05rem;
+}
+
+.pp-note-popover-primary {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.4rem 0.85rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.16);
+  color: rgba(224, 242, 254, 0.98);
+  cursor: pointer;
+}
+
+.pp-note-popover-primary:hover {
+  background: rgba(56, 189, 248, 0.26);
+}
+
+.pp-note-popover-secondary {
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.4rem 0.65rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.pp-note-popover-secondary:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
 /* ========== Squad Totals Row ========== */
 
 .squad-totals-row {
@@ -4513,6 +4975,39 @@ body {
 .squad-totals-row td {
   padding: 0.4rem 0.35rem;
   color: var(--accent);
+}
+
+.squad-totals-row td.sq-rating.rating-pos {
+  color: var(--green) !important;
+}
+
+.squad-totals-row td.sq-rating.rating-neg {
+  color: #f87171 !important;
+}
+
+.squad-totals-row td.sq-totals-empty {
+  color: var(--text-muted) !important;
+  font-weight: 500;
+  background: transparent !important;
+}
+
+.squad-totals-row td.sq-totals-warn {
+  background: rgba(251, 191, 36, 0.16) !important;
+  color: #fbbf24 !important;
+  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.42);
+}
+
+.squad-totals-row td.sq-totals-filler {
+  padding: 0.4rem 0.35rem;
+  background: transparent !important;
+  color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+
+.squad-totals-row td.sq-name.sq-totals-label {
+  text-align: right !important;
+  font-weight: 700 !important;
 }
 
 .sq-totals-label {

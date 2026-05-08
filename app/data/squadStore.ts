@@ -9,6 +9,8 @@ import {
 import { BLAST_MEN_SQUADS, BLAST_SQUAD_TEMPLATE_VERSION } from './blastMenSquads'
 import { calculateBowlRating, roundRatingToStoredDecimals } from './ratingBenchmarks'
 import { TEAMS } from './teams'
+import type { DashboardBatMetric, DashboardBowlMetric } from './ratingDisplaySettings'
+import { DEFAULT_RATING_PAR_SCORE } from './tournamentOptions'
 
 const BLAST_TEAM_IDS = new Set(Object.keys(BLAST_MEN_SQUADS))
 
@@ -230,18 +232,33 @@ export function getTournamentPrepProgress(tournamentId: string): { prepped: numb
   return { prepped, total }
 }
 
-export function getTeamBatRatingTotal(teamId: string): number {
+/** Team batting total: (sum of XI batting ratings + par) / par */
+export function getTeamBatRatingTotal(teamId: string, parScore: number): number {
   const { startingXI } = getSquadForTeam(teamId)
-  return roundRatingToStoredDecimals(startingXI.reduce((sum, p) => sum + p.batRating, 0))
+  const sum = startingXI.reduce((s, p) => s + p.batRating, 0)
+  const par =
+    Number.isFinite(parScore) && parScore > 0 ? parScore : DEFAULT_RATING_PAR_SCORE
+  return roundRatingToStoredDecimals((sum + par) / par)
 }
 
-export function getTeamBowlRatingTotal(teamId: string): number {
+/** Team bowling total: (par − sum of XI bowling ratings) / par */
+export function getTeamBowlRatingTotal(teamId: string, parScore: number): number {
   const { startingXI } = getSquadForTeam(teamId)
   const sum = startingXI.reduce(
     (s, p) => s + (Number.isNaN(p.bowlRating) ? 0 : p.bowlRating),
     0,
   )
-  return roundRatingToStoredDecimals(sum)
+  const par =
+    Number.isFinite(parScore) && parScore > 0 ? parScore : DEFAULT_RATING_PAR_SCORE
+  return roundRatingToStoredDecimals((par - sum) / par)
+}
+
+export interface DashboardRankEntry {
+  id: string
+  name: string
+  teamId: string
+  teamName: string
+  value: number
 }
 
 export interface RankedBatter {
@@ -252,15 +269,61 @@ export interface RankedBatter {
   batRating: number
 }
 
-export function getRankedBatters(teams: { id: string; name: string }[]): RankedBatter[] {
-  const all: RankedBatter[] = []
+function battingSrDisplayFromCaz(srPerBall: number): number {
+  return Math.round(srPerBall * 100 * 100) / 100
+}
+
+export function getDashboardBatRankings(
+  teams: { id: string; name: string }[],
+  metric: DashboardBatMetric,
+): DashboardRankEntry[] {
+  const all: DashboardRankEntry[] = []
   for (const team of teams) {
     const { startingXI } = getSquadForTeam(team.id)
     for (const p of startingXI) {
-      all.push({ id: p.id, name: p.name, teamId: team.id, teamName: team.name, batRating: p.batRating })
+      const value =
+        metric === 'batRating' ? p.batRating : metric === 'btCaz' ? p.btCaz : battingSrDisplayFromCaz(p.sr)
+      all.push({ id: p.id, name: p.name, teamId: team.id, teamName: team.name, value })
     }
   }
-  return all.sort((a, b) => b.batRating - a.batRating)
+  return all.sort((a, b) => b.value - a.value)
+}
+
+export function getDashboardBowlRankings(
+  teams: { id: string; name: string }[],
+  metric: DashboardBowlMetric,
+): DashboardRankEntry[] {
+  const all: DashboardRankEntry[] = []
+  for (const team of teams) {
+    const { startingXI } = getSquadForTeam(team.id)
+    for (const p of startingXI) {
+      if (Number.isNaN(p.bowlRating)) continue
+      let value: number
+      if (metric === 'bowlRating') value = p.bowlRating
+      else if (metric === 'bowlAvg') value = p.bowlAvg
+      else if (metric === 'econ') value = p.econ
+      else value = p.bowlWpo > 0 ? 6 / p.bowlWpo : Number.POSITIVE_INFINITY
+      all.push({ id: p.id, name: p.name, teamId: team.id, teamName: team.name, value })
+    }
+  }
+  if (metric === 'bowlAvg' || metric === 'econ' || metric === 'bowlBpw') {
+    return all.sort((a, b) => {
+      const av = Number.isFinite(a.value) ? a.value : Number.POSITIVE_INFINITY
+      const bv = Number.isFinite(b.value) ? b.value : Number.POSITIVE_INFINITY
+      return av - bv
+    })
+  }
+  return all.sort((a, b) => b.value - a.value)
+}
+
+export function getRankedBatters(teams: { id: string; name: string }[]): RankedBatter[] {
+  return getDashboardBatRankings(teams, 'batRating').map((r) => ({
+    id: r.id,
+    name: r.name,
+    teamId: r.teamId,
+    teamName: r.teamName,
+    batRating: r.value,
+  }))
 }
 
 export function getTopRatedBatters(teams: { id: string; name: string }[], limit = 10): RankedBatter[] {
@@ -276,16 +339,13 @@ export interface RankedBowler {
 }
 
 export function getRankedBowlers(teams: { id: string; name: string }[]): RankedBowler[] {
-  const all: RankedBowler[] = []
-  for (const team of teams) {
-    const { startingXI } = getSquadForTeam(team.id)
-    for (const p of startingXI) {
-      if (!Number.isNaN(p.bowlRating)) {
-        all.push({ id: p.id, name: p.name, teamId: team.id, teamName: team.name, bowlingRating: p.bowlRating })
-      }
-    }
-  }
-  return all.sort((a, b) => b.bowlingRating - a.bowlingRating)
+  return getDashboardBowlRankings(teams, 'bowlRating').map((r) => ({
+    id: r.id,
+    name: r.name,
+    teamId: r.teamId,
+    teamName: r.teamName,
+    bowlingRating: r.value,
+  }))
 }
 
 export function getTopRatedBowlers(teams: { id: string; name: string }[], limit = 10): RankedBowler[] {

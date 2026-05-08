@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useEffect, type SVGProps } from 'react'
+import { useState, useRef, useMemo, useEffect, useLayoutEffect, type SVGProps } from 'react'
 import {
   SquadPlayer,
   BowlAction,
@@ -10,7 +10,7 @@ import {
   ratingParPosForBatCalc,
 } from '../data/squad'
 import { searchPlayers, PlayerDbEntry } from '../data/playerDatabase'
-import type { CricketFormat, Gender } from '../data/tournaments'
+import { type CricketFormat, type Gender, scheduledInningsOversForFormat } from '../data/tournaments'
 import { calculateBatRating, calculateBowlRating, roundRatingToStoredDecimals } from '../data/ratingBenchmarks'
 import {
   formatSquadRatingDisplay,
@@ -52,6 +52,117 @@ function PidCell({ playerId }: { playerId: string }) {
         </span>
       )}
     </span>
+  )
+}
+
+const BOWL_ACTION_OPTIONS: { value: BowlAction; short: string; label: string }[] = [
+  { value: 'SEAM', short: 'S', label: 'Seam (pace)' },
+  { value: 'OFS', short: 'O', label: 'Off-spin (OFS)' },
+  { value: 'LEG', short: 'L', label: 'Leg spin' },
+]
+
+function BowlActionSelect({
+  value,
+  disabled,
+  onPick,
+}: {
+  value: BowlAction
+  disabled: boolean
+  onPick: (v: BowlAction) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuRect(null)
+      return
+    }
+    function place() {
+      const wrap = ref.current
+      const btn = wrap?.querySelector<HTMLElement>('.bowl-action-select-trigger')
+      if (!btn) return
+      const r = btn.getBoundingClientRect()
+      const menuMin = 8 * 16 /* 8rem readable for labels */
+      const menuMax = 10.5 * 16
+      const menuW = Math.min(Math.max(menuMin, r.width + 52), menuMax)
+      let left = r.left + (r.width - menuW) / 2
+      if (left + menuW > window.innerWidth - 8) left = Math.max(8, window.innerWidth - menuW - 8)
+      if (left < 8) left = 8
+      setMenuRect({ top: r.bottom + 3, left, width: menuW })
+    }
+    place()
+    window.addEventListener('scroll', place, true)
+    window.addEventListener('resize', place)
+    return () => {
+      window.removeEventListener('scroll', place, true)
+      window.removeEventListener('resize', place)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e: MouseEvent) {
+      const t = e.target as Node
+      if (ref.current?.contains(t)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const current = BOWL_ACTION_OPTIONS.find((o) => o.value === value) ?? BOWL_ACTION_OPTIONS[0]!
+
+  return (
+    <div className="bowl-action-select" ref={ref}>
+      <button
+        type="button"
+        className="bowl-action-select-trigger"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Bowling action: ${current.label}. Open to change.`}
+        title={`${current.label} — click to change`}
+        onClick={() => !disabled && setOpen((x) => !x)}
+      >
+        <span className="bowl-action-select-letter">{current.short}</span>
+        <span className="bowl-action-select-caret" aria-hidden>
+          ▾
+        </span>
+      </button>
+      {open && menuRect ? (
+        <ul
+          className="bowl-action-select-menu bowl-action-select-menu--fixed"
+          role="listbox"
+          style={{
+            position: 'fixed',
+            top: menuRect.top,
+            left: menuRect.left,
+            width: menuRect.width,
+            zIndex: 10020,
+          }}
+        >
+          {BOWL_ACTION_OPTIONS.map((o) => (
+            <li key={o.value} role="none">
+              <button
+                type="button"
+                role="option"
+                className={'bowl-action-select-option' + (o.value === value ? ' is-active' : '')}
+                aria-selected={o.value === value}
+                onClick={() => {
+                  onPick(o.value)
+                  setOpen(false)
+                }}
+              >
+                <span className="bowl-action-select-option-short">{o.short}</span>
+                <span className="bowl-action-select-option-label">{o.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   )
 }
 
@@ -642,7 +753,7 @@ export default function SquadTable({
     return (
       <tr
         key={player.id}
-        className={`squad-row ${isSwapSelected ? 'squad-row-swap-source' : ''} ${isSelected ? 'squad-row-selected' : ''} ${rowLocked ? 'squad-row-locked' : ''}`}
+        className={`squad-row ${isSwapSelected ? 'squad-row-swap-source' : ''} ${isSelected ? 'squad-row-selected' : ''} ${rowLocked ? 'squad-row-locked' : ''} ${player.overseas ? 'squad-row-overseas' : ''}`}
         draggable
         onDragStart={() => handleDragStart(section, index)}
         onDragEnter={() => handleDragEnter(section, index)}
@@ -701,6 +812,21 @@ export default function SquadTable({
                   className="sq-keeper-img"
                   decoding="async"
                 />
+              </span>
+            ) : null}
+            {player.overseas ? (
+              <span className="sq-overseas-badge" title="Overseas">
+                <svg className="sq-overseas-plane" viewBox="0 0 24 24" width="14" height="14" aria-hidden>
+                  <path
+                    fill="currentColor"
+                    d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"
+                  />
+                </svg>
+              </span>
+            ) : null}
+            {player.note?.trim() ? (
+              <span className="sq-note-dot" title="Has squad note">
+                <span className="sq-note-dot-inner" aria-hidden />
               </span>
             ) : null}
           </span>
@@ -870,12 +996,10 @@ export default function SquadTable({
           {formatSquadRatingDisplay(player.batRating, ratingDp)}
         </td>
         <td className="sq-action sq-stat sq-stat-bowl">
-          <select
-            className="action-select"
+          <BowlActionSelect
             value={player.action}
             disabled={rowLocked}
-            onChange={(e) => {
-              const v = e.target.value as BowlAction
+            onPick={(v) => {
               if (section === 'starting') {
                 const list = [...startingXI]
                 list[index] = { ...list[index], action: v }
@@ -890,10 +1014,7 @@ export default function SquadTable({
                 onUpdate(startingXI, reserves, list)
               }
             }}
-          >
-            <option value="SEAM">SEAM</option>
-            <option value="SPIN">SPIN</option>
-          </select>
+          />
         </td>
         <td className="sq-num sq-stat sq-stat-bowl">{player.wkts.toFixed(1)}</td>
         {BOWL_EDITABLE.map((field) => {
@@ -991,45 +1112,86 @@ export default function SquadTable({
   }
 
   function renderTotalsRow(players: SquadPlayer[], section: RosterSection) {
+    if (section === 'reserves') return null
     const sum = (fn: (p: SquadPlayer) => number) => players.reduce((acc, p) => acc + fn(p), 0)
-    const totOvers = sum((p) => p.overs)
+    const totBatRating = roundRatingToStoredDecimals(sum((p) => p.batRating))
+    const totBowlRating = roundRatingToStoredDecimals(
+      sum((p) => (Number.isNaN(p.bowlRating) ? 0 : p.bowlRating)),
+    )
     const totWkts = sum((p) => p.wkts)
-    const teamWpo = totOvers > 0 ? Math.round((totWkts / totOvers) * 1000) / 1000 : null
+    const totOvers = sum((p) => p.overs)
+    const schedOvers = scheduledInningsOversForFormat(cricketFormat)
+    const wktsWarn = totWkts > 10
+    const oversWarn = totOvers > schedOvers + 1e-9
+
+    const emptyBat = <td className="sq-num sq-stat sq-stat-bat sq-totals-empty" />
+    const emptyBowlNum = <td className="sq-num sq-stat sq-stat-bowl sq-totals-empty" />
+    const emptyAction = <td className="sq-action sq-stat sq-stat-bowl sq-totals-empty" />
+
     return (
       <tfoot>
         <tr className="squad-totals-row">
-          <td colSpan={5} className="sq-totals-label sq-core">
-            Totals
-          </td>
-          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.btCaz).toFixed(1)}</td>
+          <td className="sq-swap sq-core sq-totals-filler" />
+          <td className="sq-pos sq-core sq-totals-filler" />
+          <td className="sq-drag sq-core sq-totals-filler" />
+          <td className="sq-pid sq-core sq-totals-filler" />
+          <td className="sq-name sq-core sq-totals-label">Totals</td>
+          {emptyBat}
           {!hideBatRawCols ? (
             <>
-              <td className="sq-num sq-stat sq-stat-bat sq-raw-base">{sum((p) => p.raw).toFixed(1)}</td>
-              <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.rawAdj).toFixed(0)}</td>
+              <td className="sq-num sq-stat sq-stat-bat sq-raw-base sq-totals-empty" />
+              <td className="sq-num sq-stat sq-stat-bat sq-totals-empty" />
             </>
           ) : null}
-          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.sr).toFixed(2)}</td>
-          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.fours).toFixed(1)}</td>
-          <td className="sq-num sq-stat sq-stat-bat">{sum((p) => p.sixes).toFixed(1)}</td>
-          <td className="sq-num sq-stat sq-stat-bat">
-            {formatSquadRatingDisplay(roundRatingToStoredDecimals(sum((p) => p.batRating)), ratingDp)}
+          {emptyBat}
+          {emptyBat}
+          {emptyBat}
+          <td
+            className={`sq-num sq-rating sq-stat sq-stat-bat ${
+              totBatRating > 0 ? 'rating-pos' : totBatRating < 0 ? 'rating-neg' : ''
+            }`}
+          >
+            {formatSquadRatingDisplay(totBatRating, ratingDp)}
           </td>
-          <td className="sq-stat sq-stat-bowl"></td>
-          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.wkts).toFixed(1)}</td>
-          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.overs).toFixed(1)}</td>
-          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.econ).toFixed(1)}</td>
-          <td className="sq-num sq-stat sq-stat-bowl">{teamWpo !== null ? teamWpo.toFixed(3) : '–'}</td>
-          <td className="sq-num sq-stat sq-stat-bowl">{sum((p) => p.bowlAvg).toFixed(2)}</td>
-          <td className="sq-num sq-stat sq-stat-bowl">
-            {formatSquadRatingDisplay(
-              roundRatingToStoredDecimals(sum((p) => (Number.isNaN(p.bowlRating) ? 0 : p.bowlRating))),
-              ratingDp,
-            )}
+          {emptyAction}
+          <td
+            className={'sq-num sq-stat sq-stat-bowl' + (wktsWarn ? ' sq-totals-warn' : '')}
+            title={
+              wktsWarn
+                ? 'Total wickets exceed 10 for this group'
+                : `Total wickets: ${totWkts.toFixed(1)}`
+            }
+          >
+            {totWkts.toFixed(1)}
           </td>
-          <td className="sq-info sq-core sq-totals-info"></td>
-          <td className="sq-lock sq-core sq-totals-lock">
-            {section !== 'reserves' && lockBulkHeaderButton(section)}
+          <td
+            className={'sq-num sq-stat sq-stat-bowl' + (oversWarn ? ' sq-totals-warn' : '')}
+            title={
+              oversWarn
+                ? `Total overs (${totOvers.toFixed(1)}) exceed scheduled ${schedOvers} for this format`
+                : `Total overs: ${totOvers.toFixed(1)} (scheduled ${schedOvers})`
+            }
+          >
+            {totOvers.toFixed(1)}
           </td>
+          {emptyBowlNum}
+          {emptyBowlNum}
+          {emptyBowlNum}
+          <td
+            className={`sq-num sq-rating sq-stat sq-stat-bowl ${
+              !Number.isNaN(totBowlRating)
+                ? totBowlRating > 0
+                  ? 'rating-pos'
+                  : totBowlRating < 0
+                    ? 'rating-neg'
+                    : ''
+                : ''
+            }`}
+          >
+            {formatSquadRatingDisplay(totBowlRating, ratingDp)}
+          </td>
+          <td className="sq-info sq-core sq-totals-info" />
+          <td className="sq-lock sq-core sq-totals-lock">{lockBulkHeaderButton(section)}</td>
         </tr>
       </tfoot>
     )
@@ -1243,7 +1405,6 @@ export default function SquadTable({
               )}
             </thead>
             <tbody>{reserves.map((p, i) => renderRow(p, i, 'reserves'))}</tbody>
-            {renderTotalsRow(reserves, 'reserves')}
           </table>
         </div>
         {onAddPlayer && (

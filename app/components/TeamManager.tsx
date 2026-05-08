@@ -2,13 +2,13 @@
 
 import { useState, useRef, useMemo, useEffect, useSyncExternalStore } from 'react'
 import { Team } from '../data/teams'
-import { RankedBatter, RankedBowler } from '../data/squadStore'
 import {
   SquadPlayer,
   BowlAction,
   makeSquadForTeam,
   calcWktsAndBowlAvg,
   MAX_IMPACT_SUBS,
+  MAX_OVERSEAS_XI_HINT,
   createCustomSquadBlank,
   normalizeBowlStats,
   normalizeSquadPlayer,
@@ -28,7 +28,23 @@ import {
   getSquadStoreVersion,
   storeSquad,
   subscribeSquadStore,
+  getDashboardBatRankings,
+  getDashboardBowlRankings,
 } from '../data/squadStore'
+import {
+  readDashboardBatMetric,
+  readDashboardBowlMetric,
+  writeDashboardBatMetric,
+  writeDashboardBowlMetric,
+  formatDashboardBatMetricValue,
+  formatDashboardBowlMetricValue,
+  dashboardBowlMetricValueSemantics,
+  dashboardBatMetricOptionLabel,
+  dashboardBowlMetricOptionLabel,
+  teamAggregateRatingClass,
+  type DashboardBatMetric,
+  type DashboardBowlMetric,
+} from '../data/ratingDisplaySettings'
 import { getProfileForPlayer } from '../data/playerProfile'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
 
@@ -117,6 +133,17 @@ function hashStr(s: string): number {
 
 const RIBBON_RANK_PAGE = 10
 
+function ribbonNumericClass(
+  n: number,
+  semantics: 'higher-better' | 'lower-better',
+): string {
+  if (!Number.isFinite(n)) return ''
+  if (semantics === 'lower-better') {
+    return n <= 0 ? '' : ' rating-pos'
+  }
+  return n > 0 ? ' rating-pos' : n < 0 ? ' rating-neg' : ''
+}
+
 interface TeamManagerProps {
   format: CricketFormat
   gender: Gender
@@ -126,10 +153,6 @@ interface TeamManagerProps {
   allTeams: Team[]
   teamBatRatings: Record<string, number>
   teamBowlingRatings: Record<string, number>
-  /** Full tournament batting ladder (sliced in ribbon by page). */
-  rankedBatters: RankedBatter[]
-  /** Full tournament bowling ladder. */
-  rankedBowlers: RankedBowler[]
   /** Open team-wide analytics drawer (demo / layout). */
   onOpenTeamAnalytics?: () => void
   /** Team analytics shown in the player panel column (does not block squad). */
@@ -146,13 +169,28 @@ export default function TeamManager({
   allTeams,
   teamBatRatings,
   teamBowlingRatings,
-  rankedBatters,
-  rankedBowlers,
   onOpenTeamAnalytics,
   teamAnalyticsOpen = false,
   onCloseTeamAnalytics,
 }: TeamManagerProps) {
   const squadStoreVersion = useSyncExternalStore(subscribeSquadStore, getSquadStoreVersion, getSquadStoreVersion)
+  const [dashBatMetric, setDashBatMetric] = useState<DashboardBatMetric>('batRating')
+  const [dashBowlMetric, setDashBowlMetric] = useState<DashboardBowlMetric>('bowlRating')
+
+  useEffect(() => {
+    setDashBatMetric(readDashboardBatMetric())
+    setDashBowlMetric(readDashboardBowlMetric())
+  }, [])
+
+  const ribbonBatters = useMemo(
+    () => getDashboardBatRankings(allTeams, dashBatMetric),
+    [allTeams, squadStoreVersion, dashBatMetric],
+  )
+  const ribbonBowlers = useMemo(
+    () => getDashboardBowlRankings(allTeams, dashBowlMetric),
+    [allTeams, squadStoreVersion, dashBowlMetric],
+  )
+
   const { impactSubEnabled } = useTournamentOptions(tournamentId)
   const [teamLogo, setTeamLogo] = useState<string | null>(getTeamLogo(team.id) ?? team.logo ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -294,16 +332,21 @@ export default function TeamManager({
     return { bat, bowl, total: (bat + bowl) / 2 }
   }, [team.id, teamBatRatings, teamBowlingRatings])
 
-  const ribbonBatTotalPages = Math.max(1, Math.ceil(rankedBatters.length / RIBBON_RANK_PAGE))
-  const ribbonBowlTotalPages = Math.max(1, Math.ceil(rankedBowlers.length / RIBBON_RANK_PAGE))
+  const ribbonBatTotalPages = Math.max(1, Math.ceil(ribbonBatters.length / RIBBON_RANK_PAGE))
+  const ribbonBowlTotalPages = Math.max(1, Math.ceil(ribbonBowlers.length / RIBBON_RANK_PAGE))
+
+  const startingXiOverseasCount = useMemo(
+    () => startingXI.filter((p) => p.overseas).length,
+    [startingXI],
+  )
 
   useEffect(() => {
     setRibbonBatPage((p) => Math.min(p, Math.max(0, ribbonBatTotalPages - 1)))
-  }, [rankedBatters.length, ribbonBatTotalPages])
+  }, [ribbonBatters.length, ribbonBatTotalPages])
 
   useEffect(() => {
     setRibbonBowlPage((p) => Math.min(p, Math.max(0, ribbonBowlTotalPages - 1)))
-  }, [rankedBowlers.length, ribbonBowlTotalPages])
+  }, [ribbonBowlers.length, ribbonBowlTotalPages])
 
   useEffect(() => {
     setSelectedPlayer((prev) => {
@@ -341,6 +384,22 @@ export default function TeamManager({
     setStartingXI(next)
     storeSquad(team.id, next, reserves, selectedGround?.id ?? null, impactSubs)
     setSelectedPlayer(next[idx]!)
+  }
+
+  function patchPlayerById(id: string, patch: Partial<SquadPlayer>) {
+    const mapList = (list: SquadPlayer[]) =>
+      list.map((p) => (p.id === id ? { ...p, ...patch } : p))
+    handleUpdate(mapList(startingXI), mapList(reserves), mapList(impactSubs))
+  }
+
+  function handleToggleOverseas() {
+    if (!selectedPlayer) return
+    patchPlayerById(selectedPlayer.id, { overseas: !selectedPlayer.overseas })
+  }
+
+  function handleSavePlayerNote(note: string) {
+    if (!selectedPlayer) return
+    patchPlayerById(selectedPlayer.id, { note: note.trim() ? note.trim().slice(0, 4000) : undefined })
   }
 
   function handleRemovePlayerFromSquad() {
@@ -517,14 +576,12 @@ export default function TeamManager({
                   <div className="factor-pill-sm factor-pill-inline factor-pill-ribbon">
                     <span className="factor-label-sm">Bat</span>
                     <span
-                      className={
-                        'factor-value-sm' +
-                        (ribbonTeamRatings.bat > 0
-                          ? ' rating-pos'
-                          : ribbonTeamRatings.bat < 0
-                            ? ' rating-neg'
-                            : '')
-                      }
+                      className={[
+                        'factor-value-sm',
+                        teamAggregateRatingClass(ribbonTeamRatings.bat),
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                     >
                       {ribbonTeamRatings.bat.toFixed(1)}
                     </span>
@@ -532,21 +589,48 @@ export default function TeamManager({
                   <div className="factor-pill-sm factor-pill-inline factor-pill-ribbon">
                     <span className="factor-label-sm">Bowl</span>
                     <span
-                      className={
-                        'factor-value-sm' +
-                        (ribbonTeamRatings.bowl > 0
-                          ? ' rating-pos'
-                          : ribbonTeamRatings.bowl < 0
-                            ? ' rating-neg'
-                            : '')
-                      }
+                      className={[
+                        'factor-value-sm',
+                        teamAggregateRatingClass(ribbonTeamRatings.bowl),
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                     >
                       {ribbonTeamRatings.bowl.toFixed(1)}
                     </span>
                   </div>
                   <div className="factor-pill-sm factor-pill-inline factor-pill-ribbon factor-pill-sm-total">
                     <span className="factor-label-sm">Total</span>
-                    <span className="factor-value-sm">{ribbonTeamRatings.total.toFixed(1)}</span>
+                    <span
+                      className={[
+                        'factor-value-sm',
+                        teamAggregateRatingClass(ribbonTeamRatings.total),
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      {ribbonTeamRatings.total.toFixed(1)}
+                    </span>
+                  </div>
+                  <div
+                    className={
+                      'factor-pill-sm factor-pill-inline factor-pill-ribbon tm-overseas-pill' +
+                      (startingXiOverseasCount > MAX_OVERSEAS_XI_HINT ? ' tm-overseas-pill--warn' : '')
+                    }
+                    title={`Overseas in starting XI (typical competition limit ~${MAX_OVERSEAS_XI_HINT})`}
+                  >
+                    <span className="factor-label-sm tm-overseas-pill-label">
+                      <svg className="tm-overseas-plane-icon" viewBox="0 0 24 24" width="12" height="12" aria-hidden>
+                        <path
+                          fill="currentColor"
+                          d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"
+                        />
+                      </svg>
+                      OS
+                    </span>
+                    <span className="factor-value-sm">
+                      {startingXiOverseasCount}/{MAX_OVERSEAS_XI_HINT}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -654,9 +738,13 @@ export default function TeamManager({
                   <tr key={t.id} className={t.id === team.id ? 'mini-row-current' : ''}>
                     <td>{i + 1}</td>
                     <td className="mini-td-name">{t.name}</td>
-                    <td className={batVal > 0 ? 'rating-pos' : batVal < 0 ? 'rating-neg' : ''}>{batVal.toFixed(1)}</td>
-                    <td className={bowlVal > 0 ? 'rating-pos' : bowlVal < 0 ? 'rating-neg' : ''}>{bowlVal.toFixed(1)}</td>
-                    <td className="mini-td-total">{totalVal.toFixed(1)}</td>
+                    <td className={teamAggregateRatingClass(batVal)}>{batVal.toFixed(1)}</td>
+                    <td className={teamAggregateRatingClass(bowlVal)}>{bowlVal.toFixed(1)}</td>
+                    <td
+                      className={['mini-td-total', teamAggregateRatingClass(totalVal)].filter(Boolean).join(' ')}
+                    >
+                      {totalVal.toFixed(1)}
+                    </td>
                   </tr>
                 )})}
               </tbody>
@@ -669,13 +757,31 @@ export default function TeamManager({
         <div className="tm-ribbon-surface tm-ribbon-surface--rankings-wrap">
         <div className="tm-ribbon-rankings">
           <div className="tm-ribbon-rank-col">
-            <div className="tm-ribbon-section-label tm-ribbon-section-label--bat">Tournament Batting</div>
+            <div className="tm-ribbon-section-head">
+              <div className="tm-ribbon-section-label tm-ribbon-section-label--bat">Tournament Batting</div>
+              <select
+                className="tm-ribbon-metric-select"
+                value={dashBatMetric}
+                onChange={(e) => {
+                  const v = e.target.value as DashboardBatMetric
+                  setDashBatMetric(v)
+                  writeDashboardBatMetric(v)
+                }}
+                aria-label="Batting ranking metric"
+              >
+                {(['batRating', 'btCaz', 'srCaz'] as const).map((k) => (
+                  <option key={k} value={k}>
+                    {dashboardBatMetricOptionLabel(k)}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="tm-ribbon-rank-scroll">
-              {rankedBatters.length === 0 ? (
+              {ribbonBatters.length === 0 ? (
                 <div className="tm-ribbon-rank-empty">No ratings yet</div>
               ) : (
                 <>
-                  {rankedBatters.length > RIBBON_RANK_PAGE && (
+                  {ribbonBatters.length > RIBBON_RANK_PAGE && (
                     <div className="tm-rank-dots" role="tablist" aria-label="Batting rank pages">
                       {Array.from({ length: ribbonBatTotalPages }, (_, i) => (
                         <button
@@ -691,7 +797,7 @@ export default function TeamManager({
                     </div>
                   )}
                   <ol className="tm-mini-rank-list">
-                    {rankedBatters
+                    {ribbonBatters
                       .slice(
                         ribbonBatPage * RIBBON_RANK_PAGE,
                         ribbonBatPage * RIBBON_RANK_PAGE + RIBBON_RANK_PAGE,
@@ -699,16 +805,17 @@ export default function TeamManager({
                       .map((p, i) => {
                         const rank = ribbonBatPage * RIBBON_RANK_PAGE + i + 1
                         const isSquad = currentSquadPlayerIds.has(p.id)
+                        const val = p.value
                         return (
                           <li key={p.id} className={isSquad ? 'mini-rank-row-current' : undefined}>
                             <span className="mini-rank-num">{rank}</span>
                             <span className="mini-rank-name">{p.name}</span>
                             <span
-                              className={`mini-rank-val ${
-                                p.batRating > 0 ? 'rating-pos' : p.batRating < 0 ? 'rating-neg' : ''
-                              }`}
+                              className={
+                                'mini-rank-val' + ribbonNumericClass(val, 'higher-better')
+                              }
                             >
-                              {p.batRating.toFixed(1)}
+                              {formatDashboardBatMetricValue(dashBatMetric, val)}
                             </span>
                           </li>
                         )
@@ -719,13 +826,31 @@ export default function TeamManager({
             </div>
           </div>
           <div className="tm-ribbon-rank-col">
-            <div className="tm-ribbon-section-label tm-ribbon-section-label--bowl">Tournament Bowling</div>
+            <div className="tm-ribbon-section-head">
+              <div className="tm-ribbon-section-label tm-ribbon-section-label--bowl">Tournament Bowling</div>
+              <select
+                className="tm-ribbon-metric-select"
+                value={dashBowlMetric}
+                onChange={(e) => {
+                  const v = e.target.value as DashboardBowlMetric
+                  setDashBowlMetric(v)
+                  writeDashboardBowlMetric(v)
+                }}
+                aria-label="Bowling ranking metric"
+              >
+                {(['bowlRating', 'bowlAvg', 'econ', 'bowlBpw'] as const).map((k) => (
+                  <option key={k} value={k}>
+                    {dashboardBowlMetricOptionLabel(k)}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="tm-ribbon-rank-scroll">
-              {rankedBowlers.length === 0 ? (
+              {ribbonBowlers.length === 0 ? (
                 <div className="tm-ribbon-rank-empty">No ratings yet</div>
               ) : (
                 <>
-                  {rankedBowlers.length > RIBBON_RANK_PAGE && (
+                  {ribbonBowlers.length > RIBBON_RANK_PAGE && (
                     <div className="tm-rank-dots" role="tablist" aria-label="Bowling rank pages">
                       {Array.from({ length: ribbonBowlTotalPages }, (_, i) => (
                         <button
@@ -741,7 +866,7 @@ export default function TeamManager({
                     </div>
                   )}
                   <ol className="tm-mini-rank-list">
-                    {rankedBowlers
+                    {ribbonBowlers
                       .slice(
                         ribbonBowlPage * RIBBON_RANK_PAGE,
                         ribbonBowlPage * RIBBON_RANK_PAGE + RIBBON_RANK_PAGE,
@@ -749,20 +874,16 @@ export default function TeamManager({
                       .map((p, i) => {
                         const rank = ribbonBowlPage * RIBBON_RANK_PAGE + i + 1
                         const isSquad = currentSquadPlayerIds.has(p.id)
+                        const val = p.value
+                        const sem = dashboardBowlMetricValueSemantics(dashBowlMetric)
                         return (
                           <li key={p.id} className={isSquad ? 'mini-rank-row-current' : undefined}>
                             <span className="mini-rank-num">{rank}</span>
                             <span className="mini-rank-name">{p.name}</span>
                             <span
-                              className={`mini-rank-val ${
-                                p.bowlingRating > 0
-                                  ? 'rating-pos'
-                                  : p.bowlingRating < 0
-                                    ? 'rating-neg'
-                                    : ''
-                              }`}
+                              className={'mini-rank-val' + ribbonNumericClass(val, sem)}
                             >
-                              {p.bowlingRating.toFixed(1)}
+                              {formatDashboardBowlMetricValue(dashBowlMetric, val)}
                             </span>
                           </li>
                         )
@@ -829,6 +950,9 @@ export default function TeamManager({
                 ? handleToggleWicketKeeper
                 : undefined
             }
+            playerIsOverseas={selectedPlayer?.overseas === true}
+            onToggleOverseas={selectedPlayer ? handleToggleOverseas : undefined}
+            onSavePlayerNote={selectedPlayer ? handleSavePlayerNote : undefined}
             onRemoveFromSquad={selectedPlayer ? handleRemovePlayerFromSquad : undefined}
           />
         )}

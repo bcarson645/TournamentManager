@@ -22,6 +22,11 @@ interface PlayerDetailPanelProps {
   squadSlot?: 'starting' | 'bench' | null
   playerIsKeeper?: boolean
   onToggleWicketKeeper?: () => void
+  /** Mark as overseas (squad / regulation planning). */
+  playerIsOverseas?: boolean
+  onToggleOverseas?: () => void
+  /** Persist note on squad player row (shared with anyone editing this squad). */
+  onSavePlayerNote?: (note: string) => void
   /** Remove this player from Starting XI, reserves, or impact (with confirm). */
   onRemoveFromSquad?: () => void
 }
@@ -69,6 +74,9 @@ export default function PlayerDetailPanel({
   squadSlot = null,
   playerIsKeeper = false,
   onToggleWicketKeeper,
+  playerIsOverseas = false,
+  onToggleOverseas,
+  onSavePlayerNote,
   onRemoveFromSquad,
 }: PlayerDetailPanelProps) {
   const [profile, setProfile] = useState<PlayerProfile>(() =>
@@ -76,6 +84,10 @@ export default function PlayerDetailPanel({
   )
   const [statsTab, setStatsTab] = useState<StatsTab>('batting')
   const photoRef = useRef<HTMLInputElement>(null)
+  const noteBlockRef = useRef<HTMLDivElement>(null)
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [notePopoverOpen, setNotePopoverOpen] = useState(false)
+  const [noteDraft, setNoteDraft] = useState('')
 
   const deepBat = useMemo(
     () => (player ? generatePlayerDeepBatting(player.id) : null),
@@ -93,6 +105,40 @@ export default function PlayerDetailPanel({
   useEffect(() => {
     setStatsTab('batting')
   }, [player?.id])
+
+  useEffect(() => {
+    setNoteDraft(player?.note ?? '')
+  }, [player?.id, player?.note])
+
+  useEffect(() => {
+    setNotePopoverOpen(false)
+  }, [player?.id])
+
+  useEffect(() => {
+    if (!notePopoverOpen) return
+    const id = window.setTimeout(() => noteTextareaRef.current?.focus(), 0)
+    function onPointerDown(e: PointerEvent) {
+      const el = noteBlockRef.current
+      if (el && e.target instanceof Node && !el.contains(e.target)) {
+        setNotePopoverOpen(false)
+        setNoteDraft(player?.note ?? '')
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopPropagation()
+      setNotePopoverOpen(false)
+      setNoteDraft(player?.note ?? '')
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      clearTimeout(id)
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('keydown', onKeyDown, true)
+    }
+  }, [notePopoverOpen, player?.note])
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -165,7 +211,14 @@ export default function PlayerDetailPanel({
               />
             </div>
             <div className="pp-header-info">
-              <div className="pp-name">{player.name}</div>
+              <div className="pp-name-row-chrome">
+                <div className="pp-name">{player.name}</div>
+                {player.note?.trim() ? (
+                  <span className="pp-note-chip" title="Squad note saved — use Squad note below">
+                    Note
+                  </span>
+                ) : null}
+              </div>
               <input
                 type="text"
                 className="pp-country-input"
@@ -222,34 +275,124 @@ export default function PlayerDetailPanel({
             </button>
           </div>
 
-          {((squadSlot === 'starting' && onToggleWicketKeeper) || onRemoveFromSquad) && (
-            <div className="pp-squad-actions-row">
-              {squadSlot === 'starting' && onToggleWicketKeeper ? (
-                <button
-                  type="button"
-                  className={'pp-wk-btn' + (playerIsKeeper ? ' pp-wk-btn--active' : '')}
-                  onClick={onToggleWicketKeeper}
-                  title={
-                    playerIsKeeper
-                      ? 'This player is the wicket-keeper. Click to clear.'
-                      : 'Mark this starting XI player as wicket-keeper.'
-                  }
+          {((squadSlot === 'starting' && onToggleWicketKeeper) ||
+            onRemoveFromSquad ||
+            onToggleOverseas ||
+            onSavePlayerNote) && (
+            <div className="pp-squad-actions-block" ref={noteBlockRef}>
+              <div className="pp-squad-actions-row">
+                {squadSlot === 'starting' && onToggleWicketKeeper ? (
+                  <button
+                    type="button"
+                    className={'pp-wk-btn' + (playerIsKeeper ? ' pp-wk-btn--active' : '')}
+                    onClick={onToggleWicketKeeper}
+                    title={
+                      playerIsKeeper
+                        ? 'This player is the wicket-keeper. Click to clear.'
+                        : 'Mark this starting XI player as wicket-keeper.'
+                    }
+                  >
+                    <img
+                      src="/wk-keeper-gloves.png"
+                      alt=""
+                      width={18}
+                      height={18}
+                      className="pp-wk-gloves"
+                      decoding="async"
+                    />
+                    <span>{playerIsKeeper ? 'Clear WK' : 'Assign WK'}</span>
+                  </button>
+                ) : null}
+                {onToggleOverseas ? (
+                  <button
+                    type="button"
+                    className={'pp-overseas-btn' + (playerIsOverseas ? ' pp-overseas-btn--active' : '')}
+                    onClick={onToggleOverseas}
+                    title={playerIsOverseas ? 'Clear overseas tag' : 'Mark as overseas player'}
+                  >
+                    <svg className="pp-overseas-plane" viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                      <path
+                        fill="currentColor"
+                        d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"
+                      />
+                    </svg>
+                    <span>{playerIsOverseas ? 'Clear overseas' : 'Overseas'}</span>
+                  </button>
+                ) : null}
+                {onSavePlayerNote ? (
+                  <button
+                    type="button"
+                    className={'pp-note-btn' + (notePopoverOpen ? ' pp-note-btn--open' : '')}
+                    onClick={() => setNotePopoverOpen((o) => !o)}
+                    title="Add a short note for other editors of this squad"
+                    aria-expanded={notePopoverOpen}
+                    aria-controls="pp-squad-note-popover"
+                  >
+                    Squad note
+                  </button>
+                ) : null}
+                {onRemoveFromSquad ? (
+                  <button type="button" className="pp-remove-squad-btn" onClick={onRemoveFromSquad}>
+                    Remove from squad
+                  </button>
+                ) : null}
+              </div>
+              {onSavePlayerNote && notePopoverOpen ? (
+                <div
+                  id="pp-squad-note-popover"
+                  className="pp-note-popover"
+                  role="dialog"
+                  aria-label="Squad note"
                 >
-                  <img
-                    src="/wk-keeper-gloves.png"
-                    alt=""
-                    width={18}
-                    height={18}
-                    className="pp-wk-gloves"
-                    decoding="async"
-                  />
-                  <span>{playerIsKeeper ? 'Clear WK' : 'Assign WK'}</span>
-                </button>
-              ) : null}
-              {onRemoveFromSquad ? (
-                <button type="button" className="pp-remove-squad-btn" onClick={onRemoveFromSquad}>
-                  Remove from squad
-                </button>
+                  <form
+                    className="pp-note-popover-form"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      onSavePlayerNote(noteDraft)
+                      setNotePopoverOpen(false)
+                    }}
+                  >
+                    <h2 className="pp-note-popover-title">Squad note</h2>
+                    <p className="pp-note-popover-hint">
+                      Short note for the next person editing this squad (stored with the team draft in this browser).
+                    </p>
+                    <textarea
+                      ref={noteTextareaRef}
+                      className="pp-note-popover-textarea"
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      rows={5}
+                      maxLength={4000}
+                      placeholder="e.g. Trying Gill at 4, reserve quick for Cardiff…"
+                    />
+                    <div className="pp-note-popover-actions">
+                      <button
+                        type="button"
+                        className="pp-note-popover-secondary"
+                        onClick={() => {
+                          setNoteDraft(player.note ?? '')
+                          setNotePopoverOpen(false)
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="pp-note-popover-secondary"
+                        onClick={() => {
+                          setNoteDraft('')
+                          onSavePlayerNote('')
+                          setNotePopoverOpen(false)
+                        }}
+                      >
+                        Clear note
+                      </button>
+                      <button type="submit" className="pp-note-popover-primary">
+                        Save
+                      </button>
+                    </div>
+                  </form>
+                </div>
               ) : null}
             </div>
           )}

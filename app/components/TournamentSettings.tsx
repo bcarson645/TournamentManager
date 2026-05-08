@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
-  getTournamentOptions,
   setTournamentImpactSubEnabled,
   resetTournamentOptionsToDefaults,
+  setTournamentRatingParScore,
+  DEFAULT_RATING_PAR_SCORE,
 } from '../data/tournamentOptions'
+import { useTournamentOptions } from '../hooks/useTournamentOptions'
 import { TEAMS } from '../data/teams'
 import { clearPersistedSquadsForTournament } from '../data/squadStore'
 import { clearTeamLogos } from '../data/logoStore'
@@ -26,24 +28,19 @@ interface TournamentSettingsProps {
 
 export default function TournamentSettings({ tournamentId, tournamentName }: TournamentSettingsProps) {
   const [activePage, setActivePage] = useState<OptionKey | null>(null)
-  const [impactSubEnabled, setImpactSubEnabled] = useState(false)
-
-  useEffect(() => {
-    setImpactSubEnabled(getTournamentOptions(tournamentId).impactSubEnabled)
-  }, [tournamentId])
+  const opts = useTournamentOptions(tournamentId)
 
   function handleResetTournamentToPredefined() {
     const n = TEAMS[tournamentId]?.length ?? 0
     const ok = window.confirm(
       `Reset "${tournamentName}" to predefined?\n\n` +
-        `This removes saved data for all ${n} team${n === 1 ? '' : 's'} in this tournament: squads (XI, bench, impact), home ground picks, and uploaded logos. Tournament options (e.g. Impact sub) go back to defaults. This cannot be undone.`,
+        `This removes saved data for all ${n} team${n === 1 ? '' : 's'} in this tournament: squads (XI, bench, impact), home ground picks, and uploaded logos. Tournament options (impact sub, rating par score, etc.) go back to defaults. This cannot be undone.`,
     )
     if (!ok) return
     const ids = (TEAMS[tournamentId] ?? []).map((t) => t.id)
     clearTeamLogos(ids)
     resetTournamentOptionsToDefaults(tournamentId)
     clearPersistedSquadsForTournament(tournamentId)
-    setImpactSubEnabled(false)
   }
 
   if (activePage) {
@@ -67,17 +64,36 @@ export default function TournamentSettings({ tournamentId, tournamentName }: Tou
               <label className="settings-toggle-row">
                 <input
                   type="checkbox"
-                  checked={impactSubEnabled}
-                  onChange={(e) => {
-                    const v = e.target.checked
-                    setImpactSubEnabled(v)
-                    setTournamentImpactSubEnabled(tournamentId, v)
-                  }}
+                  checked={opts.impactSubEnabled}
+                  onChange={(e) => setTournamentImpactSubEnabled(tournamentId, e.target.checked)}
                 />
                 <span>
                   <strong>Impact sub / Impact player</strong>
                 </span>
               </label>
+
+              <label className="settings-par-score-row">
+                <span className="settings-par-score-label">
+                  <strong>Rating par score</strong>
+                  <span className="settings-par-score-meta"> (default {DEFAULT_RATING_PAR_SCORE} for T20)</span>
+                </span>
+                <input
+                  className="settings-par-score-input"
+                  type="number"
+                  min={1}
+                  max={999}
+                  step={1}
+                  value={opts.ratingParScore}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value)
+                    if (Number.isFinite(v)) setTournamentRatingParScore(tournamentId, v)
+                  }}
+                />
+              </label>
+              <p className="settings-par-score-hint">
+                Team batting total uses (sum of XI batting ratings + par) ÷ par. Team bowling total uses (par − sum
+                of XI bowling ratings) ÷ par. Adjust par to match the competition (e.g. 165 for a typical T20).
+              </p>
 
               <div className="settings-reset-section">
                 <h4 className="settings-reset-title">Reset tournament</h4>
