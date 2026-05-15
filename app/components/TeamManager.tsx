@@ -41,12 +41,15 @@ import {
   dashboardBowlMetricValueSemantics,
   dashboardBatMetricOptionLabel,
   dashboardBowlMetricOptionLabel,
-  teamAggregateRatingClass,
+  teamBattingParIndexClass,
+  teamBowlingParIndexClass,
+  teamNetStrengthParIndex,
   type DashboardBatMetric,
   type DashboardBowlMetric,
 } from '../data/ratingDisplaySettings'
 import { getProfileForPlayer } from '../data/playerProfile'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
+import { computePlayerTournamentRankSummary } from '../data/tournamentPlayerRanks'
 
 function reapplySquadRatings(
   startingXI: SquadPlayer[],
@@ -191,7 +194,7 @@ export default function TeamManager({
     [allTeams, squadStoreVersion, dashBowlMetric],
   )
 
-  const { impactSubEnabled } = useTournamentOptions(tournamentId)
+  const { impactSubEnabled, ratingParScore } = useTournamentOptions(tournamentId)
   const [teamLogo, setTeamLogo] = useState<string | null>(getTeamLogo(team.id) ?? team.logo ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -230,6 +233,12 @@ export default function TeamManager({
   })
 
   const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
+
+  const playerTournamentRanks = useMemo(
+    () =>
+      selectedPlayer ? computePlayerTournamentRankSummary(selectedPlayer.id, allTeams) : null,
+    [selectedPlayer?.id, allTeams, squadStoreVersion],
+  )
 
   const [playerPanelWidth, setPlayerPanelWidth] = useState(() => {
     if (typeof window === 'undefined') return 400
@@ -578,12 +587,12 @@ export default function TeamManager({
                     <span
                       className={[
                         'factor-value-sm',
-                        teamAggregateRatingClass(ribbonTeamRatings.bat),
+                        teamBattingParIndexClass(ribbonTeamRatings.bat),
                       ]
                         .filter(Boolean)
                         .join(' ')}
                     >
-                      {ribbonTeamRatings.bat.toFixed(1)}
+                      {ribbonTeamRatings.bat.toFixed(2)}
                     </span>
                   </div>
                   <div className="factor-pill-sm factor-pill-inline factor-pill-ribbon">
@@ -591,12 +600,12 @@ export default function TeamManager({
                     <span
                       className={[
                         'factor-value-sm',
-                        teamAggregateRatingClass(ribbonTeamRatings.bowl),
+                        teamBowlingParIndexClass(ribbonTeamRatings.bowl),
                       ]
                         .filter(Boolean)
                         .join(' ')}
                     >
-                      {ribbonTeamRatings.bowl.toFixed(1)}
+                      {ribbonTeamRatings.bowl.toFixed(2)}
                     </span>
                   </div>
                   <div className="factor-pill-sm factor-pill-inline factor-pill-ribbon factor-pill-sm-total">
@@ -604,12 +613,14 @@ export default function TeamManager({
                     <span
                       className={[
                         'factor-value-sm',
-                        teamAggregateRatingClass(ribbonTeamRatings.total),
+                        teamBattingParIndexClass(
+                          teamNetStrengthParIndex(ribbonTeamRatings.bat, ribbonTeamRatings.bowl),
+                        ),
                       ]
                         .filter(Boolean)
                         .join(' ')}
                     >
-                      {ribbonTeamRatings.total.toFixed(1)}
+                      {ribbonTeamRatings.total.toFixed(2)}
                     </span>
                   </div>
                   <div
@@ -726,9 +737,9 @@ export default function TeamManager({
               <tbody>
                 {[...allTeams]
                   .sort((a, b) => {
-                    const totalA = ((teamBatRatings[a.id] ?? 0) + (teamBowlingRatings[a.id] ?? 0)) / 2
-                    const totalB = ((teamBatRatings[b.id] ?? 0) + (teamBowlingRatings[b.id] ?? 0)) / 2
-                    return totalB - totalA
+                    const s = (id: string) =>
+                      teamNetStrengthParIndex(teamBatRatings[id] ?? 0, teamBowlingRatings[id] ?? 0)
+                    return s(b.id) - s(a.id)
                   })
                   .map((t, i) => {
                     const batVal = teamBatRatings[t.id] ?? 0
@@ -738,12 +749,17 @@ export default function TeamManager({
                   <tr key={t.id} className={t.id === team.id ? 'mini-row-current' : ''}>
                     <td>{i + 1}</td>
                     <td className="mini-td-name">{t.name}</td>
-                    <td className={teamAggregateRatingClass(batVal)}>{batVal.toFixed(1)}</td>
-                    <td className={teamAggregateRatingClass(bowlVal)}>{bowlVal.toFixed(1)}</td>
+                    <td className={teamBattingParIndexClass(batVal)}>{batVal.toFixed(2)}</td>
+                    <td className={teamBowlingParIndexClass(bowlVal)}>{bowlVal.toFixed(2)}</td>
                     <td
-                      className={['mini-td-total', teamAggregateRatingClass(totalVal)].filter(Boolean).join(' ')}
+                      className={[
+                        'mini-td-total',
+                        teamBattingParIndexClass(teamNetStrengthParIndex(batVal, bowlVal)),
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                     >
-                      {totalVal.toFixed(1)}
+                      {totalVal.toFixed(2)}
                     </td>
                   </tr>
                 )})}
@@ -904,6 +920,7 @@ export default function TeamManager({
             cricketFormat={format}
             gender={gender}
             impactSubEnabled={impactSubEnabled}
+            ratingParScore={ratingParScore}
             startingXI={startingXI}
             reserves={reserves}
             impactSubs={impactSubs}
@@ -954,6 +971,7 @@ export default function TeamManager({
             onToggleOverseas={selectedPlayer ? handleToggleOverseas : undefined}
             onSavePlayerNote={selectedPlayer ? handleSavePlayerNote : undefined}
             onRemoveFromSquad={selectedPlayer ? handleRemovePlayerFromSquad : undefined}
+            tournamentRankSummary={playerTournamentRanks}
           />
         )}
       </div>

@@ -6,6 +6,7 @@
 const STORAGE_KEY = 'tm-squad-rating-dp'
 const STORAGE_KEY_VALUE_STEPPERS = 'tm-squad-value-steppers'
 const STORAGE_KEY_HIDE_BAT_RAW = 'tm-squad-hide-bat-raw-cols'
+const STORAGE_KEY_EDIT_FOURS_SIXES = 'tm-squad-edit-fours-sixes'
 const STORAGE_KEY_DASH_BAT_METRIC = 'tm-dash-bat-rank-metric'
 const STORAGE_KEY_DASH_BOWL_METRIC = 'tm-dash-bowl-rank-metric'
 
@@ -15,10 +16,10 @@ export type DashboardBowlMetric = 'bowlRating' | 'bowlAvg' | 'econ' | 'bowlBpw'
 export type SquadRatingDecimalPlaces = 0 | 1 | 2
 
 export function readSquadRatingDp(): SquadRatingDecimalPlaces {
-  if (typeof window === 'undefined') return 1
+  if (typeof window === 'undefined') return 2
   const v = localStorage.getItem(STORAGE_KEY)
   if (v === '0' || v === '1' || v === '2') return Number(v) as SquadRatingDecimalPlaces
-  return 1
+  return 2
 }
 
 export function writeSquadRatingDp(dp: SquadRatingDecimalPlaces): void {
@@ -45,6 +46,17 @@ export function readSquadHideBatRawColumns(): boolean {
 export function writeSquadHideBatRawColumns(hide: boolean): void {
   if (typeof window === 'undefined') return
   localStorage.setItem(STORAGE_KEY_HIDE_BAT_RAW, hide ? '1' : '0')
+}
+
+/** Editable 4s / 6s columns in squad tables (otherwise read-only display). */
+export function readSquadEditFoursSixes(): boolean {
+  if (typeof window === 'undefined') return false
+  return localStorage.getItem(STORAGE_KEY_EDIT_FOURS_SIXES) === '1'
+}
+
+export function writeSquadEditFoursSixes(edit: boolean): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(STORAGE_KEY_EDIT_FOURS_SIXES, edit ? '1' : '0')
 }
 
 export function formatSquadRatingDisplay(value: number, dp: SquadRatingDecimalPlaces): string {
@@ -94,14 +106,14 @@ export function dashboardBowlMetricOptionLabel(m: DashboardBowlMetric): string {
 export function formatDashboardBatMetricValue(m: DashboardBatMetric, n: number): string {
   if (!Number.isFinite(n)) return '—'
   if (m === 'btCaz') return n.toFixed(2)
-  if (m === 'srCaz') return n.toFixed(1)
-  return n.toFixed(1)
+  if (m === 'srCaz') return n.toFixed(2)
+  return n.toFixed(2)
 }
 
 export function formatDashboardBowlMetricValue(m: DashboardBowlMetric, n: number): string {
   if (!Number.isFinite(n)) return '—'
-  if (m === 'bowlRating') return n.toFixed(1)
-  if (m === 'bowlBpw') return n.toFixed(1)
+  if (m === 'bowlRating') return n.toFixed(2)
+  if (m === 'bowlBpw') return n.toFixed(2)
   return n.toFixed(2)
 }
 
@@ -112,11 +124,29 @@ export function dashboardBowlMetricValueSemantics(
 }
 
 /**
- * Par-index team totals: 1.0 is parity. Above → green (`rating-pos`), below → red (`rating-neg`).
+ * Batting team par-index `(Σ XI bat + par) / par`: above 1 → stronger than par (green).
  */
-export function teamAggregateRatingClass(n: number): 'rating-pos' | 'rating-neg' | '' {
+export function teamBattingParIndexClass(n: number): 'rating-pos' | 'rating-neg' | '' {
   if (!Number.isFinite(n)) return ''
   if (n > 1) return 'rating-pos'
   if (n < 1) return 'rating-neg'
   return ''
+}
+
+/**
+ * Bowling team par-index `(par − Σ XI bowl) / par`: below 1 → conceded fewer than par (green); above 1 → bad.
+ */
+export function teamBowlingParIndexClass(n: number): 'rating-pos' | 'rating-neg' | '' {
+  if (!Number.isFinite(n)) return ''
+  if (n < 1) return 'rating-pos'
+  if (n > 1) return 'rating-neg'
+  return ''
+}
+
+/**
+ * Single “net strength” score for coloring combined bat+bowl columns: same scale as batting (>1 good).
+ */
+export function teamNetStrengthParIndex(batParIndex: number, bowlParIndex: number): number {
+  if (!Number.isFinite(batParIndex) || !Number.isFinite(bowlParIndex)) return NaN
+  return (batParIndex + (2 - bowlParIndex)) / 2
 }

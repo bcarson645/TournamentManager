@@ -2,7 +2,11 @@
 
 import { Team } from '../data/teams'
 import { getTeamLogo } from '../data/logoStore'
-import { teamAggregateRatingClass } from '../data/ratingDisplaySettings'
+import {
+  teamBattingParIndexClass,
+  teamBowlingParIndexClass,
+  teamNetStrengthParIndex,
+} from '../data/ratingDisplaySettings'
 
 interface TeamsTableProps {
   teams: Team[]
@@ -34,9 +38,9 @@ export default function TeamsTable({
 
   const sorted = teamBatRatings && teamBowlingRatings
     ? [...teams].sort((a, b) => {
-        const totalA = ((teamBatRatings[a.id] ?? 0) + (teamBowlingRatings[a.id] ?? 0)) / 2
-        const totalB = ((teamBatRatings[b.id] ?? 0) + (teamBowlingRatings[b.id] ?? 0)) / 2
-        return totalB - totalA
+        const strength = (id: string) =>
+          teamNetStrengthParIndex(teamBatRatings[id] ?? 0, teamBowlingRatings[id] ?? 0)
+        return strength(b.id) - strength(a.id)
       })
     : teamBatRatings
     ? [...teams].sort((a, b) => (teamBatRatings[b.id] ?? 0) - (teamBatRatings[a.id] ?? 0))
@@ -59,9 +63,9 @@ export default function TeamsTable({
             const batVal = teamBatRatings ? (teamBatRatings[team.id] ?? 0) : team.battingFactor
             const bowlVal = teamBowlingRatings ? (teamBowlingRatings[team.id] ?? 0) : team.bowlingFactor
             const totalVal = (batVal + bowlVal) / 2
-            const batDisplay = teamBatRatings ? batVal.toFixed(1) : team.battingFactor.toFixed(1)
-            const bowlDisplay = teamBowlingRatings ? bowlVal.toFixed(1) : team.bowlingFactor.toFixed(1)
-            const totalDisplay = (teamBatRatings || teamBowlingRatings) ? totalVal.toFixed(1) : team.totalFactor.toFixed(1)
+            const batDisplay = teamBatRatings ? batVal.toFixed(2) : team.battingFactor.toFixed(2)
+            const bowlDisplay = teamBowlingRatings ? bowlVal.toFixed(2) : team.bowlingFactor.toFixed(2)
+            const totalDisplay = (teamBatRatings || teamBowlingRatings) ? totalVal.toFixed(2) : team.totalFactor.toFixed(2)
             return (
               <tr
                 key={team.id}
@@ -102,7 +106,7 @@ export default function TeamsTable({
                 <td
                   className={[
                     'td-num',
-                    teamBatRatings ? teamAggregateRatingClass(batVal) : '',
+                    teamBatRatings ? teamBattingParIndexClass(batVal) : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -112,7 +116,7 @@ export default function TeamsTable({
                 <td
                   className={[
                     'td-num',
-                    teamBowlingRatings ? teamAggregateRatingClass(bowlVal) : '',
+                    teamBowlingRatings ? teamBowlingParIndexClass(bowlVal) : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -123,7 +127,9 @@ export default function TeamsTable({
                   className={[
                     'td-num',
                     'td-total',
-                    teamBatRatings && teamBowlingRatings ? teamAggregateRatingClass(totalVal) : '',
+                    teamBatRatings && teamBowlingRatings
+                      ? teamBattingParIndexClass(teamNetStrengthParIndex(batVal, bowlVal))
+                      : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}

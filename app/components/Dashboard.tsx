@@ -10,6 +10,7 @@ import {
   getDashboardBowlRankings,
   getSquadStoreVersion,
   subscribeSquadStore,
+  type BattingPositionFilter,
 } from '../data/squadStore'
 import {
   readDashboardBatMetric,
@@ -34,6 +35,14 @@ import TeamAnalyticsPanel from './TeamAnalyticsPanel'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
 
 const SIDEBAR_COLLAPSED_KEY = 'tm-sidebar-collapsed'
+const DASH_BAT_POS_FILTER_KEY = 'tm-dash-bat-pos-filter'
+
+function parseBattingPositionFilter(raw: string | null): BattingPositionFilter {
+  if (!raw || raw === 'all') return 'all'
+  if (raw === 'openers') return 'openers'
+  if (/^(10|11|[1-9])$/.test(raw)) return raw as BattingPositionFilter
+  return 'all'
+}
 
 interface DashboardProps {
   format: CricketFormat
@@ -59,11 +68,15 @@ export default function Dashboard({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [dashBatMetric, setDashBatMetric] = useState<DashboardBatMetric>('batRating')
   const [dashBowlMetric, setDashBowlMetric] = useState<DashboardBowlMetric>('bowlRating')
+  const [dashBatPosFilter, setDashBatPosFilter] = useState<BattingPositionFilter>('all')
 
   useEffect(() => {
     setSidebarCollapsed(typeof window !== 'undefined' && localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1')
     setDashBatMetric(readDashboardBatMetric())
     setDashBowlMetric(readDashboardBowlMetric())
+    if (typeof window !== 'undefined') {
+      setDashBatPosFilter(parseBattingPositionFilter(localStorage.getItem(DASH_BAT_POS_FILTER_KEY)))
+    }
   }, [])
 
   function toggleSidebarCollapsed() {
@@ -111,8 +124,8 @@ export default function Dashboard({
   }, [teams, squadStoreVersion, ratingParScore])
 
   const rankedBatters = useMemo(
-    () => getDashboardBatRankings(teams, dashBatMetric),
-    [teams, squadStoreVersion, dashBatMetric],
+    () => getDashboardBatRankings(teams, dashBatMetric, dashBatPosFilter),
+    [teams, squadStoreVersion, dashBatMetric, dashBatPosFilter],
   )
 
   const rankedBowlers = useMemo(
@@ -305,6 +318,29 @@ export default function Dashboard({
                       ))}
                     </select>
                   </label>
+                  <label className="rankings-metric-label rankings-metric-label--pos">
+                    <span className="rankings-pos-label">Line-up</span>
+                    <select
+                      className="rankings-metric-select"
+                      value={dashBatPosFilter}
+                      onChange={(e) => {
+                        const v = parseBattingPositionFilter(e.target.value)
+                        setDashBatPosFilter(v)
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem(DASH_BAT_POS_FILTER_KEY, v)
+                        }
+                      }}
+                      aria-label="Filter batting rankings by starting XI position"
+                    >
+                      <option value="all">All positions</option>
+                      <option value="openers">Openers (1–2)</option>
+                      {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const).map((n) => (
+                        <option key={n} value={String(n)}>
+                          Position {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="rankings-metric-label">
                     <span>Bowling</span>
                     <select
@@ -327,7 +363,15 @@ export default function Dashboard({
                 </div>
                 <div className="rankings-columns">
                   <PlayerRankings
-                    title={'Tournament Batting · ' + dashboardBatMetricOptionLabel(dashBatMetric)}
+                    title={
+                      'Tournament Batting · ' +
+                      dashboardBatMetricOptionLabel(dashBatMetric) +
+                      (dashBatPosFilter === 'all'
+                        ? ''
+                        : dashBatPosFilter === 'openers'
+                          ? ' · Openers'
+                          : ' · Pos. ' + dashBatPosFilter)
+                    }
                     accent="batting"
                     entries={rankedBatters.map((b) => ({
                       id: b.id,

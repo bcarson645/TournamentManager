@@ -12,6 +12,12 @@ import {
 } from '../data/playerProfile'
 import { generatePlayerDeepBatting, generatePlayerDeepBowling } from '../data/playerAnalyticsMock'
 import { BattingDeepPanels, BowlingDeepPanels, H2hPlaceholder } from './PlayerAnalyticsSegments'
+import type { PlayerTournamentRankSummary } from '../data/tournamentPlayerRanks'
+import {
+  dashboardBatMetricOptionLabel,
+  dashboardBowlMetricOptionLabel,
+} from '../data/ratingDisplaySettings'
+import type { DashboardBatMetric, DashboardBowlMetric } from '../data/ratingDisplaySettings'
 
 interface PlayerDetailPanelProps {
   player: SquadPlayer | null
@@ -29,6 +35,8 @@ interface PlayerDetailPanelProps {
   onSavePlayerNote?: (note: string) => void
   /** Remove this player from Starting XI, reserves, or impact (with confirm). */
   onRemoveFromSquad?: () => void
+  /** Ranks vs all tournament squad drafts (when editing a team in the tournament). */
+  tournamentRankSummary?: PlayerTournamentRankSummary | null
 }
 
 type StatsTab = 'batting' | 'bowling' | 'h2h'
@@ -78,6 +86,7 @@ export default function PlayerDetailPanel({
   onToggleOverseas,
   onSavePlayerNote,
   onRemoveFromSquad,
+  tournamentRankSummary = null,
 }: PlayerDetailPanelProps) {
   const [profile, setProfile] = useState<PlayerProfile>(() =>
     player ? getProfileForPlayer(player.name) : getProfileForPlayer(''),
@@ -429,6 +438,53 @@ export default function PlayerDetailPanel({
               </div>
             </div>
 
+            {tournamentRankSummary ? (
+              <div className="pp-section pp-section--squad-ranks">
+                <h3 className="pp-section-title pp-section-title--bat-sub">Tournament squad ranks (batting)</h3>
+                <p className="pp-ranks-hint">
+                  Versus every player in every squad (XI + reserves + impact) for this tournament.
+                </p>
+                <div className="pp-ranks-block">
+                  <div className="pp-ranks-block-title">All squads</div>
+                  <div className="pp-ranks-chips">
+                    {(['batRating', 'btCaz', 'srCaz'] as const).map((m: DashboardBatMetric) => {
+                      const r = tournamentRankSummary.batting.wholeTournament[m]
+                      if (!r) return null
+                      return (
+                        <div key={m} className="pp-rank-chip">
+                          <span className="pp-rank-chip-metric">{dashboardBatMetricOptionLabel(m)}</span>
+                          <span className="pp-rank-chip-num">
+                            #{r.rank}
+                            <span className="pp-rank-chip-of">/{r.of}</span>
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                {tournamentRankSummary.batting.sameRole ? (
+                  <div className="pp-ranks-block">
+                    <div className="pp-ranks-block-title">{tournamentRankSummary.roleLabel}</div>
+                    <div className="pp-ranks-chips">
+                      {(['batRating', 'btCaz', 'srCaz'] as const).map((m: DashboardBatMetric) => {
+                        const r = tournamentRankSummary.batting.sameRole?.[m]
+                        if (!r) return null
+                        return (
+                          <div key={m} className="pp-rank-chip">
+                            <span className="pp-rank-chip-metric">{dashboardBatMetricOptionLabel(m)}</span>
+                            <span className="pp-rank-chip-num">
+                              #{r.rank}
+                              <span className="pp-rank-chip-of">/{r.of}</span>
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="pp-detail-divider">
               <span className="pp-detail-divider-text">Analytics & benchmarks</span>
             </div>
@@ -524,6 +580,33 @@ export default function PlayerDetailPanel({
                 ))}
               </div>
             </div>
+
+            {tournamentRankSummary ? (
+              <div className="pp-section pp-section--squad-ranks">
+                <h3 className="pp-section-title pp-section-title--bowl-sub">Tournament squad ranks (bowling)</h3>
+                <p className="pp-ranks-hint">
+                  Versus every player in every squad (XI + reserves + impact) for this tournament.
+                </p>
+                <div className="pp-ranks-block">
+                  <div className="pp-ranks-block-title">All squads</div>
+                  <div className="pp-ranks-chips">
+                    {(['bowlRating', 'bowlAvg', 'econ', 'bowlBpw'] as const).map((m: DashboardBowlMetric) => {
+                      const r = tournamentRankSummary.bowling.wholeTournament[m]
+                      if (!r) return null
+                      return (
+                        <div key={m} className="pp-rank-chip pp-rank-chip--bowl">
+                          <span className="pp-rank-chip-metric">{dashboardBowlMetricOptionLabel(m)}</span>
+                          <span className="pp-rank-chip-num">
+                            #{r.rank}
+                            <span className="pp-rank-chip-of">/{r.of}</span>
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="pp-detail-divider">
               <span className="pp-detail-divider-text">Analytics & benchmarks</span>

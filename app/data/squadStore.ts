@@ -232,13 +232,25 @@ export function getTournamentPrepProgress(tournamentId: string): { prepped: numb
   return { prepped, total }
 }
 
+/** Team batting par-index: (Σ XI bat ratings + par) / par — 1.0 is tournament parity. */
+export function computeTournamentBattingTeamIndex(sumXiBatRatings: number, parScore: number): number {
+  const par =
+    Number.isFinite(parScore) && parScore > 0 ? parScore : DEFAULT_RATING_PAR_SCORE
+  return roundRatingToStoredDecimals((sumXiBatRatings + par) / par)
+}
+
+/** Team bowling par-index: (par − Σ XI bowl ratings) / par — 1.0 is tournament parity. */
+export function computeTournamentBowlingTeamIndex(sumXiBowlRatings: number, parScore: number): number {
+  const par =
+    Number.isFinite(parScore) && parScore > 0 ? parScore : DEFAULT_RATING_PAR_SCORE
+  return roundRatingToStoredDecimals((par - sumXiBowlRatings) / par)
+}
+
 /** Team batting total: (sum of XI batting ratings + par) / par */
 export function getTeamBatRatingTotal(teamId: string, parScore: number): number {
   const { startingXI } = getSquadForTeam(teamId)
   const sum = startingXI.reduce((s, p) => s + p.batRating, 0)
-  const par =
-    Number.isFinite(parScore) && parScore > 0 ? parScore : DEFAULT_RATING_PAR_SCORE
-  return roundRatingToStoredDecimals((sum + par) / par)
+  return computeTournamentBattingTeamIndex(sum, parScore)
 }
 
 /** Team bowling total: (par − sum of XI bowling ratings) / par */
@@ -248,9 +260,7 @@ export function getTeamBowlRatingTotal(teamId: string, parScore: number): number
     (s, p) => s + (Number.isNaN(p.bowlRating) ? 0 : p.bowlRating),
     0,
   )
-  const par =
-    Number.isFinite(parScore) && parScore > 0 ? parScore : DEFAULT_RATING_PAR_SCORE
-  return roundRatingToStoredDecimals((par - sum) / par)
+  return computeTournamentBowlingTeamIndex(sum, parScore)
 }
 
 export interface DashboardRankEntry {
@@ -273,14 +283,40 @@ function battingSrDisplayFromCaz(srPerBall: number): number {
   return Math.round(srPerBall * 100 * 100) / 100
 }
 
+/** Starting XI line (1–11) filter for dashboard batting lists. `openers` = positions 1 and 2. */
+export type BattingPositionFilter =
+  | 'all'
+  | 'openers'
+  | '1'
+  | '2'
+  | '3'
+  | '4'
+  | '5'
+  | '6'
+  | '7'
+  | '8'
+  | '9'
+  | '10'
+  | '11'
+
+export function xiSlotMatchesBattingFilter(xiSlot: number, f: BattingPositionFilter): boolean {
+  if (f === 'all') return true
+  if (f === 'openers') return xiSlot === 1 || xiSlot === 2
+  return xiSlot === Number(f)
+}
+
 export function getDashboardBatRankings(
   teams: { id: string; name: string }[],
   metric: DashboardBatMetric,
+  positionFilter: BattingPositionFilter = 'all',
 ): DashboardRankEntry[] {
   const all: DashboardRankEntry[] = []
   for (const team of teams) {
     const { startingXI } = getSquadForTeam(team.id)
-    for (const p of startingXI) {
+    for (let i = 0; i < startingXI.length; i++) {
+      const xiSlot = i + 1
+      if (!xiSlotMatchesBattingFilter(xiSlot, positionFilter)) continue
+      const p = startingXI[i]!
       const value =
         metric === 'batRating' ? p.batRating : metric === 'btCaz' ? p.btCaz : battingSrDisplayFromCaz(p.sr)
       all.push({ id: p.id, name: p.name, teamId: team.id, teamName: team.name, value })

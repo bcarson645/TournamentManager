@@ -42,7 +42,7 @@ export default function PlayerRankings({
   function displayValue(n: number): string {
     if (formatValue) return formatValue(n)
     if (!Number.isFinite(n)) return '—'
-    return n.toFixed(1)
+    return n.toFixed(2)
   }
 
   function valueClass(n: number): string {
