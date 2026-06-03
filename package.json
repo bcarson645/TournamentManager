@@ -6,6 +6,7 @@
     "dev:unlock": "node scripts/dev-unlock.cjs",
     "dev": "node scripts/dev-start.cjs",
     "dev:turbo": "next dev",
+    "bundle-db": "node scripts/bundle-cricket-db.cjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

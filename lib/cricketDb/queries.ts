@@ -1,4 +1,5 @@
-import { getCricketDb } from './client'
+import { getCricketDb, getCricketDbMode } from './client'
+import { assertCricketDbWritable } from './writeGuard'
 import { allPlayerIdsForCanonical, resolveCanonicalPlayerId } from './playerMerges'
 import { enrichAggregateBowlingEconomy } from './parseOvers'
 
@@ -10,6 +11,8 @@ export interface DbStats {
   aliases: number
   mergedPlayerIds: number
   lastImport: { at: string; filename: string; rows: number } | null
+  readonly: boolean
+  bundled: boolean
 }
 
 
@@ -28,6 +31,7 @@ export function getDbStats(): DbStats {
       `SELECT imported_at AS at, filename, rows_imported AS rows FROM import_log ORDER BY id DESC LIMIT 1`,
     )
     .get() as { at: string; filename: string; rows: number } | undefined
+  const mode = getCricketDbMode()
   return {
     performances,
     players,
@@ -36,6 +40,8 @@ export function getDbStats(): DbStats {
     aliases,
     mergedPlayerIds,
     lastImport: last ?? null,
+    readonly: mode.readonly,
+    bundled: mode.bundled,
   }
 }
 
@@ -296,6 +302,7 @@ export function setExternalTeamMapping(
   tournamentId: string | null,
   appTeamId: string | null,
 ): void {
+  assertCricketDbWritable()
   const db = getCricketDb()
   db.prepare(
     `UPDATE team_dim SET tournament_id = ?, app_team_id = ? WHERE team_id = ?`,
@@ -316,6 +323,7 @@ export function listAliases(): AliasRow[] {
 }
 
 export function upsertAlias(appName: string, playerId: string, notes: string | null): void {
+  assertCricketDbWritable()
   const db = getCricketDb()
   db.prepare(
     `INSERT INTO player_aliases (app_name, player_id, notes, updated_at)
@@ -325,5 +333,6 @@ export function upsertAlias(appName: string, playerId: string, notes: string | n
 }
 
 export function deleteAlias(appName: string): void {
+  assertCricketDbWritable()
   getCricketDb().prepare(`DELETE FROM player_aliases WHERE app_name = ?`).run(appName)
 }

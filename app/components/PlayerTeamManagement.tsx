@@ -42,6 +42,8 @@ interface DbStats {
   aliases: number
   mergedPlayerIds: number
   lastImport: { at: string; filename: string; rows: number } | null
+  readonly?: boolean
+  bundled?: boolean
 }
 
 interface PlayerHit {
@@ -420,40 +422,61 @@ export default function PlayerTeamManagement() {
             ) : (
               <p className="ptm-muted">Loading…</p>
             )}
-            {stats?.lastImport ? (
+            {stats?.bundled ? (
+              <p className="ptm-success ptm-last-import">
+                Built-in T20 dataset ({stats.performances.toLocaleString()} performances). Squad and
+                player stats work without uploading a CSV on this deployment.
+              </p>
+            ) : stats?.lastImport ? (
               <p className="ptm-muted ptm-last-import">
                 Last import: {stats.lastImport.filename} — {stats.lastImport.rows.toLocaleString()}{' '}
                 rows at {stats.lastImport.at}
               </p>
             ) : (
-              <p className="ptm-muted">No import yet. Database file: data/cricket.db</p>
+              <p className="ptm-muted">No import yet. Local database: data/cricket.db</p>
             )}
           </section>
 
-          <section className="ptm-card">
-            <h2 className="ptm-card-title">Import CSV</h2>
-            <p className="ptm-muted">
-              Upload your T20 performance export (comma- or tab-separated). Large files are sent in
-              batches automatically (required on Vercel). Replaces all rows by default, then merges
-              players, maps competitions, and links squad names.
-            </p>
-            <div className="ptm-import-row">
-              <input
-                type="file"
-                accept=".csv,.txt,.tsv"
-                disabled={importing}
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) void handleImport(f, true)
-                  e.target.value = ''
-                }}
-              />
-              {importing ? (
-                <span className="ptm-muted">{importProgress ?? 'Importing…'}</span>
+          {stats?.readonly ? (
+            <section className="ptm-card">
+              <h2 className="ptm-card-title">Import CSV</h2>
+              <p className="ptm-muted">
+                CSV import is disabled on deployed builds. Stats come from{' '}
+                <code>data/bundled-cricket.db</code> shipped with the app. To refresh data, import
+                locally in dev, run <code>npm run bundle-db</code>, and redeploy.
+              </p>
+            </section>
+          ) : (
+            <section className="ptm-card">
+              <h2 className="ptm-card-title">Import CSV</h2>
+              <p className="ptm-muted">
+                Upload your T20 performance export (comma- or tab-separated). Large files are sent in
+                batches automatically. Replaces all rows by default, then merges players, maps
+                competitions, and links squad names. Run <code>npm run bundle-db</code> before deploy
+                to ship stats to production.
+              </p>
+              <div className="ptm-import-row">
+                <input
+                  type="file"
+                  accept=".csv,.txt,.tsv"
+                  disabled={importing}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) void handleImport(f, true)
+                    e.target.value = ''
+                  }}
+                />
+                {importing ? (
+                  <span className="ptm-muted">{importProgress ?? 'Importing…'}</span>
+                ) : null}
+              </div>
+              {importMsg ? (
+                <p className={importMsg.startsWith('Imported') ? 'ptm-success' : 'ptm-error'}>
+                  {importMsg}
+                </p>
               ) : null}
-            </div>
-            {importMsg ? <p className={importMsg.startsWith('Imported') ? 'ptm-success' : 'ptm-error'}>{importMsg}</p> : null}
-          </section>
+            </section>
+          )}
         </div>
       )}
 
@@ -571,12 +594,15 @@ export default function PlayerTeamManagement() {
               <button
                 type="button"
                 className="ptm-btn"
-                disabled={autoMapBusy}
+                disabled={autoMapBusy || stats?.readonly}
                 onClick={() => void runAutoMap(true)}
               >
                 Apply obvious matches
               </button>
             </div>
+            {stats?.readonly ? (
+              <p className="ptm-muted">Mapping edits are read-only on deployed builds (mappings are baked into the bundle).</p>
+            ) : null}
             {autoMapResult ? (
               <div className="ptm-auto-summary">
                 {autoMapResult.applied ? (

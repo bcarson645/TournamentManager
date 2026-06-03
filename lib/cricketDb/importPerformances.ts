@@ -4,6 +4,7 @@ import { runAutoMap } from './autoMap'
 import { rebuildPlayerMerges } from './playerMerges'
 import { mapCompetitionsToBuiltinTournaments } from './tournamentMap'
 import { getCricketDb } from './client'
+import { assertCricketDbWritable } from './writeGuard'
 
 const INSERT_PERF = `
   INSERT INTO performances (
@@ -124,10 +125,12 @@ function insertRows(db: Database.Database, rows: ParsedPerformanceRow[]): { impo
 
 /** Clear table when starting a full replace import. */
 export function clearPerformancesForImport(): void {
+  assertCricketDbWritable()
   getCricketDb().exec('DELETE FROM performances')
 }
 
 export function importPerformanceChunk(rows: ParsedPerformanceRow[]): { imported: number; skipped: number } {
+  assertCricketDbWritable()
   const db = getCricketDb()
   return insertRows(db, rows)
 }
@@ -136,6 +139,7 @@ export function finalizePerformanceImport(
   filename: string,
   totals: { rowsImported: number; skipped: number },
 ): ImportResult {
+  assertCricketDbWritable()
   const db = getCricketDb()
   refreshDimensions(db)
   db.prepare(

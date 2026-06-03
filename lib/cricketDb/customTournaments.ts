@@ -1,4 +1,5 @@
 import { getCricketDb } from './client'
+import { assertCricketDbWritable } from './writeGuard'
 import type { Gender } from '../../app/data/tournaments'
 
 export interface CustomTournament {
@@ -47,6 +48,7 @@ export function createCustomTournament(opts: {
   gender?: Gender
   linkCompetitionId?: string
 }): CustomTournament {
+  assertCricketDbWritable()
   const db = getCricketDb()
   const base = slugify(opts.name) || 'league'
   let id = `custom-t20-m-${base}`
@@ -72,6 +74,7 @@ export function createCustomTournament(opts: {
 }
 
 export function addCustomTeam(tournamentId: string, name: string): CustomTeam {
+  assertCricketDbWritable()
   const db = getCricketDb()
   const base = slugify(name) || 'team'
   let id = `${tournamentId}-${base}`

@@ -11,10 +11,11 @@ out/
 build
 dist
 
-# local cricket performance database (import via Player & Team Management)
+# local writable cricket DB (import via Player & Team Management in dev)
 data/cricket.db
 data/cricket.db-wal
 data/cricket.db-shm
+# data/bundled-cricket.db is committed for production (npm run bundle-db)
 
 # misc
 .DS_Store

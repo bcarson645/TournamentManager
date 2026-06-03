@@ -5,12 +5,14 @@ import {
   importPerformanceChunk,
   type ImportResult,
 } from './importPerformances'
+import { assertCricketDbWritable } from './writeGuard'
 
 export function importPerformancesCsv(
   csvText: string,
   filename: string,
   replace = true,
 ): ImportResult {
+  assertCricketDbWritable()
   const allRows = parseCsv(csvText)
   if (allRows.length === 0) {
     return {

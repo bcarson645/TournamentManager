@@ -7,6 +7,7 @@ import { playerNameSimilarity, stringSimilarity } from './nameMatch'
 import { findCanonicalByAppName, rebuildPlayerMerges, type PlayerMergeRebuildResult } from './playerMerges'
 import { mapCompetitionsToBuiltinTournaments } from './tournamentMap'
 import { listCompetitions, listExternalTeams, setCompetitionTournament, setExternalTeamMapping, upsertAlias } from './queries'
+import { assertCricketDbWritable } from './writeGuard'
 
 const COMPETITION_KEYWORDS: { re: RegExp; tournamentId: string }[] = [
   { re: /\bipl\b|indian premier/i, tournamentId: 't20-m-ipl' },
@@ -159,6 +160,7 @@ const TEAM_THRESHOLD = 0.85
 const PLAYER_THRESHOLD = 0.9
 
 export function runAutoMap(opts: { apply: boolean; skipPrep?: boolean }): AutoMapResult {
+  if (opts.apply) assertCricketDbWritable()
   const suggestions: AutoMapSuggestion[] = []
   let competitionsMapped = 0
   let teamsMapped = 0

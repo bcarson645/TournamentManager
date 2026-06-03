@@ -1,6 +1,40 @@
 import fs from 'fs'
 import path from 'path'
 
+export const BUNDLED_CRICKET_DB_FILENAME = 'bundled-cricket.db'
+
+/** Committed SQLite file shipped with the app (read-only in production). */
+export function getBundledCricketDbPath(): string {
+  return path.join(process.cwd(), 'data', BUNDLED_CRICKET_DB_FILENAME)
+}
+
+export function isBundledCricketDbAvailable(): boolean {
+  try {
+    return fs.existsSync(getBundledCricketDbPath())
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Use the committed bundled DB instead of a writable local/ephemeral file.
+ * - Local dev: writable data/cricket.db (unless CRICKET_USE_BUNDLED=1)
+ * - Production / Vercel: data/bundled-cricket.db when present
+ */
+export function shouldUseBundledCricketDb(): boolean {
+  if (process.env.CRICKET_DB_PATH) return false
+  if (process.env.CRICKET_USE_BUNDLED === '0') return false
+  if (!isBundledCricketDbAvailable()) return false
+  if (process.env.CRICKET_USE_BUNDLED === '1') return true
+  if (isServerlessDeploy()) return true
+  if (process.env.NODE_ENV === 'production') return true
+  return false
+}
+
+export function isCricketDbReadonly(): boolean {
+  return shouldUseBundledCricketDb()
+}
+
 /**
  * Writable directory for cricket.db.
  * - Local dev: <project>/data
@@ -21,6 +55,9 @@ export function getCricketDbDir(): string {
 export function getCricketDbPath(): string {
   if (process.env.CRICKET_DB_PATH) {
     return process.env.CRICKET_DB_PATH
+  }
+  if (shouldUseBundledCricketDb()) {
+    return getBundledCricketDbPath()
   }
 
   const dir = getCricketDbDir()
@@ -46,6 +83,7 @@ export function ensureCricketDbFile(dbPath: string): void {
   if (process.env.CRICKET_DB_SEED_PATH) {
     seeds.push(process.env.CRICKET_DB_SEED_PATH)
   }
+  seeds.push(path.join(process.cwd(), 'data', 'bundled-cricket.db'))
   seeds.push(path.join(process.cwd(), 'data', 'cricket.db'))
   seeds.push(path.join(process.cwd(), 'cricket.db'))
 
