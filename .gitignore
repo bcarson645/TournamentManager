@@ -11,6 +11,11 @@ out/
 build
 dist
 
+# local cricket performance database (import via Player & Team Management)
+data/cricket.db
+data/cricket.db-wal
+data/cricket.db-shm
+
 # misc
 .DS_Store
 *.pem

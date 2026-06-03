@@ -3,25 +3,31 @@
 import { useState, useRef, useEffect, useMemo, type CSSProperties } from 'react'
 import { SquadPlayer } from '../data/squad'
 import {
+  mergeApiProfileIntoBase,
+  profileForSquadPlayer,
+} from '../data/squadProfileFallback'
+import {
   PlayerProfile,
-  getProfileForPlayer,
   CareerBatting,
   CareerBowling,
   RecentInnings,
   TournamentRecord,
+  makeDefaultProfile,
 } from '../data/playerProfile'
-import { generatePlayerDeepBatting, generatePlayerDeepBowling } from '../data/playerAnalyticsMock'
-import { BattingDeepPanels, BowlingDeepPanels, H2hPlaceholder } from './PlayerAnalyticsSegments'
-import type { PlayerTournamentRankSummary } from '../data/tournamentPlayerRanks'
+import { H2hPlaceholder } from './PlayerAnalyticsSegments'
+import type { MetricRank, PlayerTournamentRankSummary } from '../data/tournamentPlayerRanks'
 import {
   dashboardBatMetricOptionLabel,
   dashboardBowlMetricOptionLabel,
 } from '../data/ratingDisplaySettings'
 import type { DashboardBatMetric, DashboardBowlMetric } from '../data/ratingDisplaySettings'
+import PlayerT20StatsBreakdown from './PlayerT20StatsBreakdown'
 
 interface PlayerDetailPanelProps {
   player: SquadPlayer | null
   tournamentName: string
+  /** Manager tournament id (e.g. t20-m-blast) for default stats filter. */
+  contextTournamentId?: string | null
   panelWidth: number
   onClose: () => void
   /** When set, show squad-only actions (e.g. assign WK for starting XI). */
@@ -74,9 +80,101 @@ function displayTournamentField(key: keyof TournamentRecord, rec: TournamentReco
   return String(rec[key] as number)
 }
 
+/** 0 = worst rank in pool, 1 = best (#1). */
+function rankStrengthFraction(rank: number, of: number): number {
+  if (!Number.isFinite(rank) || !Number.isFinite(of) || of < 1) return 0.5
+  if (of <= 1) return 1
+  return Math.max(0, Math.min(1, (of - rank) / (of - 1)))
+}
+
+function rankCellStyle(rank: number, of: number): CSSProperties {
+  const t = rankStrengthFraction(rank, of)
+  const r = Math.round(220 + (34 - 220) * t)
+  const g = Math.round(72 + (197 - 72) * t)
+  const b = Math.round(72 + (94 - 72) * t)
+  return {
+    backgroundColor: `rgba(${r}, ${g}, ${b}, 0.16)`,
+    color: `rgb(${Math.round(210 + (235 - 210) * t)}, ${Math.round(215 + (250 - 215) * t)}, ${Math.round(220 + (245 - 220) * t)})`,
+  }
+}
+
+function formatRankCell(r: MetricRank): string {
+  return `#${r.rank}`
+}
+
+interface TournamentRanksTableProps<M extends string> {
+  columns: { key: M; label: string }[]
+  rows: { label: string; metrics: Partial<Record<M, MetricRank>> }[]
+  variant: 'bat' | 'bowl'
+}
+
+function TournamentRanksTable<M extends string>({
+  columns,
+  rows,
+  variant,
+}: TournamentRanksTableProps<M>) {
+  if (rows.length === 0) return null
+  return (
+    <div className={`pp-ranks-table-wrap pp-ranks-table-wrap--${variant}`}>
+      <table className="pp-ranks-table">
+        <thead>
+          <tr>
+            <th className="pp-ranks-th-scope" scope="col" />
+            {columns.map((col) => (
+              <th key={col.key} className="pp-ranks-th-metric" scope="col">
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <th className="pp-ranks-th-row" scope="row">
+                {(() => {
+                  const first = columns
+                    .map((c) => row.metrics[c.key])
+                    .find((x): x is MetricRank => x != null)
+                  return (
+                    <>
+                      <span className="pp-ranks-row-label">{row.label}</span>
+                      {first ? <span className="pp-ranks-row-of">of {first.of}</span> : null}
+                    </>
+                  )
+                })()}
+              </th>
+              {columns.map((col) => {
+                const cell = row.metrics[col.key]
+                if (!cell) {
+                  return (
+                    <td key={col.key} className="pp-ranks-td pp-ranks-td--empty">
+                      —
+                    </td>
+                  )
+                }
+                return (
+                  <td
+                    key={col.key}
+                    className="pp-ranks-td"
+                    style={rankCellStyle(cell.rank, cell.of)}
+                    title={`Rank ${cell.rank} of ${cell.of}`}
+                  >
+                    <span className="pp-ranks-rank">{formatRankCell(cell)}</span>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function PlayerDetailPanel({
   player,
   tournamentName,
+  contextTournamentId = null,
   panelWidth,
   onClose,
   squadSlot = null,
@@ -89,7 +187,7 @@ export default function PlayerDetailPanel({
   tournamentRankSummary = null,
 }: PlayerDetailPanelProps) {
   const [profile, setProfile] = useState<PlayerProfile>(() =>
-    player ? getProfileForPlayer(player.name) : getProfileForPlayer(''),
+    player ? profileForSquadPlayer(player) : makeDefaultProfile(),
   )
   const [statsTab, setStatsTab] = useState<StatsTab>('batting')
   const photoRef = useRef<HTMLInputElement>(null)
@@ -98,18 +196,30 @@ export default function PlayerDetailPanel({
   const [notePopoverOpen, setNotePopoverOpen] = useState(false)
   const [noteDraft, setNoteDraft] = useState('')
 
-  const deepBat = useMemo(
-    () => (player ? generatePlayerDeepBatting(player.id) : null),
-    [player?.id],
-  )
-  const deepBowl = useMemo(
-    () => (player ? generatePlayerDeepBowling(player.id) : null),
-    [player?.id],
-  )
-
   useEffect(() => {
-    if (player) setProfile(getProfileForPlayer(player.name))
-  }, [player?.id])
+    if (!player) return
+    setProfile(profileForSquadPlayer(player))
+    let cancelled = false
+    fetch(`/api/cricket/profile-by-name?name=${encodeURIComponent(player.name)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data || data.error) return
+        setProfile((prev) => mergeApiProfileIntoBase(prev, data))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [
+    player?.id,
+    player?.name,
+    player?.btCaz,
+    player?.sr,
+    player?.wkts,
+    player?.econ,
+    player?.bowlAvg,
+    player?.bowlWpo,
+  ])
 
   useEffect(() => {
     setStatsTab('batting')
@@ -438,59 +548,37 @@ export default function PlayerDetailPanel({
               </div>
             </div>
 
+            <PlayerT20StatsBreakdown
+              playerName={player.name}
+              contextTournamentId={contextTournamentId}
+              variant="batting"
+            />
+
             {tournamentRankSummary ? (
               <div className="pp-section pp-section--squad-ranks">
                 <h3 className="pp-section-title pp-section-title--bat-sub">Tournament squad ranks (batting)</h3>
-                <p className="pp-ranks-hint">
-                  Versus every player in every squad (XI + reserves + impact) for this tournament.
-                </p>
-                <div className="pp-ranks-block">
-                  <div className="pp-ranks-block-title">All squads</div>
-                  <div className="pp-ranks-chips">
-                    {(['batRating', 'btCaz', 'srCaz'] as const).map((m: DashboardBatMetric) => {
-                      const r = tournamentRankSummary.batting.wholeTournament[m]
-                      if (!r) return null
-                      return (
-                        <div key={m} className="pp-rank-chip">
-                          <span className="pp-rank-chip-metric">{dashboardBatMetricOptionLabel(m)}</span>
-                          <span className="pp-rank-chip-num">
-                            #{r.rank}
-                            <span className="pp-rank-chip-of">/{r.of}</span>
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-                {tournamentRankSummary.batting.sameRole ? (
-                  <div className="pp-ranks-block">
-                    <div className="pp-ranks-block-title">{tournamentRankSummary.roleLabel}</div>
-                    <div className="pp-ranks-chips">
-                      {(['batRating', 'btCaz', 'srCaz'] as const).map((m: DashboardBatMetric) => {
-                        const r = tournamentRankSummary.batting.sameRole?.[m]
-                        if (!r) return null
-                        return (
-                          <div key={m} className="pp-rank-chip">
-                            <span className="pp-rank-chip-metric">{dashboardBatMetricOptionLabel(m)}</span>
-                            <span className="pp-rank-chip-num">
-                              #{r.rank}
-                              <span className="pp-rank-chip-of">/{r.of}</span>
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ) : null}
+                <TournamentRanksTable
+                  variant="bat"
+                  columns={(['batRating', 'btCaz', 'srCaz'] as const).map((m) => ({
+                    key: m,
+                    label: dashboardBatMetricOptionLabel(m),
+                  }))}
+                  rows={[
+                    {
+                      label: 'All',
+                      metrics: tournamentRankSummary.batting.wholeTournament,
+                    },
+                    ...(tournamentRankSummary.batting.sameRole
+                      ? [
+                          {
+                            label: tournamentRankSummary.roleLabel,
+                            metrics: tournamentRankSummary.batting.sameRole,
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
               </div>
-            ) : null}
-
-            <div className="pp-detail-divider">
-              <span className="pp-detail-divider-text">Analytics & benchmarks</span>
-            </div>
-
-            {deepBat ? (
-              <BattingDeepPanels deep={deepBat} squadBtCaz={player.btCaz} squadRaw={player.raw} />
             ) : null}
 
             <div className="pp-section">
@@ -581,38 +669,30 @@ export default function PlayerDetailPanel({
               </div>
             </div>
 
+            <PlayerT20StatsBreakdown
+              playerName={player.name}
+              contextTournamentId={contextTournamentId}
+              variant="bowling"
+            />
+
             {tournamentRankSummary ? (
               <div className="pp-section pp-section--squad-ranks">
                 <h3 className="pp-section-title pp-section-title--bowl-sub">Tournament squad ranks (bowling)</h3>
-                <p className="pp-ranks-hint">
-                  Versus every player in every squad (XI + reserves + impact) for this tournament.
-                </p>
-                <div className="pp-ranks-block">
-                  <div className="pp-ranks-block-title">All squads</div>
-                  <div className="pp-ranks-chips">
-                    {(['bowlRating', 'bowlAvg', 'econ', 'bowlBpw'] as const).map((m: DashboardBowlMetric) => {
-                      const r = tournamentRankSummary.bowling.wholeTournament[m]
-                      if (!r) return null
-                      return (
-                        <div key={m} className="pp-rank-chip pp-rank-chip--bowl">
-                          <span className="pp-rank-chip-metric">{dashboardBowlMetricOptionLabel(m)}</span>
-                          <span className="pp-rank-chip-num">
-                            #{r.rank}
-                            <span className="pp-rank-chip-of">/{r.of}</span>
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
+                <TournamentRanksTable
+                  variant="bowl"
+                  columns={(['bowlRating', 'bowlAvg', 'econ', 'bowlBpw'] as const).map((m) => ({
+                    key: m,
+                    label: dashboardBowlMetricOptionLabel(m),
+                  }))}
+                  rows={[
+                    {
+                      label: 'All',
+                      metrics: tournamentRankSummary.bowling.wholeTournament,
+                    },
+                  ]}
+                />
               </div>
             ) : null}
-
-            <div className="pp-detail-divider">
-              <span className="pp-detail-divider-text">Analytics & benchmarks</span>
-            </div>
-
-            {deepBowl ? <BowlingDeepPanels deep={deepBowl} squadEcon={player.econ} /> : null}
           </div>
         )}
 

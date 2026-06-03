@@ -112,12 +112,12 @@ function sameRoleMatcher(playerSlot: number): (slot: number) => boolean {
 function roleLabelForRow(row: TournamentPlayerRow): string {
   if (row.roster === 'xi') {
     const s = row.comparisonSlot
-    if (s === 1 || s === 2) return 'Openers (line-up 1–2)'
+    if (s === 1 || s === 2) return 'Openers'
     return `Line-up position ${s}`
   }
   const s = row.comparisonSlot
   if (s >= 1 && s <= 11) {
-    if (s === 1 || s === 2) return 'Openers (par slot 1–2)'
+    if (s === 1 || s === 2) return 'Openers'
     return `Par slot ${s}`
   }
   return 'Role'

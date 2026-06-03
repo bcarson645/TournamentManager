@@ -18,6 +18,7 @@ import {
 } from './data/squadStore'
 import Dashboard from './components/Dashboard'
 import AppNavSidebar, { type HomeNavId } from './components/AppNavSidebar'
+import PlayerTeamManagement from './components/PlayerTeamManagement'
 
 type View = 'format' | 'gender' | 'tournaments' | 'dashboard'
 
@@ -361,6 +362,19 @@ export default function Home() {
     selectedFormat && selectedGender
       ? TOURNAMENTS[selectedFormat][selectedGender]
       : []
+
+  if (homeNav === 'player-team') {
+    return (
+      <div className="app-home-shell">
+        <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
+        <main className="app-home-main">
+          <div className="page app-home-page app-home-page--wide">
+            <PlayerTeamManagement />
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   if (homeNav !== 'tournament-manager') {
     const label = PLACEHOLDER_LABELS[homeNav]

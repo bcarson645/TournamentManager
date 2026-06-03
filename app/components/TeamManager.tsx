@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useMemo, useEffect, useSyncExternalStore } from 'react'
+import { useState, useRef, useMemo, useEffect, useSyncExternalStore, useCallback } from 'react'
 import { Team } from '../data/teams'
 import {
   SquadPlayer,
@@ -48,6 +48,7 @@ import {
   type DashboardBowlMetric,
 } from '../data/ratingDisplaySettings'
 import { getProfileForPlayer } from '../data/playerProfile'
+import { mergeDbStatsIntoSquadPlayer, type SquadStatSeed } from '../data/squadStatSeed'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
 import { computePlayerTournamentRankSummary } from '../data/tournamentPlayerRanks'
 
@@ -132,6 +133,13 @@ function hashStr(s: string): number {
     h = ((h << 5) - h + s.charCodeAt(i)) | 0
   }
   return Math.abs(h) || 1
+}
+
+/** Seeded squad rows use 11000001–11009999 until linked to a dataset PlayerID. */
+function playerNeedsDbHydrate(p: SquadPlayer): boolean {
+  const n = parseInt(p.playerId, 10)
+  if (Number.isFinite(n) && n >= 11000001 && n <= 11009999) return true
+  return p.btCaz === 0 && p.wkts === 0 && p.sr === 0
 }
 
 const RIBBON_RANK_PAGE = 10
@@ -285,32 +293,114 @@ export default function TeamManager({
   })
   const [groundSearch, setGroundSearch] = useState('')
   const [groundDropdownOpen, setGroundDropdownOpen] = useState(false)
+  const prevTeamIdRef = useRef<string | null>(null)
+
+  const hydrateFromDb = useCallback(
+    async (
+      sxi: SquadPlayer[],
+      res: SquadPlayer[],
+      imp: SquadPlayer[],
+    ): Promise<{ startingXI: SquadPlayer[]; reserves: SquadPlayer[]; impactSubs: SquadPlayer[] } | null> => {
+      const names = [
+        ...new Set(
+          [...sxi, ...res, ...imp]
+            .filter((p) => playerNeedsDbHydrate(p))
+            .map((p) => p.name),
+        ),
+      ]
+      if (!names.length) return null
+      try {
+        const response = await fetch('/api/cricket/squad-stats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names }),
+        })
+        if (!response.ok) return null
+        const data = (await response.json()) as { stats?: Record<string, SquadStatSeed> }
+        if (!data.stats || Object.keys(data.stats).length === 0) return null
+
+        const mapSection = (list: SquadPlayer[], section: 'starting' | 'reserves' | 'impact') =>
+          list.map((p, i) => {
+            const seed = data.stats![p.name]
+            if (!seed) return p
+            return mergeDbStatsIntoSquadPlayer(p, seed, format, gender, section, i)
+          })
+
+        return {
+          startingXI: mapSection(sxi, 'starting'),
+          reserves: mapSection(res, 'reserves'),
+          impactSubs: mapSection(imp, 'impact'),
+        }
+      } catch {
+        return null
+      }
+    },
+    [format, gender],
+  )
 
   useEffect(() => {
-    const stored = getStoredSquad(team.id)
-    if (stored) {
-      const reapplied = reapplySquadRatings(
-        stored.startingXI,
-        stored.reserves,
-        stored.impactSubs ?? [],
-        format,
-        gender,
-      )
-      setStartingXI(reapplied.startingXI)
-      setReserves(reapplied.reserves)
-      setImpactSubs(reapplied.impactSubs)
-      setSelectedGround(stored.groundId ? GROUNDS.find((g) => g.id === stored.groundId) ?? null : null)
-    } else {
-      const squad = makeSquadForTeam(team.id, format, gender)
-      setStartingXI(squad.startingXI)
-      setReserves(squad.reserves)
-      setImpactSubs([])
-      setSelectedGround(null)
+    let cancelled = false
+    const teamChanged = prevTeamIdRef.current !== team.id
+    prevTeamIdRef.current = team.id
+
+    async function load() {
+      const stored = getStoredSquad(team.id)
+      let sxi: SquadPlayer[]
+      let res: SquadPlayer[]
+      let imp: SquadPlayer[]
+      let ground: Ground | null
+
+      if (stored) {
+        const reapplied = reapplySquadRatings(
+          stored.startingXI,
+          stored.reserves,
+          stored.impactSubs ?? [],
+          format,
+          gender,
+        )
+        sxi = reapplied.startingXI
+        res = reapplied.reserves
+        imp = reapplied.impactSubs
+        ground = stored.groundId ? GROUNDS.find((g) => g.id === stored.groundId) ?? null : null
+      } else {
+        const squad = makeSquadForTeam(team.id, format, gender)
+        sxi = squad.startingXI
+        res = squad.reserves
+        imp = []
+        ground = null
+      }
+
+      const hydrated = await hydrateFromDb(sxi, res, imp)
+      if (cancelled) return
+
+      if (hydrated) {
+        const final = reapplySquadRatings(
+          hydrated.startingXI,
+          hydrated.reserves,
+          hydrated.impactSubs,
+          format,
+          gender,
+        )
+        sxi = final.startingXI
+        res = final.reserves
+        imp = final.impactSubs
+        storeSquad(team.id, sxi, res, ground?.id ?? null, imp)
+      }
+
+      setStartingXI(sxi)
+      setReserves(res)
+      setImpactSubs(imp)
+      setSelectedGround(ground)
+      if (teamChanged) setSelectedPlayer(null)
+      setTeamLogo(getTeamLogo(team.id) ?? team.logo ?? null)
+      setGroundSearch('')
     }
-    setSelectedPlayer(null)
-    setTeamLogo(getTeamLogo(team.id) ?? team.logo ?? null)
-    setGroundSearch('')
-  }, [team.id, format, gender, squadStoreVersion])
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [team.id, format, gender, hydrateFromDb])
 
   const avgFirstInnings = useMemo(() => generateAvgScore(team.id), [team.id])
   const last10 = useMemo(() => generateLast10(team.id), [team.id])
@@ -952,6 +1042,7 @@ export default function TeamManager({
           <PlayerDetailPanel
             player={selectedPlayer}
             tournamentName={tournamentName}
+            contextTournamentId={tournamentId}
             panelWidth={playerPanelWidth}
             onClose={() => setSelectedPlayer(null)}
             squadSlot={

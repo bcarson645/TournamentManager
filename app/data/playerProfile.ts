@@ -817,6 +817,10 @@ const KNOWN_STATS: Record<string, Partial<PlayerProfile>> = {
   },
 }
 
+export function hasKnownStatsForPlayer(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(KNOWN_STATS, name)
+}
+
 export function getProfileForPlayer(name: string): PlayerProfile {
   const base = makeDefaultProfile()
   const known = KNOWN_STATS[name]
