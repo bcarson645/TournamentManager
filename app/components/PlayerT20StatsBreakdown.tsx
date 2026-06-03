@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { fetchJson } from '../../lib/api/fetchJson'
 import type {
   PlayerStatsBreakdown,
   SeasonBattingRow,
@@ -55,26 +56,28 @@ export default function PlayerT20StatsBreakdown({
     })
     if (contextTournamentId) params.set('contextTournamentId', contextTournamentId)
 
-    fetch(`/api/cricket/stats-breakdown?${params}`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (cancelled) return
-        if (json.error) {
-          setData(null)
-          setError(json.error)
-          return
-        }
-        setData(json as PlayerStatsBreakdown)
-        if (json.filterOptions?.length && !json.filterOptions.some((o: { scope: string }) => o.scope === scope)) {
-          setScope(json.scope ?? 'all')
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError('Could not load T20 breakdown')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+    void (async () => {
+      const result = await fetchJson<PlayerStatsBreakdown>(
+        `/api/cricket/stats-breakdown?${params}`,
+      )
+      if (cancelled) return
+      if (!result.ok) {
+        setData(null)
+        setError(result.error ?? 'Could not load T20 breakdown')
+        setLoading(false)
+        return
+      }
+      const json = result.data!
+      setData(json)
+      if (
+        json.filterOptions?.length &&
+        !json.filterOptions.some((o: { scope: StatsScope }) => o.scope === scope)
+      ) {
+        setScope(json.scope ?? 'all')
+      }
+      setLoading(false)
+    })()
+
     return () => {
       cancelled = true
     }

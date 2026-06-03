@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cricketApiErrorResponse } from '../../../../lib/api/cricketApiError'
 import { hasKnownStatsForPlayer } from '../../../../app/data/playerProfile'
 import { getSquadStatSeedForAppName } from '../../../../lib/cricketDb/playerProfileBridge'
 
@@ -18,7 +19,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ stats })
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Failed to load squad stats'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return cricketApiErrorResponse(e, 'Failed to load squad stats')
   }
 }

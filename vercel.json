@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "app/api/cricket/import/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "app/api/cricket/auto-map/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}

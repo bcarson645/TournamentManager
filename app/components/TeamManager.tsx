@@ -51,6 +51,7 @@ import { getProfileForPlayer } from '../data/playerProfile'
 import { mergeDbStatsIntoSquadPlayer, type SquadStatSeed } from '../data/squadStatSeed'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
 import { computePlayerTournamentRankSummary } from '../data/tournamentPlayerRanks'
+import { fetchJson } from '../../lib/api/fetchJson'
 
 function reapplySquadRatings(
   startingXI: SquadPlayer[],
@@ -310,14 +311,18 @@ export default function TeamManager({
       ]
       if (!names.length) return null
       try {
-        const response = await fetch('/api/cricket/squad-stats', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ names }),
-        })
-        if (!response.ok) return null
-        const data = (await response.json()) as { stats?: Record<string, SquadStatSeed> }
-        if (!data.stats || Object.keys(data.stats).length === 0) return null
+        const result = await fetchJson<{ stats?: Record<string, SquadStatSeed> }>(
+          '/api/cricket/squad-stats',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ names }),
+          },
+        )
+        if (!result.ok || !result.data?.stats || Object.keys(result.data.stats).length === 0) {
+          return null
+        }
+        const data = result.data
 
         const mapSection = (list: SquadPlayer[], section: 'starting' | 'reserves' | 'impact') =>
           list.map((p, i) => {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { fetchJson } from '../../lib/api/fetchJson'
 import type { AppTournamentOption } from '../../lib/cricketDb/appTournamentsClient'
 import { getBuiltinTournamentLabel } from '../../lib/cricketDb/appTournamentsClient'
 
@@ -139,17 +140,17 @@ export default function PlayerTeamManagement() {
   }
 
   async function loadTournaments() {
-    const res = await fetch('/api/cricket/tournaments')
-    const data = await res.json()
-    if (res.ok) setAppTournaments(data.tournaments ?? [])
+    const result = await fetchJson<{ tournaments?: AppTournamentOption[] }>('/api/cricket/tournaments')
+    if (result.ok && result.data) setAppTournaments(result.data.tournaments ?? [])
   }
 
   async function loadTeamsForTournament(tournamentId: string) {
     if (!tournamentId || teamsByTournament[tournamentId]) return
-    const res = await fetch(`/api/cricket/custom-teams?tournamentId=${encodeURIComponent(tournamentId)}`)
-    const data = await res.json()
-    if (res.ok) {
-      setTeamsByTournament((prev) => ({ ...prev, [tournamentId]: data.teams ?? [] }))
+    const result = await fetchJson<{ teams?: { id: string; name: string }[] }>(
+      `/api/cricket/custom-teams?tournamentId=${encodeURIComponent(tournamentId)}`,
+    )
+    if (result.ok && result.data) {
+      setTeamsByTournament((prev) => ({ ...prev, [tournamentId]: result.data!.teams ?? [] }))
     }
   }
 
@@ -158,26 +159,23 @@ export default function PlayerTeamManagement() {
   }, [])
 
   const refreshStats = useCallback(async () => {
-    try {
-      const res = await fetch('/api/cricket/stats')
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to load stats')
-      setStats(data)
-      setStatsError(null)
-    } catch (e) {
-      setStatsError(e instanceof Error ? e.message : 'Failed to load stats')
+    const result = await fetchJson<DbStats>('/api/cricket/stats')
+    if (!result.ok) {
+      setStats(null)
+      setStatsError(result.error ?? 'Failed to load stats')
+      return
     }
+    setStats(result.data!)
+    setStatsError(null)
   }, [])
 
   const refreshMappings = useCallback(async () => {
-    const [cRes, tRes] = await Promise.all([
-      fetch('/api/cricket/competitions'),
-      fetch('/api/cricket/teams'),
+    const [cResult, tResult] = await Promise.all([
+      fetchJson<{ competitions?: CompetitionRow[] }>('/api/cricket/competitions'),
+      fetchJson<{ teams?: TeamRow[] }>('/api/cricket/teams'),
     ])
-    const cData = await cRes.json()
-    const tData = await tRes.json()
-    if (cRes.ok) setCompetitions(cData.competitions ?? [])
-    if (tRes.ok) setTeams(tData.teams ?? [])
+    if (cResult.ok && cResult.data) setCompetitions(cResult.data.competitions ?? [])
+    if (tResult.ok && tResult.data) setTeams(tResult.data.teams ?? [])
   }, [])
 
   const loadRaw = useCallback(async () => {
@@ -186,11 +184,12 @@ export default function PlayerTeamManagement() {
       pageSize: '50',
     })
     if (rawFilterPlayer.trim()) params.set('playerId', rawFilterPlayer.trim())
-    const res = await fetch(`/api/cricket/performances?${params}`)
-    const data = await res.json()
-    if (res.ok) {
-      setRawRows(data.rows ?? [])
-      setRawTotal(data.total ?? 0)
+    const result = await fetchJson<{ rows?: PerfRow[]; total?: number }>(
+      `/api/cricket/performances?${params}`,
+    )
+    if (result.ok && result.data) {
+      setRawRows(result.data.rows ?? [])
+      setRawTotal(result.data.total ?? 0)
     }
   }, [rawPage, rawFilterPlayer])
 
@@ -212,9 +211,10 @@ export default function PlayerTeamManagement() {
         setPlayerHits([])
         return
       }
-      const res = await fetch(`/api/cricket/players?q=${encodeURIComponent(playerQ)}&limit=20`)
-      const data = await res.json()
-      if (res.ok) setPlayerHits(data.players ?? [])
+      const result = await fetchJson<{ players?: PlayerHit[] }>(
+        `/api/cricket/players?q=${encodeURIComponent(playerQ)}&limit=20`,
+      )
+      if (result.ok && result.data) setPlayerHits(result.data.players ?? [])
     }, 250)
     return () => window.clearTimeout(t)
   }, [playerQ])
@@ -224,13 +224,13 @@ export default function PlayerTeamManagement() {
       setProfile(null)
       return
     }
-    fetch(`/api/cricket/players/${encodeURIComponent(selectedPlayerId)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.playerId) setProfile(data)
-        else setProfile(null)
-      })
-      .catch(() => setProfile(null))
+    void (async () => {
+      const result = await fetchJson<PlayerProfile>(
+        `/api/cricket/players/${encodeURIComponent(selectedPlayerId)}`,
+      )
+      if (result.ok && result.data?.playerId) setProfile(result.data)
+      else setProfile(null)
+    })()
   }, [selectedPlayerId])
 
   async function handleImport(file: File, replace: boolean) {
@@ -240,9 +240,19 @@ export default function PlayerTeamManagement() {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('replace', replace ? '1' : '0')
-      const res = await fetch('/api/cricket/import', { method: 'POST', body: fd })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Import failed')
+      const result = await fetchJson<{
+        rowsImported: number
+        skipped: number
+        autoMap?: {
+          competitionsMapped: number
+          teamsMapped: number
+          playersMapped: number
+          unmappedCompetitions: number
+          playerMerges?: { mergedPlayerIds: number; canonicalPlayers: number }
+        }
+      }>('/api/cricket/import', { method: 'POST', body: fd })
+      if (!result.ok) throw new Error(result.error ?? 'Import failed')
+      const data = result.data!
       const am = data.autoMap
       const mergeText =
         am?.playerMerges && am.playerMerges.mergedPlayerIds > 0
@@ -255,9 +265,10 @@ export default function PlayerTeamManagement() {
       await refreshStats()
       await loadTournaments()
       if (tab === 'mappings') await refreshMappings()
-      const preview = await fetch('/api/cricket/auto-map?apply=0', { method: 'POST' })
-      const previewData = await preview.json()
-      if (preview.ok) setAutoMapResult(previewData)
+      const preview = await fetchJson<AutoMapResult>('/api/cricket/auto-map?apply=0', {
+        method: 'POST',
+      })
+      if (preview.ok && preview.data) setAutoMapResult(preview.data)
     } catch (e) {
       setImportMsg(e instanceof Error ? e.message : 'Import failed')
     } finally {
@@ -293,10 +304,12 @@ export default function PlayerTeamManagement() {
   async function runAutoMap(apply: boolean) {
     setAutoMapBusy(true)
     try {
-      const res = await fetch(`/api/cricket/auto-map?apply=${apply ? '1' : '0'}`, { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Auto-map failed')
-      setAutoMapResult(data)
+      const result = await fetchJson<AutoMapResult>(
+        `/api/cricket/auto-map?apply=${apply ? '1' : '0'}`,
+        { method: 'POST' },
+      )
+      if (!result.ok) throw new Error(result.error ?? 'Auto-map failed')
+      setAutoMapResult(result.data!)
       if (apply) {
         await refreshMappings()
         await refreshStats()
@@ -376,7 +389,14 @@ export default function PlayerTeamManagement() {
         <div className="ptm-panel">
           <section className="ptm-card">
             <h2 className="ptm-card-title">Database status</h2>
-            {statsError ? <p className="ptm-error">{statsError}</p> : null}
+            {statsError ? (
+              <p className="ptm-error">
+                {statsError}{' '}
+                <a href="/api/cricket/health" target="_blank" rel="noreferrer" className="ptm-link-btn">
+                  Database health
+                </a>
+              </p>
+            ) : null}
             {stats ? (
               <div className="ptm-stat-grid">
                 <div className="ptm-stat">

@@ -20,7 +20,7 @@ import {
   dashboardBatMetricOptionLabel,
   dashboardBowlMetricOptionLabel,
 } from '../data/ratingDisplaySettings'
-import type { DashboardBatMetric, DashboardBowlMetric } from '../data/ratingDisplaySettings'
+import { fetchJson } from '../../lib/api/fetchJson'
 import PlayerT20StatsBreakdown from './PlayerT20StatsBreakdown'
 
 interface PlayerDetailPanelProps {
@@ -200,13 +200,13 @@ export default function PlayerDetailPanel({
     if (!player) return
     setProfile(profileForSquadPlayer(player))
     let cancelled = false
-    fetch(`/api/cricket/profile-by-name?name=${encodeURIComponent(player.name)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data || data.error) return
-        setProfile((prev) => mergeApiProfileIntoBase(prev, data))
-      })
-      .catch(() => {})
+    void (async () => {
+      const result = await fetchJson<PlayerProfile & { error?: string }>(
+        `/api/cricket/profile-by-name?name=${encodeURIComponent(player.name)}`,
+      )
+      if (cancelled || !result.ok || !result.data || result.data.error) return
+      setProfile((prev) => mergeApiProfileIntoBase(prev, result.data!))
+    })()
     return () => {
       cancelled = true
     }

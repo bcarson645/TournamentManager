@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cricketApiErrorResponse } from '../../../../lib/api/cricketApiError'
 import {
   getPlayerStatsBreakdown,
   type StatsScope,
@@ -22,7 +23,6 @@ export async function GET(req: Request) {
     }
     return NextResponse.json(breakdown)
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Failed to load stats breakdown'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return cricketApiErrorResponse(e, 'Failed to load stats breakdown')
   }
 }

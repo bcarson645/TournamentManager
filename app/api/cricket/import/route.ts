@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
+import { cricketApiErrorResponse } from '../../../../lib/api/cricketApiError'
 import { importPerformancesCsv } from '../../../../lib/cricketDb/importCsv'
 
 export const runtime = 'nodejs'
+
+/** Large CSV uploads (Vercel default body limit ~4.5MB). */
+export const maxDuration = 60
 
 export async function POST(req: Request) {
   try {
@@ -15,7 +19,6 @@ export async function POST(req: Request) {
     const result = importPerformancesCsv(text, file.name, replace)
     return NextResponse.json(result)
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Import failed'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return cricketApiErrorResponse(e, 'Import failed')
   }
 }
