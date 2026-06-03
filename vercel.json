@@ -4,6 +4,10 @@
       "maxDuration": 60,
       "memory": 1024
     },
+    "app/api/cricket/import-chunk/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
     "app/api/cricket/auto-map/route.ts": {
       "maxDuration": 60
     }

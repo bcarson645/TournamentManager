@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { fetchJson } from '../../lib/api/fetchJson'
+import { importCsvFileChunked } from '../../lib/cricketDb/importCsvClient'
 import type { AppTournamentOption } from '../../lib/cricketDb/appTournamentsClient'
 import { getBuiltinTournamentLabel } from '../../lib/cricketDb/appTournamentsClient'
 
@@ -111,6 +112,7 @@ export default function PlayerTeamManagement() {
   const [statsError, setStatsError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [importMsg, setImportMsg] = useState<string | null>(null)
+  const [importProgress, setImportProgress] = useState<string | null>(null)
 
   const [playerQ, setPlayerQ] = useState('')
   const [playerHits, setPlayerHits] = useState<PlayerHit[]>([])
@@ -236,23 +238,13 @@ export default function PlayerTeamManagement() {
   async function handleImport(file: File, replace: boolean) {
     setImporting(true)
     setImportMsg(null)
+    setImportProgress(null)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('replace', replace ? '1' : '0')
-      const result = await fetchJson<{
-        rowsImported: number
-        skipped: number
-        autoMap?: {
-          competitionsMapped: number
-          teamsMapped: number
-          playersMapped: number
-          unmappedCompetitions: number
-          playerMerges?: { mergedPlayerIds: number; canonicalPlayers: number }
-        }
-      }>('/api/cricket/import', { method: 'POST', body: fd })
-      if (!result.ok) throw new Error(result.error ?? 'Import failed')
-      const data = result.data!
+      setImportProgress('Parsing CSV…')
+      const data = await importCsvFileChunked(file, replace, (done, total, phase) => {
+        setImportProgress(`${phase} (${done}/${total})`)
+      })
+
       const am = data.autoMap
       const mergeText =
         am?.playerMerges && am.playerMerges.mergedPlayerIds > 0
@@ -273,6 +265,7 @@ export default function PlayerTeamManagement() {
       setImportMsg(e instanceof Error ? e.message : 'Import failed')
     } finally {
       setImporting(false)
+      setImportProgress(null)
     }
   }
 
@@ -440,10 +433,9 @@ export default function PlayerTeamManagement() {
           <section className="ptm-card">
             <h2 className="ptm-card-title">Import CSV</h2>
             <p className="ptm-muted">
-              Upload your T20 performance export (comma- or tab-separated). Replaces all performance
-              rows by default, merges duplicate PlayerIDs that share surname + initials, maps
-              competitions to built-in tournaments (IPL, Blast, …) by team overlap, then links squad
-              names to dataset players.
+              Upload your T20 performance export (comma- or tab-separated). Large files are sent in
+              batches automatically (required on Vercel). Replaces all rows by default, then merges
+              players, maps competitions, and links squad names.
             </p>
             <div className="ptm-import-row">
               <input
@@ -456,7 +448,9 @@ export default function PlayerTeamManagement() {
                   e.target.value = ''
                 }}
               />
-              {importing ? <span className="ptm-muted">Importing…</span> : null}
+              {importing ? (
+                <span className="ptm-muted">{importProgress ?? 'Importing…'}</span>
+              ) : null}
             </div>
             {importMsg ? <p className={importMsg.startsWith('Imported') ? 'ptm-success' : 'ptm-error'}>{importMsg}</p> : null}
           </section>
