@@ -1,5 +1,17 @@
 {
   "functions": {
+    "app/api/cricket/squad-stats/route.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "app/api/cricket/stats-breakdown/route.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "app/api/cricket/health/route.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
     "app/api/cricket/import/route.ts": {
       "maxDuration": 60,
       "memory": 1024

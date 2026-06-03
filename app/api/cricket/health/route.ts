@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getCricketDb, getCricketDbMode, getCricketDbOpenError } from '../../../../lib/cricketDb/client'
+import { getBundledSeedCandidates, resolveBundledSeedPath } from '../../../../lib/cricketDb/bundledDb'
 import {
   getCricketDbDir,
   getCricketDbPath,
@@ -23,6 +24,8 @@ export async function GET() {
       bundled: mode.bundled,
       readonly: mode.readonly,
       bundledFilePresent: isBundledCricketDbAvailable(),
+      bundledSeedPath: resolveBundledSeedPath(),
+      bundledSeedCandidates: getBundledSeedCandidates(),
       performances: stats.performances,
       players: stats.players,
       aliases: stats.aliases,

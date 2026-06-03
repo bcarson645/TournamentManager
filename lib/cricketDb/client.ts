@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3'
+import { isBundledStatsAvailable } from './bundledDb'
 import {
   ensureCricketDbFile,
   getCricketDbPath,
-  isBundledCricketDbAvailable,
   isCricketDbReadonly,
   shouldUseBundledCricketDb,
 } from './path'
@@ -27,14 +27,12 @@ export function getCricketDb(): Database.Database {
     const dbPath = getCricketDbPath()
     const readonly = isCricketDbReadonly()
     try {
-      if (readonly) {
-        if (!isBundledCricketDbAvailable()) {
-          throw new Error(
-            `Built-in stats database missing at "${dbPath}". Run npm run bundle-db locally and commit data/bundled-cricket.db.`,
-          )
-        }
-      } else {
+      if (!readonly) {
         ensureCricketDbFile(dbPath)
+      } else if (!isBundledStatsAvailable()) {
+        throw new Error(
+          'Built-in stats database missing. Run npm run bundle-db locally and commit data/bundled-cricket.db.',
+        )
       }
 
       const conn = new Database(dbPath, readonly ? { readonly: true } : undefined)
