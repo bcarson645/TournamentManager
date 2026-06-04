@@ -57,6 +57,11 @@ import {
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
 import { computePlayerTournamentRankSummary } from '../data/tournamentPlayerRanks'
 import { fetchJson } from '../../lib/api/fetchJson'
+import {
+  clampPlayerPanelWidth,
+  readStoredPlayerPanelWidth,
+  PLAYER_PANEL_WIDTH_STORAGE_KEY,
+} from '../data/playerPanelLayout'
 
 function reapplySquadRatings(
   startingXI: SquadPlayer[],
@@ -254,12 +259,7 @@ export default function TeamManager({
     [selectedPlayer?.id, allTeams, squadStoreVersion],
   )
 
-  const [playerPanelWidth, setPlayerPanelWidth] = useState(() => {
-    if (typeof window === 'undefined') return 400
-    const raw = localStorage.getItem('tm-player-panel-w')
-    const n = raw ? parseInt(raw, 10) : NaN
-    return Number.isFinite(n) ? Math.min(640, Math.max(260, n)) : 400
-  })
+  const [playerPanelWidth, setPlayerPanelWidth] = useState(() => readStoredPlayerPanelWidth())
 
   const panelResizeRef = useRef<{ startX: number; startW: number } | null>(null)
   const playerPanelWidthRef = useRef(playerPanelWidth)
@@ -270,13 +270,13 @@ export default function TeamManager({
       const drag = panelResizeRef.current
       if (!drag) return
       const delta = drag.startX - e.clientX
-      setPlayerPanelWidth(Math.min(640, Math.max(260, drag.startW + delta)))
+      setPlayerPanelWidth(clampPlayerPanelWidth(drag.startW + delta))
     }
     function onUp() {
       if (panelResizeRef.current === null) return
       panelResizeRef.current = null
       setPlayerPanelWidth((w) => {
-        localStorage.setItem('tm-player-panel-w', String(w))
+        localStorage.setItem(PLAYER_PANEL_WIDTH_STORAGE_KEY, String(w))
         return w
       })
     }

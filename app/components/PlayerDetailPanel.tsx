@@ -11,7 +11,6 @@ import {
   CareerBatting,
   CareerBowling,
   RecentInnings,
-  TournamentRecord,
   makeDefaultProfile,
 } from '../data/playerProfile'
 import { H2hPlaceholder } from './PlayerAnalyticsSegments'
@@ -21,6 +20,7 @@ import {
   dashboardBowlMetricOptionLabel,
 } from '../data/ratingDisplaySettings'
 import { fetchJson } from '../../lib/api/fetchJson'
+import { PLAYER_PANEL_MAX_WIDTH_CSS } from '../data/playerPanelLayout'
 import PlayerT20StatsBreakdown from './PlayerT20StatsBreakdown'
 
 interface PlayerDetailPanelProps {
@@ -71,13 +71,6 @@ function displayCareerBowling(key: keyof CareerBowling, bowl: CareerBowling): st
     return formatStatNumber(bowl[key], 2)
   }
   return String(bowl[key] as number)
-}
-
-function displayTournamentField(key: keyof TournamentRecord, rec: TournamentRecord): string {
-  if (key === 'season') return rec.season || '—'
-  if (key === 'strikeRate') return formatStatNumber(srPer100FromCaz(rec.strikeRate), 2)
-  if (key === 'average' || key === 'bowlAvg') return formatStatNumber(rec[key], 2)
-  return String(rec[key] as number)
 }
 
 /** 0 = worst rank in pool, 1 = best (#1). */
@@ -280,8 +273,8 @@ export default function PlayerDetailPanel({
   const panelStyle: CSSProperties = {
     width: panelWidth,
     flex: '0 0 auto',
-    minWidth: 260,
-    maxWidth: 'min(640px, 70vw)',
+    minWidth: 280,
+    maxWidth: PLAYER_PANEL_MAX_WIDTH_CSS,
   }
 
   if (!player) {
@@ -597,40 +590,6 @@ export default function PlayerDetailPanel({
                         {inn.score}
                         {inn.notOut ? <span className="pp-recent-nout">*</span> : null}
                       </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="pp-section">
-              <h3 className="pp-section-title pp-section-title--bat-sub">{tournamentName} History</h3>
-              {profile.tournamentHistory.length === 0 ? (
-                <div className="pp-empty">No previous tournament records</div>
-              ) : (
-                <div className="pp-tournament-list">
-                  {profile.tournamentHistory.map((rec, i) => (
-                    <div key={i} className="pp-tournament-card">
-                      <div className="pp-tournament-top">
-                        <h4 className="pp-tournament-title">{displayTournamentField('season', rec)}</h4>
-                      </div>
-                      <div className="pp-stat-grid pp-stat-grid-sm">
-                        {(
-                          [
-                            ['matches', 'Mat'],
-                            ['runs', 'Runs'],
-                            ['average', 'Avg'],
-                            ['strikeRate', 'SR'],
-                            ['wickets', 'Wkts'],
-                            ['bowlAvg', 'Bowl Avg'],
-                          ] as [keyof TournamentRecord, string][]
-                        ).map(([key, label]) => (
-                          <div key={key} className="pp-stat-box pp-stat-box-sm">
-                            <span className="pp-stat-label">{label}</span>
-                            <span className="pp-stat-value">{displayTournamentField(key, rec)}</span>
-                          </div>
-                        ))}
-                      </div>
                     </div>
                   ))}
                 </div>

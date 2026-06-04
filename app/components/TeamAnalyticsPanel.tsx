@@ -258,7 +258,7 @@ export default function TeamAnalyticsPanel({
           width: panelWidth,
           flex: '0 0 auto',
           minWidth: 260,
-          maxWidth: 'min(640px, 70vw)',
+          maxWidth: 'min(820px, 78vw)',
         } as CSSProperties)
       : undefined
 

@@ -120,7 +120,7 @@ export function aggregateToPlayerProfile(agg: PlayerT20Aggregate): Partial<Playe
   }))
 
   const careerBatting: CareerBatting = {
-    matches: agg.batInnings || agg.appearances,
+    matches: agg.matchAppearances || agg.batInnings,
     runs: agg.runs,
     average: seed.btCaz,
     strikeRate: seed.sr,
@@ -131,7 +131,7 @@ export function aggregateToPlayerProfile(agg: PlayerT20Aggregate): Partial<Playe
   }
 
   const careerBowling: CareerBowling = {
-    matches: agg.bowlInnings,
+    matches: agg.bowlMatchAppearances || agg.bowlInnings,
     wickets: agg.wickets,
     average: seed.bowlAvg,
     economy: seed.econ,

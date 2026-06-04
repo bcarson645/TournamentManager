@@ -3,7 +3,16 @@ import { listCustomTournaments } from './customTournaments'
 import { getCricketDb } from './client'
 import { getDatasetPlayerIdForAppName } from './playerProfileBridge'
 import { allPlayerIdsForCanonical, resolveCanonicalPlayerId } from './playerMerges'
+import {
+  buildDismissalMixBreakdown,
+  filterRowsForCanonicalPlayer,
+  loadDismissalRowsInScope,
+  type DismissalMixBreakdown,
+} from './dismissalBreakdown'
+import { performanceMatchKey } from './matchKey'
 import { oversTextToBalls } from './parseOvers'
+
+export type { DismissalMixBreakdown, DismissalMixRow } from './dismissalBreakdown'
 
 export type StatsScope = 'current' | 'all' | string
 
@@ -78,6 +87,7 @@ export interface PlayerStatsBreakdown {
   tournamentBowling: TournamentBowlingRow[]
   seasonBatting: SeasonBattingRow[]
   seasonBowling: SeasonBowlingRow[]
+  dismissalMix: DismissalMixBreakdown | null
 }
 
 interface PerfRow {
@@ -112,7 +122,7 @@ function seasonYear(matchDate: string | null): string {
 }
 
 function matchKey(r: PerfRow): string {
-  return [r.source_id, r.match_date, r.competition_id, r.team_id].filter(Boolean).join('|')
+  return performanceMatchKey(r)
 }
 
 function tournamentLabel(tournamentId: string | null, compLabel: string | null, competitionId: string | null): string {
@@ -468,6 +478,14 @@ export function getPlayerStatsBreakdown(
   const seasonBatting = aggregateSeasonBatting(filtered)
   const seasonBowling = aggregateSeasonBowling(filtered)
 
+  const scopeDismissalRows = loadDismissalRowsInScope(db, effectiveScope, contextTournamentId)
+  const playerDismissalRows = filterRowsForCanonicalPlayer(scopeDismissalRows, canonicalId)
+  const dismissalMix = buildDismissalMixBreakdown(
+    playerDismissalRows,
+    scopeDismissalRows,
+    canonicalId,
+  )
+
   const filterOptions = buildFilterOptions(tournamentIds, contextTournamentId)
 
   let sortedBat = tournamentBatting
@@ -495,5 +513,6 @@ export function getPlayerStatsBreakdown(
     tournamentBowling: sortedBowl,
     seasonBatting,
     seasonBowling,
+    dismissalMix,
   }
 }

@@ -1,4 +1,5 @@
 import { getCricketDb, getCricketDbMode } from './client'
+import { countUniquePerformanceMatches, performanceMatchKey } from './matchKey'
 import { assertCricketDbWritable } from './writeGuard'
 import { allPlayerIdsForCanonical, resolveCanonicalPlayerId } from './playerMerges'
 import { enrichAggregateBowlingEconomy } from './parseOvers'
@@ -68,7 +69,12 @@ export function searchPlayers(q: string, limit = 25): PlayerSearchHit[] {
 export interface PlayerT20Aggregate {
   playerId: string
   displayName: string
+  /** Raw row count on `players` table (legacy; prefer matchAppearances). */
   appearances: number
+  /** Unique matches in dataset (includes DNB / squad games without batting). */
+  matchAppearances: number
+  /** Unique matches where the player bowled. */
+  bowlMatchAppearances: number
   batInnings: number
   runs: number
   balls: number
@@ -107,11 +113,15 @@ export function getPlayerT20Aggregate(playerId: string): PlayerT20Aggregate | nu
   const placeholders = ids.map(() => '?').join(', ')
   const rows = db
     .prepare(
-      `SELECT match_date, dismissal, bat_runs, bat_balls, fours, sixes, bowl_runs, bowl_wickets, bowl_overs
+      `SELECT source_id, match_date, competition_id, team_id, dismissal,
+              bat_runs, bat_balls, fours, sixes, bowl_runs, bowl_wickets, bowl_overs
        FROM performances WHERE player_id IN (${placeholders}) ORDER BY match_date DESC`,
     )
     .all(...ids) as {
+    source_id: string | null
     match_date: string | null
+    competition_id: string | null
+    team_id: string | null
     dismissal: string | null
     bat_runs: number | null
     bat_balls: number | null
@@ -136,6 +146,7 @@ export function getPlayerT20Aggregate(playerId: string): PlayerT20Aggregate | nu
   let bowlInnings = 0
   const bowlRows: { bowl_runs: number | null; bowl_overs: string | null }[] = []
   const recentInnings: { date: string; runs: number; notOut: boolean }[] = []
+  const bowlMatchKeys = new Set<string>()
 
   for (const r of rows) {
     const batted = (r.bat_balls ?? 0) > 0 || (r.bat_runs ?? 0) > 0
@@ -164,8 +175,13 @@ export function getPlayerT20Aggregate(playerId: string): PlayerT20Aggregate | nu
       wickets += r.bowl_wickets ?? 0
       bowlRuns += r.bowl_runs ?? 0
       bowlRows.push({ bowl_runs: r.bowl_runs, bowl_overs: r.bowl_overs })
+      const mk = performanceMatchKey(r)
+      if (mk) bowlMatchKeys.add(mk)
     }
   }
+
+  const matchAppearances = countUniquePerformanceMatches(rows)
+  const bowlMatchAppearances = bowlMatchKeys.size
 
   const average = dismissals > 0 ? runs / dismissals : null
   const strikeRatePerBall = balls > 0 ? runs / balls : null
@@ -175,6 +191,8 @@ export function getPlayerT20Aggregate(playerId: string): PlayerT20Aggregate | nu
     playerId: meta.playerId,
     displayName: meta.displayName,
     appearances: meta.appearances,
+    matchAppearances,
+    bowlMatchAppearances,
     batInnings,
     runs,
     balls,
