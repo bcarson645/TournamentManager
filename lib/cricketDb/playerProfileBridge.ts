@@ -71,19 +71,25 @@ export function aggregateToSquadStatSeed(agg: PlayerT20Aggregate): SquadStatSeed
   const bowlAvg = agg.bowlAverage ?? 0
   const econ = agg.economy ?? 0
   const wickets = agg.wickets
-  let overs = 0
-  if (agg.oversText && agg.bowlInnings > 0) {
-    const total = parseFloat(agg.oversText) || 0
-    if (total > 0) {
-      overs = Math.min(4, Math.round((total / agg.bowlInnings) * 10) / 10)
-    }
+
+  let totalOvers = agg.oversText ? parseFloat(agg.oversText) || 0 : 0
+  if (totalOvers <= 0 && wickets > 0 && bowlAvg > 0 && econ > 0) {
+    totalOvers = (wickets * bowlAvg) / econ
   }
-  if (overs === 0 && agg.bowlInnings > 0 && wickets > 0 && bowlAvg > 0 && econ > 0) {
-    overs = Math.min(4, Math.round(((wickets * bowlAvg) / econ) * 10) / 10)
-  } else if (overs === 0 && wickets > 0) {
+
+  /** Wickets per over (career) — matches par SR scale (~0.3 for T20). */
+  const bowlWpo =
+    totalOvers > 0 && wickets > 0 ? Math.round((wickets / totalOvers) * 1000) / 1000 : 0
+
+  /** Typical spell length for the rating formula (not used for bowlWpo). */
+  let overs = 0
+  if (totalOvers > 0 && agg.bowlInnings > 0) {
+    overs = Math.min(4, Math.round((totalOvers / agg.bowlInnings) * 10) / 10)
+  } else if (agg.bowlInnings > 0 && wickets > 0 && bowlAvg > 0 && econ > 0) {
+    overs = Math.min(4, Math.round(((wickets * bowlAvg) / econ / agg.bowlInnings) * 10) / 10)
+  } else if (wickets > 0) {
     overs = Math.min(4, 4)
   }
-  const bowlWpo = overs > 0 && wickets > 0 ? Math.round((wickets / overs) * 100) / 100 : 0
 
   return {
     datasetPlayerId: agg.playerId,
@@ -106,9 +112,7 @@ export function aggregateToSquadStatSeed(agg: PlayerT20Aggregate): SquadStatSeed
 export function aggregateToPlayerProfile(agg: PlayerT20Aggregate): Partial<PlayerProfile> {
   const seed = aggregateToSquadStatSeed(agg)
   const ballsPerWicket =
-    agg.wickets > 0 && agg.bowlInnings > 0
-      ? Math.round((agg.appearances / Math.max(1, agg.wickets)) * 10) / 10
-      : 0
+    seed.bowlWpo > 0 ? Math.round((6 / seed.bowlWpo) * 10) / 10 : 0
 
   const recentInnings: RecentInnings[] = agg.recentInnings.map((r) => ({
     score: r.runs,
