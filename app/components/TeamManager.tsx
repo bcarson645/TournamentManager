@@ -48,7 +48,12 @@ import {
   type DashboardBowlMetric,
 } from '../data/ratingDisplaySettings'
 import { getProfileForPlayer } from '../data/playerProfile'
-import { mergeDbStatsIntoSquadPlayer, type SquadStatSeed } from '../data/squadStatSeed'
+import {
+  mergeDbBowlingIntoSquadPlayer,
+  mergeDbStatsIntoSquadPlayer,
+  squadPlayerDatasetStatsDiffers,
+  type SquadStatSeed,
+} from '../data/squadStatSeed'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
 import { computePlayerTournamentRankSummary } from '../data/tournamentPlayerRanks'
 import { fetchJson } from '../../lib/api/fetchJson'
@@ -302,13 +307,7 @@ export default function TeamManager({
       res: SquadPlayer[],
       imp: SquadPlayer[],
     ): Promise<{ startingXI: SquadPlayer[]; reserves: SquadPlayer[]; impactSubs: SquadPlayer[] } | null> => {
-      const names = [
-        ...new Set(
-          [...sxi, ...res, ...imp]
-            .filter((p) => playerNeedsDbHydrate(p))
-            .map((p) => p.name),
-        ),
-      ]
+      const names = [...new Set([...sxi, ...res, ...imp].map((p) => p.name.trim()).filter(Boolean))]
       if (!names.length) return null
       try {
         const result = await fetchJson<{ stats?: Record<string, SquadStatSeed> }>(
@@ -323,19 +322,25 @@ export default function TeamManager({
           return null
         }
         const data = result.data
+        let changed = false
 
         const mapSection = (list: SquadPlayer[], section: 'starting' | 'reserves' | 'impact') =>
           list.map((p, i) => {
             const seed = data.stats![p.name]
             if (!seed) return p
-            return mergeDbStatsIntoSquadPlayer(p, seed, format, gender, section, i)
+            const next = playerNeedsDbHydrate(p)
+              ? mergeDbStatsIntoSquadPlayer(p, seed, format, gender, section, i)
+              : mergeDbBowlingIntoSquadPlayer(p, seed, format, gender)
+            if (squadPlayerDatasetStatsDiffers(p, next)) changed = true
+            return next
           })
 
-        return {
+        const out = {
           startingXI: mapSection(sxi, 'starting'),
           reserves: mapSection(res, 'reserves'),
           impactSubs: mapSection(imp, 'impact'),
         }
+        return changed ? out : null
       } catch {
         return null
       }
