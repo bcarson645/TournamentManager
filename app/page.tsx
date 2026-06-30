@@ -19,6 +19,7 @@ import {
 import Dashboard from './components/Dashboard'
 import AppNavSidebar, { type HomeNavId } from './components/AppNavSidebar'
 import PlayerTeamManagement from './components/PlayerTeamManagement'
+import PreMatchDesign from './components/PreMatchDesign'
 
 type View = 'format' | 'gender' | 'tournaments' | 'dashboard'
 
@@ -162,6 +163,7 @@ function computeHomeTournamentRailRows(
 }
 
 const PLACEHOLDER_LABELS: Record<Exclude<HomeNavId, 'tournament-manager'>, string> = {
+  'pre-match-design': 'Pre Match Design',
   outrights: 'Outrights',
   settings: 'Settings',
   'player-team': 'Player and Team Management',
@@ -362,6 +364,17 @@ export default function Home() {
     selectedFormat && selectedGender
       ? TOURNAMENTS[selectedFormat][selectedGender]
       : []
+
+  if (homeNav === 'pre-match-design') {
+    return (
+      <div className="app-home-shell app-home-shell--pmd">
+        <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
+        <main className="app-home-main app-home-main--pmd">
+          <PreMatchDesign />
+        </main>
+      </div>
+    )
+  }
 
   if (homeNav === 'player-team') {
     return (
