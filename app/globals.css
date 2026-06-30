@@ -7627,23 +7627,11 @@ body {
   color: var(--pmd-muted);
 }
 
-.pmd-sm-stats-unified .pmd-sm-stats-table + .pmd-sm-stats-table {
-  border-top: none;
-}
-
-.pmd-sm-stats-unified .pmd-sm-stats-split .pmd-sm-stats-table {
-  border-top: none;
-}
-
-.pmd-sm-stats-unified > .pmd-sm-stats-table:first-child {
-  border-bottom: none;
-}
-
 .pmd-sm-nowhead {
   border-left: 1px solid var(--pmd-border);
 }
 
-.pmd-sm-stats-split .pmd-sm-stats-table {
+.pmd-sm-readonly {
   text-align: center;
   font-variant-numeric: tabular-nums;
   color: var(--pmd-text);
@@ -7742,24 +7730,6 @@ body {
 
 .pmd-sm-team-namehead--away {
   border-left: 1px solid #edf0f4;
-}
-
-.pmd-sm-stats-split {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0 0.35rem;
-}
-
-.pmd-sm-stats-unified .pmd-sm-stats-split {
-  border-bottom: 1px solid #edf0f4;
-}
-
-.pmd-sm-stats-block-end td,
-.pmd-sm-stats-block-end th {
-  border-bottom: 1px solid #d8dee8;
 }
 
 .pmd-sm-stats-wrap {
@@ -8132,11 +8102,6 @@ body {
 
 .pmd-sm-col-data {
   width: 2.85rem;
-}
-
-.pmd-sm-stats-split .pmd-sm-stats-table {
-  flex: 1 1 0;
-  min-width: 0;
 }
 
 .pmd-all-btn {

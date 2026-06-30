@@ -50,10 +50,6 @@ const SIDE_MARKETS_STATS: { label: string; values: (string | null)[] }[] = [
 
 const SIDE_MARKETS_SAMPLES_ROW = SIDE_MARKETS_STATS[SIDE_MARKETS_STATS.length - 1]
 const SIDE_MARKETS_STATS_DATA = SIDE_MARKETS_STATS.slice(0, -1)
-const SIDE_MARKETS_STATS_SPLIT_AT =
-  SIDE_MARKETS_STATS_DATA.findIndex((row) => row.label === '1st 12') + 1
-const SIDE_MARKETS_STATS_TOP = SIDE_MARKETS_STATS_DATA.slice(0, SIDE_MARKETS_STATS_SPLIT_AT)
-const SIDE_MARKETS_STATS_BOTTOM = SIDE_MARKETS_STATS_DATA.slice(SIDE_MARKETS_STATS_SPLIT_AT)
 
 const TEAM_SIDE_MARKET_ROWS = [
   { label: '1st over', homeCalc: '6.4', homeEdit: '6.4', awayCalc: '5.9', awayEdit: '6.0' },
@@ -279,14 +275,12 @@ function SideMarketsStatsHead({
 function SideMarketsStatsRow({
   row,
   yearsBack,
-  isLastInBlock,
 }: {
   row: (typeof SIDE_MARKETS_STATS)[number]
   yearsBack: number
-  isLastInBlock?: boolean
 }) {
   return (
-    <tr className={isLastInBlock ? 'pmd-sm-stats-block-end' : undefined}>
+    <tr>
       <th scope="row" className="pmd-sm-stats-label">
         {row.label}
       </th>
@@ -337,57 +331,19 @@ function SideMarketsStatsSamplesFoot({ yearsBack }: { yearsBack: number }) {
   )
 }
 
-function SideMarketsStatsBody({
-  rows,
-  yearsBack,
-  tableKey,
-  markLastRow,
-}: {
-  rows: typeof SIDE_MARKETS_STATS_DATA
-  yearsBack: number
-  tableKey: string
-  markLastRow?: boolean
-}) {
-  return (
-    <tbody>
-      {rows.map((row, index) => (
-        <SideMarketsStatsRow
-          key={`${tableKey}-${row.label}`}
-          row={row}
-          yearsBack={yearsBack}
-          isLastInBlock={markLastRow && index === rows.length - 1}
-        />
-      ))}
-    </tbody>
-  )
-}
-
 function SideMarketsStatsTable() {
   const [yearsBack, setYearsBack] = useState<number>(5)
 
   return (
-    <div className="pmd-sm-stats-wrap pmd-sm-stats-unified">
+    <div className="pmd-sm-stats-wrap">
       <table className="pmd-sm-stats-table">
         <SideMarketsColGroup />
         <SideMarketsStatsHead yearsBack={yearsBack} onYearsChange={setYearsBack} />
-      </table>
-      <div className="pmd-sm-stats-split">
-        <table className="pmd-sm-stats-table">
-          <SideMarketsColGroup />
-          <SideMarketsStatsBody
-            rows={SIDE_MARKETS_STATS_TOP}
-            yearsBack={yearsBack}
-            tableKey="top"
-            markLastRow
-          />
-        </table>
-        <table className="pmd-sm-stats-table">
-          <SideMarketsColGroup />
-          <SideMarketsStatsBody rows={SIDE_MARKETS_STATS_BOTTOM} yearsBack={yearsBack} tableKey="bottom" />
-        </table>
-      </div>
-      <table className="pmd-sm-stats-table">
-        <SideMarketsColGroup />
+        <tbody>
+          {SIDE_MARKETS_STATS_DATA.map((row) => (
+            <SideMarketsStatsRow key={row.label} row={row} yearsBack={yearsBack} />
+          ))}
+        </tbody>
         <SideMarketsStatsSamplesFoot yearsBack={yearsBack} />
       </table>
     </div>
