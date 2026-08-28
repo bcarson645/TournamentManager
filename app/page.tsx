@@ -21,9 +21,11 @@ import AppNavSidebar, { type HomeNavId } from './components/AppNavSidebar'
 import PlayerTeamManagement from './components/PlayerTeamManagement'
 import OutrightsSection from './components/OutrightsSection'
 import TournamentPrepAssignments from './components/TournamentPrepAssignments'
+import TournamentPrepTeamsPage from './components/TournamentPrepTeamsPage'
+import type { PrepTeamsTarget } from './data/prepNavigation'
 import { syntheticTournamentStartDate } from './data/tournamentDates'
 
-type View = 'format' | 'gender' | 'tournaments' | 'dashboard' | 'prep-assignments'
+type View = 'format' | 'gender' | 'tournaments' | 'dashboard' | 'prep-assignments' | 'prep-teams'
 
 interface SearchResult {
   type: 'tournament' | 'team'
@@ -150,10 +152,11 @@ function computeHomeTournamentRailRows(
   return { upcomingRowsForFormat, inProgressRowsForFormat }
 }
 
-const PLACEHOLDER_LABELS: Record<Exclude<HomeNavId, 'tournament-manager'>, string> = {
-  outrights: 'Outrights',
+const PLACEHOLDER_LABELS: Record<
+  Exclude<HomeNavId, 'tournament-manager' | 'prep-assignments' | 'outrights' | 'player-team'>,
+  string
+> = {
   settings: 'Settings',
-  'player-team': 'Player and Team Management',
   'custom-bet': 'Custom Bet',
   schedule: 'Schedule',
   coverage: 'Coverage Rota',
@@ -169,6 +172,7 @@ export default function Home() {
   const [teamIdForDashboard, setTeamIdForDashboard] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [prepReturnView, setPrepReturnView] = useState<View>('format')
+  const [prepTeamsTarget, setPrepTeamsTarget] = useState<PrepTeamsTarget | null>(null)
 
   const searchIndex = useMemo(buildSearchIndex, [])
 
@@ -286,11 +290,16 @@ export default function Home() {
   }
 
   function openPrepAssignments() {
-    setPrepReturnView(view === 'prep-assignments' ? 'format' : view)
+    if (view !== 'prep-assignments' && view !== 'prep-teams') {
+      setPrepReturnView(view === 'dashboard' ? 'format' : view)
+    }
+    setHomeNav('prep-assignments')
+    setPrepTeamsTarget(null)
     setView('prep-assignments')
   }
 
   function closePrepAssignments() {
+    setHomeNav('tournament-manager')
     setView(prepReturnView)
   }
 
@@ -325,10 +334,69 @@ export default function Home() {
     }
   }
 
+  function handleHomeNavSelect(id: HomeNavId) {
+    setHomeNav(id)
+
+    if (id === 'prep-assignments') {
+      if (view !== 'prep-assignments' && view !== 'prep-teams') {
+        setPrepReturnView(view === 'dashboard' ? 'format' : view)
+      }
+      setPrepTeamsTarget(null)
+      setView('prep-assignments')
+      return
+    }
+
+    if (view === 'prep-assignments' || view === 'prep-teams') {
+      setPrepTeamsTarget(null)
+      setView(id === 'tournament-manager' ? prepReturnView : 'format')
+    }
+  }
+
+  function openPrepTeams(target: PrepTeamsTarget) {
+    setPrepTeamsTarget(target)
+    setView('prep-teams')
+  }
+
+  function closePrepTeams() {
+    setView('prep-assignments')
+  }
+
+  if (view === 'prep-teams' && prepTeamsTarget) {
+    return (
+      <div className="app-home-shell">
+        <AppNavSidebar activeId={homeNav} onSelect={handleHomeNavSelect} />
+        <main className="app-home-main">
+          <div className="page app-home-page app-home-page--wide">
+            <div className="tm-prep-page-head">
+              <button type="button" className="back-btn" onClick={closePrepTeams}>
+                ← Back to prep assignments
+              </button>
+            </div>
+            <TournamentPrepTeamsPage
+              tournamentId={prepTeamsTarget.tournamentId}
+              tournamentName={prepTeamsTarget.tournamentName}
+              format={prepTeamsTarget.format}
+              gender={prepTeamsTarget.gender}
+              country={prepTeamsTarget.country}
+              onOpenTournamentPrep={({ format, gender, tournamentId, teamId }) => {
+                setSelectedFormat(format)
+                setSelectedGender(gender)
+                setSelectedTournamentId(tournamentId)
+                setTeamIdForDashboard(teamId ?? null)
+                setView('dashboard')
+                setHomeNav('tournament-manager')
+              }}
+            />
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   if (view === 'prep-assignments') {
     return (
       <div className="app-home-shell">
-        <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
+        <AppNavSidebar activeId={homeNav} onSelect={handleHomeNavSelect} />
         <main className="app-home-main">
           <div className="page app-home-page app-home-page--wide">
             <div className="tm-prep-page-head">
@@ -338,6 +406,7 @@ export default function Home() {
             </div>
             <TournamentPrepAssignments
               standalone
+              onSelectTournament={openPrepTeams}
               onOpenTournamentPrep={({ format, gender, tournamentId, teamId }) => {
                 setSelectedFormat(format)
                 setSelectedGender(gender)
@@ -394,7 +463,7 @@ export default function Home() {
   if (homeNav === 'player-team') {
     return (
       <div className="app-home-shell">
-        <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
+        <AppNavSidebar activeId={homeNav} onSelect={handleHomeNavSelect} />
         <main className="app-home-main">
           <div className="page app-home-page app-home-page--wide">
             <PlayerTeamManagement />
@@ -407,7 +476,7 @@ export default function Home() {
   if (homeNav === 'outrights') {
     return (
       <div className="app-home-shell">
-        <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
+        <AppNavSidebar activeId={homeNav} onSelect={handleHomeNavSelect} />
         <main className="app-home-main app-home-main--flush">
           <OutrightsSection />
         </main>
@@ -415,11 +484,11 @@ export default function Home() {
     )
   }
 
-  if (homeNav !== 'tournament-manager') {
-    const label = PLACEHOLDER_LABELS[homeNav]
+  if (homeNav in PLACEHOLDER_LABELS) {
+    const label = PLACEHOLDER_LABELS[homeNav as keyof typeof PLACEHOLDER_LABELS]
     return (
       <div className="app-home-shell">
-        <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
+        <AppNavSidebar activeId={homeNav} onSelect={handleHomeNavSelect} />
         <main className="app-home-main">
           <div className="page app-home-page app-home-page--wide">
             <div className="nav-placeholder-panel">
@@ -434,7 +503,7 @@ export default function Home() {
 
   return (
     <div className="app-home-shell">
-      <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
+      <AppNavSidebar activeId={homeNav} onSelect={handleHomeNavSelect} />
       <main className="app-home-main">
     <div className="page app-home-page app-home-page--wide">
       <div className="tm-home-top-actions">

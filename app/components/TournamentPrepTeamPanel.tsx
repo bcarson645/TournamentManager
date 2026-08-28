@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useSyncExternalStore } from 'react'
 import { TEAMS } from '../data/teams'
@@ -35,7 +35,8 @@ interface TournamentPrepTeamPanelProps {
   meta: string
   leadTraderId: string | null
   traders: Trader[]
-  onClose: () => void
+  variant?: 'page'
+  onClose?: () => void
   canOpenInManager?: boolean
   onOpenTournamentPrep?: () => void
   onOpenTeamPrep?: (teamId: string) => void
@@ -47,6 +48,7 @@ export default function TournamentPrepTeamPanel({
   meta,
   leadTraderId,
   traders,
+  variant,
   onClose,
   canOpenInManager = false,
   onOpenTournamentPrep,
@@ -58,29 +60,46 @@ export default function TournamentPrepTeamPanel({
   const coverage = getTournamentCoverage(tournamentId)
   const teams = TEAMS[tournamentId] ?? []
   const leadName = getTraderById(coverage.leadTraderId ?? leadTraderId)?.name
+  const isPage = variant === 'page'
 
   return (
-    <section className="cov-tournament-detail" aria-label={'Teams for ' + tournamentName}>
-      <header className="cov-tournament-detail-head">
-        <div>
-          <h3 className="cov-tournament-detail-title">{tournamentName}</h3>
-          <p className="cov-tournament-detail-meta">{meta}{leadName ? ` · Lead: ${leadName}` : ''}{coverage.traderIds.length > 1 ? ` · ${coverage.traderIds.length} traders` : ''}</p>
-        </div>
-        <div className="cov-tournament-detail-actions">
-          {canOpenInManager && onOpenTournamentPrep ? (
-            <button type="button" className="cov-go-prep-btn" onClick={onOpenTournamentPrep}>
-              Open in Tournament Manager
-            </button>
-          ) : null}
-          <button type="button" className="cov-tournament-detail-close" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </header>
+    <section
+      className={'cov-tournament-detail' + (isPage ? ' cov-tournament-detail--page' : '')}
+      aria-label={'Teams for ' + tournamentName}
+    >
+      {!isPage ? (
+        <header className="cov-tournament-detail-head">
+          <div>
+            <h3 className="cov-tournament-detail-title">{tournamentName}</h3>
+            <p className="cov-tournament-detail-meta">
+              {meta}
+              {leadName ? ` · Lead: ${leadName}` : ''}
+              {coverage.traderIds.length > 1 ? ` · ${coverage.traderIds.length} traders` : ''}
+            </p>
+          </div>
+          <div className="cov-tournament-detail-actions">
+            {canOpenInManager && onOpenTournamentPrep ? (
+              <button type="button" className="cov-go-prep-btn" onClick={onOpenTournamentPrep}>
+                Open in Tournament Manager
+              </button>
+            ) : null}
+            {onClose ? (
+              <button type="button" className="cov-tournament-detail-close" onClick={onClose}>
+                Close
+              </button>
+            ) : null}
+          </div>
+        </header>
+      ) : null}
 
       <div className="cov-tournament-detail-lead">
         <TournamentTraderAssign tournamentId={tournamentId} traders={traders} />
         <p className="cov-tournament-traders-hint">First trader is lead. Teams without an assignee inherit the lead.</p>
+        {isPage && canOpenInManager && onOpenTournamentPrep ? (
+          <button type="button" className="cov-go-prep-btn cov-go-prep-btn--page" onClick={onOpenTournamentPrep}>
+            Open tournament in Tournament Manager
+          </button>
+        ) : null}
       </div>
 
       {teams.length === 0 ? (
@@ -110,7 +129,7 @@ export default function TournamentPrepTeamPanel({
                           type="button"
                           className="cov-go-team-prep-btn"
                           onClick={() => onOpenTeamPrep(team.id)}
-                          title={"Open " + team.name + " in Tournament Manager"}
+                          title={'Open ' + team.name + ' in Tournament Manager'}
                         >
                           Prep →
                         </button>
@@ -160,4 +179,3 @@ export default function TournamentPrepTeamPanel({
     </section>
   )
 }
-

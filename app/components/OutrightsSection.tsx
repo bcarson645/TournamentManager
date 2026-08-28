@@ -6,6 +6,7 @@ import { useOutrightsTournaments, type OutrightsTournamentEntry } from '../hooks
 import { useTournamentOutrights } from '../hooks/useTournamentOutrights'
 import { useOutrightSuspensionScheduler } from '../hooks/useOutrightSuspensionScheduler'
 import OutrightsSidebar from './OutrightsSidebar'
+import OutrightsAllTournamentsOverview from './OutrightsAllTournamentsOverview'
 import OutrightsPriceHistoryPanel from './OutrightsPriceHistoryPanel'
 import OutrightsSettlementPanel from './OutrightsSettlementPanel'
 import OutrightsSimulatorPanel from './OutrightsSimulatorPanel'
@@ -536,16 +537,10 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
 
           <main className="dashboard-main outrights-main">
             {!selectedEntry ? (
-              <div className="outrights-welcome">
-                <div className="dashboard-header">
-                  <h1 className="dashboard-title">Outrights</h1>
-                  <div className="dashboard-breadcrumb">Tournament markets & pricing</div>
-                </div>
-                <div className="empty-state outrights-welcome-empty">
-                  <div className="empty-state-icon">Select a tournament</div>
-                  <p>Choose a tournament from the sidebar to view markets, pricing, and simulator settings.</p>
-                </div>
-              </div>
+              <OutrightsAllTournamentsOverview
+                tournaments={tournaments}
+                onSelectTournament={handleSelectTournament}
+              />
             ) : showSimulatorPage ? (
               <div className="outrights-overview outrights-simulator-view">
                 <div className="dashboard-header">

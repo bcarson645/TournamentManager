@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import {
   getTournamentPerformanceData,
   type PerformancePlayer,
@@ -9,6 +9,8 @@ import { getPerformancePlayerMarketInfo } from '../data/performanceMarketData'
 import { useTournamentOutrights } from '../hooks/useTournamentOutrights'
 import { formatOutrightOddsValue } from './OutrightOddsCell'
 import type { OutrightType, TournamentOutright } from '../data/outrightsStore'
+import { getSquadStoreVersion, subscribeSquadStore } from '../data/squadStore'
+import { formatSquadRatingDisplay, readSquadRatingDp } from '../data/ratingDisplaySettings'
 
 interface TournamentTopPerformancesProps {
   tournamentId: string
@@ -18,6 +20,7 @@ interface PerformanceTableProps {
   title: string
   players: PerformancePlayer[]
   primaryLabel: string
+  ratingLabel: string
   marketType: 'top-batter' | 'top-bowler'
   marketOutright: TournamentOutright | undefined
   tournamentId: string
@@ -34,10 +37,16 @@ function formatRanking(value: number | undefined): string {
   return value === undefined ? '\u2014' : String(value)
 }
 
+function formatTmRating(value: number | undefined): string {
+  if (value === undefined || !Number.isFinite(value)) return ''
+  return formatSquadRatingDisplay(value, readSquadRatingDp())
+}
+
 function PerformanceTable({
   title,
   players,
   primaryLabel,
+  ratingLabel,
   marketType,
   marketOutright,
   tournamentId,
@@ -59,6 +68,7 @@ function PerformanceTable({
               <th className="outrights-performance-th-team" scope="col">Team</th>
               <th scope="col">Inn</th>
               <th scope="col">Avg</th>
+              <th className="outrights-performance-th-rating" scope="col">{ratingLabel}</th>
               <th className="outrights-performance-th-primary" scope="col">{primaryLabel}</th>
               <th scope="col">Rank</th>
               <th className="outrights-performance-th-price" scope="col">Price</th>
@@ -72,6 +82,7 @@ function PerformanceTable({
                 marketType,
                 marketOutright,
               )
+              const ratingText = formatTmRating(player.rating)
               return (
                 <tr key={player.id}>
                   <td className="outrights-performance-rank">{index + 1}</td>
@@ -89,6 +100,7 @@ function PerformanceTable({
                   </td>
                   <td className="outrights-performance-num">{player.innings}</td>
                   <td className="outrights-performance-num">{formatAverage(player.average)}</td>
+                  <td className="outrights-performance-rating">{ratingText}</td>
                   <td className="outrights-performance-primary">{formatPrimary(player.primaryStat)}</td>
                   <td className="outrights-performance-market-rank">{formatRanking(market.ranking)}</td>
                   <td className="outrights-performance-price">
@@ -114,7 +126,11 @@ function findMarketOutright(
 }
 
 export default function TournamentTopPerformances({ tournamentId }: TournamentTopPerformancesProps) {
-  const data = getTournamentPerformanceData(tournamentId)
+  const squadVersion = useSyncExternalStore(subscribeSquadStore, getSquadStoreVersion, getSquadStoreVersion)
+  const data = useMemo(
+    () => getTournamentPerformanceData(tournamentId),
+    [tournamentId, squadVersion],
+  )
   const outrights = useTournamentOutrights(tournamentId)
   const topBatterMarket = useMemo(
     () => findMarketOutright(outrights, 'top-batter'),
@@ -133,6 +149,7 @@ export default function TournamentTopPerformances({ tournamentId }: TournamentTo
           title="Top Run Scorers"
           players={data.runScorers}
           primaryLabel="Runs"
+          ratingLabel="Bat rating"
           marketType="top-batter"
           marketOutright={topBatterMarket}
           tournamentId={tournamentId}
@@ -142,6 +159,7 @@ export default function TournamentTopPerformances({ tournamentId }: TournamentTo
           title="Top Wicket Takers"
           players={data.wicketTakers}
           primaryLabel="Wkts"
+          ratingLabel="Bowl rating"
           marketType="top-bowler"
           marketOutright={topBowlerMarket}
           tournamentId={tournamentId}

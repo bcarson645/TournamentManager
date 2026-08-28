@@ -8,6 +8,7 @@ import type { TournamentCoveragePhase } from '../data/coverageRotaStore'
 import type { ScheduleDateStatus } from '../data/tournamentSchedule2027'
 
 export interface GanttTournamentRow {
+  scheduleKey?: string
   tournament: Tournament
   format: CricketFormat
   gender: Gender
@@ -25,12 +26,11 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 interface TournamentPrepGanttProps {
   rows: GanttTournamentRow[]
-  selectedId: string | null
   calendarYear: number
   onSelect: (tournamentId: string) => void
 }
 
-export default function TournamentPrepGantt({ rows, selectedId, calendarYear, onSelect }: TournamentPrepGanttProps) {
+export default function TournamentPrepGantt({ rows, calendarYear, onSelect }: TournamentPrepGanttProps) {
   const sorted = useMemo(
     () => [...rows].sort((a, b) => a.startDate.getTime() - b.startDate.getTime()),
     [rows],
@@ -80,9 +80,9 @@ export default function TournamentPrepGantt({ rows, selectedId, calendarYear, on
             const traderSuffix = lead ? ` · ${lead}` : ''
             return (
               <button
-                key={row.tournament.id}
+                key={row.scheduleKey ?? row.tournament.id}
                 type="button"
-                className={'cov-gantt-row' + (selectedId === row.tournament.id ? ' cov-gantt-row--selected' : '')}
+                className='cov-gantt-row'
                 onClick={() => onSelect(row.tournament.id)}
               >
                 <span className="cov-gantt-row-label" title={row.tournament.name}>

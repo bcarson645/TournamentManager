@@ -33,6 +33,7 @@ import TeamManager from './TeamManager'
 import { TournamentUpcomingFixtures } from './TournamentLivePanel'
 import TeamAnalyticsPanel from './TeamAnalyticsPanel'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
+import TournamentLeadPrepHint from './TournamentLeadPrepHint'
 
 const SIDEBAR_COLLAPSED_KEY = 'tm-sidebar-collapsed'
 const DASH_BAT_POS_FILTER_KEY = 'tm-dash-bat-pos-filter'
@@ -244,6 +245,7 @@ export default function Dashboard({
               <div className="dashboard-breadcrumb">
                 {formatInfo.label} › {genderInfo.label} › {tournament?.name}
               </div>
+              <TournamentLeadPrepHint tournamentId={tournamentId} />
             </div>
             <div className="dashboard-year-selector">
               {years.map((y) => (

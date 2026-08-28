@@ -2,6 +2,7 @@
 
 export type HomeNavId =
   | 'tournament-manager'
+  | 'prep-assignments'
   | 'outrights'
   | 'settings'
   | 'player-team'
@@ -11,6 +12,7 @@ export type HomeNavId =
 
 const NAV_ITEMS: { id: HomeNavId; label: string }[] = [
   { id: 'tournament-manager', label: 'Tournament Manager' },
+  { id: 'prep-assignments', label: 'Prep assignments' },
   { id: 'outrights', label: 'Outrights' },
   { id: 'settings', label: 'Settings' },
   { id: 'player-team', label: 'Player and Team Management' },

@@ -8309,22 +8309,22 @@ body {
 }
 
 .outrights-action-btn-warn {
-  border-color: rgba(251, 191, 36, 0.45);
-  color: #fcd34d;
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
 }
 
 .outrights-action-btn-warn:hover:not(:disabled) {
-  background: rgba(251, 191, 36, 0.12);
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .outrights-status-suspended {
-  background: rgba(251, 191, 36, 0.18);
-  color: #fcd34d;
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
 }
 
 .outrights-status-settled {
-  background: rgba(239, 68, 68, 0.22);
-  color: #fca5a5;
+  background: rgba(59, 130, 246, 0.22);
+  color: #93c5fd;
 }
 
 .outrights-status-published {
@@ -8774,29 +8774,29 @@ body {
 }
 
 .outrights-metric-pill--suspended {
-  background: rgba(251, 191, 36, 0.12);
-  border-color: rgba(251, 191, 36, 0.35);
-}
-
-.outrights-metric-pill--suspended .outrights-metric-value {
-  color: #fde68a;
-}
-
-.outrights-metric-pill--suspended .outrights-metric-label {
-  color: #fcd34d;
-}
-
-.outrights-metric-pill--settled {
   background: rgba(239, 68, 68, 0.12);
   border-color: rgba(239, 68, 68, 0.35);
 }
 
-.outrights-metric-pill--settled .outrights-metric-value {
+.outrights-metric-pill--suspended .outrights-metric-value {
   color: #fca5a5;
 }
 
-.outrights-metric-pill--settled .outrights-metric-label {
+.outrights-metric-pill--suspended .outrights-metric-label {
   color: #f87171;
+}
+
+.outrights-metric-pill--settled {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.outrights-metric-pill--settled .outrights-metric-value {
+  color: #93c5fd;
+}
+
+.outrights-metric-pill--settled .outrights-metric-label {
+  color: #60a5fa;
 }
 
 .outrights-metric-value {
@@ -8940,13 +8940,13 @@ body {
 }
 
 .outrights-root .outrights-status-suspended {
-  background: rgba(251, 191, 36, 0.22);
-  color: #fde68a;
+  background: rgba(239, 68, 68, 0.28);
+  color: #fecaca;
 }
 
 .outrights-root .outrights-status-settled {
-  background: rgba(239, 68, 68, 0.28);
-  color: #fecaca;
+  background: rgba(59, 130, 246, 0.28);
+  color: #bfdbfe;
 }
 
 .outrights-root .teams-table tbody td {
@@ -8971,7 +8971,7 @@ body {
 }
 
 .outrights-root .outrights-action-btn-warn {
-  color: #fde68a;
+  color: #fca5a5;
 }
 
 .outrights-root .outrights-price-input {
@@ -10583,6 +10583,19 @@ body {
   min-width: 3.5rem;
 }
 
+.outrights-performance-th-rating {
+  text-align: right;
+  white-space: nowrap;
+  color: #e2e8f0;
+}
+
+.outrights-performance-rating {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  min-width: 3.5rem;
+}
+
 .outrights-performance-th-primary {
   color: #e2e8f0;
 }
@@ -11362,6 +11375,78 @@ body {
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
+.cov-team-overlay--expanded {
+  position: fixed;
+  z-index: 500;
+  top: auto;
+  right: clamp(0.75rem, 2vw, 1.25rem);
+  bottom: clamp(0.75rem, 2vh, 1rem);
+  left: calc(15.5rem + clamp(0.75rem, 2vw, 1.25rem));
+  max-height: min(68vh, 36rem);
+  min-height: min(42vh, 22rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.cov-tournament-detail--fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.cov-team-overlay--expanded .cov-tournament-detail-head,
+.cov-team-overlay--expanded .cov-tournament-detail-lead {
+  flex-shrink: 0;
+}
+
+.cov-team-overlay--expanded .cov-team-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cov-trader-list-item-btn {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  margin: 0;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cov-trader-list-item-btn:hover {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.cov-trader-list-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.cov-trader-list-item-hint {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
 .cov-timeline-placeholder {
   padding: 1.25rem;
   border: 1px dashed var(--border-subtle);
@@ -11624,8 +11709,23 @@ body {
     padding: 0.5rem;
   }
 
+  .cov-team-overlay--expanded {
+    left: clamp(0.5rem, 2vw, 0.75rem);
+    max-height: min(72vh, 34rem);
+    min-height: min(40vh, 18rem);
+  }
+
   .cov-card-open {
     grid-template-columns: 1fr;
+  }
+
+  .cov-trader-list-item-btn {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+
+  .cov-trader-list-item-hint {
+    justify-self: start;
   }
 }
 .cov-go-prep-btn {
@@ -11800,4 +11900,137 @@ body {
   margin: 0.35rem 0 0;
   font-size: 0.68rem;
   color: var(--text-muted);
+}
+
+.tm-prep-teams-page { margin-top: 0.5rem; }
+.tm-prep-teams-page-head { margin-bottom: 1rem; }
+.tm-prep-teams-page-sub { margin: 0; color: var(--text-secondary); font-size: 0.9rem; }
+.cov-tournament-detail--page { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg-secondary); overflow: hidden; }
+.cov-tournament-detail--page .cov-team-table-wrap { overflow-x: auto; }
+.cov-go-prep-btn--page { margin-top: 0.65rem; }
+
+.outrights-all-tournaments-panel {
+  margin-top: 0.25rem;
+}
+
+.outrights-all-tournaments-table .outrights-all-tournament-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.outrights-all-tournament-link:hover .outrights-all-tournament-name {
+  color: var(--accent, #6ea8fe);
+}
+
+.outrights-all-tournament-name {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.outrights-all-tournament-meta {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.outrights-all-format-cell {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.outrights-all-markets-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.outrights-all-count {
+  display: inline-flex;
+  min-width: 1.5rem;
+  justify-content: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.outrights-all-count--active { color: #3dd68c; }
+.outrights-all-count--suspended { color: #f87171; }
+.outrights-all-count--settled { color: #60a5fa; }
+
+.outrights-all-count-muted {
+  color: var(--text-secondary);
+  opacity: 0.55;
+}
+
+.outrights-all-th-active,
+.outrights-all-active-cell,
+.outrights-all-th-suspended,
+.outrights-all-suspended-cell,
+.outrights-all-th-settled,
+.outrights-all-settled-cell,
+.outrights-all-th-markets,
+.outrights-all-markets-cell {
+  text-align: center;
+}
+
+.outrights-all-th-actions,
+.outrights-all-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cov-gantt-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.tm-trader-hint {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.tm-trader-hint-label {
+  opacity: 0.72;
+  margin-right: 0.2rem;
+}
+
+.tm-trader-hint--ribbon {
+  margin-top: 0.2rem;
+}
+
+.tm-lead-prep {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+}
+
+.tm-lead-prep-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.tm-lead-prep-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.tm-lead-prep-value--empty {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-style: italic;
+  opacity: 0.75;
 }

@@ -55,6 +55,12 @@ import {
   type SquadStatSeed,
 } from '../data/squadStatSeed'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
+import {
+  getCoverageRotaVersion,
+  getTournamentCoverage,
+  subscribeCoverageRota,
+} from '../data/coverageRotaStore'
+import TraderPrepHint from './TraderPrepHint'
 import { computePlayerTournamentRankSummary } from '../data/tournamentPlayerRanks'
 import { fetchJson } from '../../lib/api/fetchJson'
 import {
@@ -214,6 +220,16 @@ export default function TeamManager({
   )
 
   const { impactSubEnabled, ratingParScore } = useTournamentOptions(tournamentId)
+  const coverageVersion = useSyncExternalStore(
+    subscribeCoverageRota,
+    getCoverageRotaVersion,
+    getCoverageRotaVersion,
+  )
+
+  const teamPrepTraderId = useMemo(() => {
+    void coverageVersion
+    return getTournamentCoverage(tournamentId).teamRows[team.id]?.traderId ?? null
+  }, [tournamentId, team.id, coverageVersion])
   const [teamLogo, setTeamLogo] = useState<string | null>(getTeamLogo(team.id) ?? team.logo ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -746,6 +762,11 @@ export default function TeamManager({
                 </div>
               </div>
               <div className="tm-ribbon-tournament">{tournamentName}</div>
+              <TraderPrepHint
+                label="Prep ·"
+                traderId={teamPrepTraderId}
+                className="tm-trader-hint--ribbon"
+              />
             </div>
           </div>
           </div>

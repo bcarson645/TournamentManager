@@ -3,6 +3,7 @@ import { getTournamentFixtureScheduleDates } from './tournamentLiveData'
 
 export const PREP_CALENDAR_YEARS = [2026, 2027] as const
 export type PrepCalendarYear = (typeof PREP_CALENDAR_YEARS)[number]
+export type PrepCalendarScope = PrepCalendarYear | 'all'
 /** Default planning year (2027 FTP). */
 export const PREP_CALENDAR_YEAR: PrepCalendarYear = 2027
 
@@ -130,6 +131,15 @@ export const TOURNAMENT_SCHEDULE_2026: TournamentScheduleEntry[] = buildSchedule
 
 export function getScheduleForYear(year: PrepCalendarYear): TournamentScheduleEntry[] {
   return year === 2026 ? TOURNAMENT_SCHEDULE_2026 : TOURNAMENT_SCHEDULE_2027
+}
+
+export function getScheduleForScope(scope: PrepCalendarScope): TournamentScheduleEntry[] {
+  if (scope === 'all') {
+    return [...TOURNAMENT_SCHEDULE_2026, ...TOURNAMENT_SCHEDULE_2027].sort((a, b) =>
+      a.startDate.localeCompare(b.startDate),
+    )
+  }
+  return getScheduleForYear(scope)
 }
 
 export function getScheduleEntryById(id: string, year?: PrepCalendarYear): TournamentScheduleEntry | undefined {

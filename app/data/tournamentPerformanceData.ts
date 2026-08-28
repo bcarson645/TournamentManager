@@ -13,6 +13,8 @@ export interface PerformancePlayer {
   primaryStat: number
   innings: number
   average: number
+  /** Tournament Manager squad rating (batting or bowling depending on list). */
+  rating?: number
 }
 
 export interface TournamentPerformanceData {
@@ -52,6 +54,7 @@ function synthFromSquad(tournamentId: string): TournamentPerformanceData {
       primaryStat: Math.max(1, Math.round(p.batRating * 48 + p.raw * 1.5)),
       innings: Math.max(1, Math.round(p.batRating * 0.9)),
       average: Math.round((p.raw || p.batRating * 2) * 10) / 10,
+      rating: Number.isFinite(p.batRating) ? p.batRating : undefined,
     }))
     .sort((a, b) => b.primaryStat - a.primaryStat)
 
@@ -64,6 +67,7 @@ function synthFromSquad(tournamentId: string): TournamentPerformanceData {
       primaryStat: Math.max(0, Math.round(p.wkts * 3 + p.bowlRating * 2.2)),
       innings: Math.max(1, Math.round(p.bowlRating * 0.85)),
       average: p.bowlAvg > 0 ? p.bowlAvg : Math.round(p.bowlRating * 4.2 * 10) / 10,
+      rating: Number.isFinite(p.bowlRating) ? p.bowlRating : undefined,
     }))
     .sort((a, b) => b.primaryStat - a.primaryStat)
 
