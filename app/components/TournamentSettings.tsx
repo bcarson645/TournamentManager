@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import {
   setTournamentImpactSubEnabled,
+  setTournamentOutrightsEnabled,
   resetTournamentOptionsToDefaults,
   setTournamentRatingParScore,
   DEFAULT_RATING_PAR_SCORE,
@@ -69,6 +70,18 @@ export default function TournamentSettings({ tournamentId, tournamentName }: Tou
                 />
                 <span>
                   <strong>Impact sub / Impact player</strong>
+                </span>
+              </label>
+
+              <label className="settings-toggle-row">
+                <input
+                  type="checkbox"
+                  checked={opts.outrightsEnabled}
+                  onChange={(e) => setTournamentOutrightsEnabled(tournamentId, e.target.checked)}
+                />
+                <span>
+                  <strong>Enable Tournament Outrights</strong>
+                  <span className="settings-par-score-meta"> ? show this tournament in the Outrights section</span>
                 </span>
               </label>
 

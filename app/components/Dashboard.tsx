@@ -30,7 +30,7 @@ import TeamsTable from './TeamsTable'
 import PlayerRankings from './PlayerRankings'
 import TournamentSettings from './TournamentSettings'
 import TeamManager from './TeamManager'
-import FixtureList from './FixtureList'
+import { TournamentUpcomingFixtures } from './TournamentLivePanel'
 import TeamAnalyticsPanel from './TeamAnalyticsPanel'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
 
@@ -202,6 +202,9 @@ export default function Dashboard({
         {analyticsTeam && !teamAnalyticsDocked ? (
           <TeamAnalyticsPanel
             team={analyticsTeam}
+            tournamentId={tournamentId}
+            format={format}
+            allTeams={teams}
             batRating={teamBatRatings[analyticsTeam.id] ?? 0}
             bowlRating={teamBowlingRatings[analyticsTeam.id] ?? 0}
             tournamentName={tournament?.name ?? 'Tournament'}
@@ -283,7 +286,11 @@ export default function Dashboard({
             <div className="tournament-section-panel">
               <h2 className="tournament-section-head">Fixtures</h2>
               <div className="tournament-section-body">
-                <FixtureList teams={teams} tournamentId={tournamentId} />
+                <TournamentUpcomingFixtures
+                  tournamentId={tournamentId}
+                  format={format}
+                  embedded
+                />
               </div>
             </div>
           </section>
@@ -407,6 +414,9 @@ export default function Dashboard({
     {analyticsTeam ? (
       <TeamAnalyticsPanel
         team={analyticsTeam}
+        tournamentId={tournamentId}
+        format={format}
+        allTeams={teams}
         batRating={teamBatRatings[analyticsTeam.id] ?? 0}
         bowlRating={teamBowlingRatings[analyticsTeam.id] ?? 0}
         tournamentName={tournament?.name ?? 'Tournament'}

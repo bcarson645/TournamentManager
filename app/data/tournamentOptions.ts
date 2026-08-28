@@ -5,6 +5,7 @@ export const DEFAULT_RATING_PAR_SCORE = 165
 
 export interface TournamentOptions {
   impactSubEnabled: boolean
+  outrightsEnabled: boolean
   /** Par score used in team batting/bowling totals: bat = (ΣXI bat + par)/par, bowl = (par − ΣXI bowl)/par */
   ratingParScore: number
 }
@@ -32,6 +33,7 @@ export function getTournamentOptions(tournamentId: string): TournamentOptions {
   const row = all[tournamentId]
   return {
     impactSubEnabled: row?.impactSubEnabled === true,
+    outrightsEnabled: row?.outrightsEnabled === true,
     ratingParScore: normalizeRatingParScore(row?.ratingParScore),
   }
 }
@@ -42,6 +44,22 @@ export function setTournamentImpactSubEnabled(tournamentId: string, enabled: boo
   all[tournamentId] = { ...all[tournamentId], impactSubEnabled: enabled }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
   window.dispatchEvent(new CustomEvent('tournament-opts-changed', { detail: { tournamentId } }))
+}
+
+
+export function setTournamentOutrightsEnabled(tournamentId: string, enabled: boolean): void {
+  if (typeof window === 'undefined') return
+  const all = readAll()
+  all[tournamentId] = { ...all[tournamentId], outrightsEnabled: enabled }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
+  window.dispatchEvent(new CustomEvent('tournament-opts-changed', { detail: { tournamentId } }))
+}
+
+export function getOutrightsEnabledTournamentIds(): string[] {
+  const all = readAll()
+  return Object.entries(all)
+    .filter(([, opts]) => opts.outrightsEnabled === true)
+    .map(([id]) => id)
 }
 
 export function setTournamentRatingParScore(tournamentId: string, parScore: number): void {

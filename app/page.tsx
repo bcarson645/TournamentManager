@@ -19,8 +19,11 @@ import {
 import Dashboard from './components/Dashboard'
 import AppNavSidebar, { type HomeNavId } from './components/AppNavSidebar'
 import PlayerTeamManagement from './components/PlayerTeamManagement'
+import OutrightsSection from './components/OutrightsSection'
+import TournamentPrepAssignments from './components/TournamentPrepAssignments'
+import { syntheticTournamentStartDate } from './data/tournamentDates'
 
-type View = 'format' | 'gender' | 'tournaments' | 'dashboard'
+type View = 'format' | 'gender' | 'tournaments' | 'dashboard' | 'prep-assignments'
 
 interface SearchResult {
   type: 'tournament' | 'team'
@@ -65,26 +68,12 @@ function buildSearchIndex(): SearchResult[] {
   return results
 }
 
-function hashSeed(s: string): number {
-  let h = 0
-  for (let i = 0; i < s.length; i++) {
-    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
-  }
-  return Math.abs(h) || 1
-}
-
 /** Same totals as live prep progress, but prepped always 0 (matches SSR with empty squad store). */
 function prepProgressEmptySnapshot(tournamentId: string): { prepped: number; total: number } {
   return { prepped: 0, total: (TEAMS[tournamentId] ?? []).length }
 }
 
 type TournamentPoolEntry = ReturnType<typeof getAllTournamentEntries>[number]
-
-/** Deterministic pseudo start date — avoids SSR vs client timezone / calendar drift. */
-function syntheticStartDate(id: string, format: string, gender: string): Date {
-  const day = ((hashSeed(`${id}|${format}|${gender}`) - 1) % 365) + 1
-  return new Date(Date.UTC(2026, 0, day))
-}
 
 const STABLE_TOURNAMENT_POOL: TournamentPoolEntry[] = (() => {
   const c = [...getAllTournamentEntries()]
@@ -118,7 +107,7 @@ function computeHomeTournamentRailRows(
     format: e.format,
     gender: e.gender,
     tournament: e.tournament,
-    startDate: syntheticStartDate(e.tournament.id, e.format, e.gender),
+    startDate: syntheticTournamentStartDate(e.tournament.id, e.format, e.gender),
     prep: getPrep(e.tournament.id),
   }))
   if (opts.upcomingFilterFormat !== 'all') {
@@ -179,6 +168,7 @@ export default function Home() {
   /** Set when entering dashboard so TeamManager opens immediately (wizard or search). */
   const [teamIdForDashboard, setTeamIdForDashboard] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [prepReturnView, setPrepReturnView] = useState<View>('format')
 
   const searchIndex = useMemo(buildSearchIndex, [])
 
@@ -295,6 +285,15 @@ export default function Home() {
     setView('dashboard')
   }
 
+  function openPrepAssignments() {
+    setPrepReturnView(view === 'prep-assignments' ? 'format' : view)
+    setView('prep-assignments')
+  }
+
+  function closePrepAssignments() {
+    setView(prepReturnView)
+  }
+
   function handleGoHome() {
     setSelectedFormat(null)
     setSelectedGender(null)
@@ -302,6 +301,7 @@ export default function Home() {
     setTeamIdForDashboard(null)
     setSearchQuery('')
     setView('format')
+    setPrepReturnView('format')
     setHomeNav('tournament-manager')
   }
 
@@ -323,6 +323,34 @@ export default function Home() {
       setSelectedFormat(null)
       setView('format')
     }
+  }
+
+  if (view === 'prep-assignments') {
+    return (
+      <div className="app-home-shell">
+        <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
+        <main className="app-home-main">
+          <div className="page app-home-page app-home-page--wide">
+            <div className="tm-prep-page-head">
+              <button type="button" className="back-btn" onClick={closePrepAssignments}>
+                ← Back to tournament selection
+              </button>
+            </div>
+            <TournamentPrepAssignments
+              standalone
+              onOpenTournamentPrep={({ format, gender, tournamentId, teamId }) => {
+                setSelectedFormat(format)
+                setSelectedGender(gender)
+                setSelectedTournamentId(tournamentId)
+                setTeamIdForDashboard(teamId ?? null)
+                setView('dashboard')
+                setHomeNav('tournament-manager')
+              }}
+            />
+          </div>
+        </main>
+      </div>
+    )
   }
 
   if (
@@ -376,13 +404,24 @@ export default function Home() {
     )
   }
 
+  if (homeNav === 'outrights') {
+    return (
+      <div className="app-home-shell">
+        <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
+        <main className="app-home-main app-home-main--flush">
+          <OutrightsSection />
+        </main>
+      </div>
+    )
+  }
+
   if (homeNav !== 'tournament-manager') {
     const label = PLACEHOLDER_LABELS[homeNav]
     return (
       <div className="app-home-shell">
         <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
         <main className="app-home-main">
-          <div className="page app-home-page">
+          <div className="page app-home-page app-home-page--wide">
             <div className="nav-placeholder-panel">
               <h1 className="page-heading">{label}</h1>
               <p className="page-sub">Content for this section will be added later.</p>
@@ -397,7 +436,13 @@ export default function Home() {
     <div className="app-home-shell">
       <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
       <main className="app-home-main">
-    <div className="page app-home-page">
+    <div className="page app-home-page app-home-page--wide">
+      <div className="tm-home-top-actions">
+        <button type="button" className="tm-prep-assignments-btn" onClick={openPrepAssignments}>
+          Prep assignments
+        </button>
+      </div>
+
       <div className="steps">
         <div className={`step-dot ${stepIndex === 0 ? 'active' : stepIndex > 0 ? 'done' : ''}`}>1</div>
         <div className={`step-line ${stepIndex > 0 ? 'done' : ''}`} />

@@ -55,6 +55,7 @@ export const TOURNAMENTS: Record<CricketFormat, Record<Gender, Tournament[]>> = 
       { id: 't20-m-hundred', name: 'The Hundred', country: 'England' },
       { id: 't20-m-blast', name: 'The Blast', country: 'England' },
       { id: 't20-m-cpl', name: 'CPL', country: 'Caribbean' },
+      { id: 't20-m-etpl', name: 'European T20 Premier League', country: 'Europe' },
       { id: 't20-m-sa', name: 'SA20', country: 'South Africa' },
     ],
     women: [

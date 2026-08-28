@@ -43,7 +43,7 @@ export const THE_HUNDRED_MEN_SQUADS: Record<string, string[]> = {
     'Matt Fisher',
   ],
 
-  'hundred-manchester-super-giants': [
+  'hundred-manchester-originals': [
     'Jos Buttler',
     'Heinrich Klaasen',
     'Noor Ahmad',
@@ -58,7 +58,7 @@ export const THE_HUNDRED_MEN_SQUADS: Record<string, string[]> = {
     'Tawanda Muyeye',
   ],
 
-  'hundred-mi-london': [
+  'hundred-oval-invincibles': [
     'Will Jacks',
     'Rashid Khan',
     'Sam Curran',
@@ -92,7 +92,7 @@ export const THE_HUNDRED_MEN_SQUADS: Record<string, string[]> = {
     'Nikhil Chaudhary',
   ],
 
-  'hundred-sunrisers-leeds': [
+  'hundred-northern-superchargers': [
     'Harry Brook',
     'Brydon Carse',
     'Nathan Ellis',

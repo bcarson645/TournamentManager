@@ -1041,6 +1041,9 @@ export default function TeamManager({
         {teamAnalyticsOpen ? (
           <TeamAnalyticsPanel
             team={team}
+            tournamentId={tournamentId}
+            format={format}
+            allTeams={allTeams}
             batRating={teamBatRatings[team.id] ?? 0}
             bowlRating={teamBowlingRatings[team.id] ?? 0}
             tournamentName={tournamentName}
