@@ -16,7 +16,10 @@ import {
   type StatusFilter,
 } from '../../data/coverageScheduleStore'
 import type { Trader } from '../../data/traders'
+import { COV_THEME_OPTIONS, type CovTheme } from './covTheme'
 import { ContentFilterBar, StatusFilterBar } from './CoverageShared'
+
+export type WhosOnViewMode = 'day' | 'month'
 
 function rosterDayShortLabel(label: string): { weekday: string; rest: string } {
   const parts = label.split(' ')
@@ -58,8 +61,15 @@ interface CoverageScheduleToolbarProps {
   statusFilterDays?: ScheduleDay[]
   contentFilters?: ScheduleContentFilters
   onContentFiltersChange?: (filters: ScheduleContentFilters) => void
+  whosOnViewMode?: WhosOnViewMode
+  onWhosOnViewModeChange?: (mode: WhosOnViewMode) => void
   whosOnDayIndex?: number
   onWhosOnDayIndexChange?: (index: number) => void
+  whosOnMonthLabel?: string
+  canGoPrevWhosOnMonth?: boolean
+  canGoNextWhosOnMonth?: boolean
+  onPrevWhosOnMonth?: () => void
+  onNextWhosOnMonth?: () => void
   showAllTraders?: boolean
   onShowAllTradersChange?: (show: boolean) => void
   traders?: Trader[]
@@ -70,6 +80,8 @@ interface CoverageScheduleToolbarProps {
   canGoNextMyRotaMonth?: boolean
   onPrevMyRotaMonth?: () => void
   onNextMyRotaMonth?: () => void
+  covTheme?: CovTheme
+  onCovThemeChange?: (theme: CovTheme) => void
 }
 
 export default function CoverageScheduleToolbar({
@@ -99,8 +111,15 @@ export default function CoverageScheduleToolbar({
   statusFilterDays = scheduleDays,
   contentFilters,
   onContentFiltersChange,
+  whosOnViewMode = 'day',
+  onWhosOnViewModeChange,
   whosOnDayIndex = 0,
   onWhosOnDayIndexChange,
+  whosOnMonthLabel = 'Month',
+  canGoPrevWhosOnMonth = false,
+  canGoNextWhosOnMonth = false,
+  onPrevWhosOnMonth,
+  onNextWhosOnMonth,
   showAllTraders = false,
   onShowAllTradersChange,
   traders = [],
@@ -111,26 +130,28 @@ export default function CoverageScheduleToolbar({
   canGoNextMyRotaMonth = false,
   onPrevMyRotaMonth,
   onNextMyRotaMonth,
+  covTheme = 'default',
+  onCovThemeChange,
 }: CoverageScheduleToolbarProps) {
   const isAdmin = persona === 'admin'
   const views = isAdmin ? ADMIN_SCHEDULE_VIEWS : TRADER_SCHEDULE_VIEWS
   const menuRef = useRef<HTMLDetailsElement>(null)
 
-  const showPeriodNav = activeView === 'schedule' || activeView === 'traders'
+  const showPeriodNav = activeView === 'schedule' || (activeView === 'traders' && whosOnViewMode === 'day')
   const showMyRotaMonthNav = activeView === 'my-rota'
+  const showWhosOnMonthNav = activeView === 'traders' && whosOnViewMode === 'month'
+  const showWhosOnDayNav = activeView === 'traders' && whosOnViewMode === 'day' && scheduleDays.length > 0
+  const safeWhosOnIndex = scheduleDays.length
+    ? Math.min(whosOnDayIndex, scheduleDays.length - 1)
+    : 0
   const showScheduleContext = activeView === 'schedule' && onDayRangeChange && dayRange
   const showScheduleFilters =
     activeView === 'schedule' &&
     onStatusFilterChange &&
     onContentFiltersChange &&
     contentFilters
-  const showWhosOnContext = activeView === 'traders' && scheduleDays.length > 0
   const showTraderPicker =
     persona === 'trader' && traders.length > 0 && Boolean(onSelectedTraderChange)
-
-  const safeWhosOnIndex = scheduleDays.length
-    ? Math.min(whosOnDayIndex, scheduleDays.length - 1)
-    : 0
 
   const dayPresets: { id: ScheduleDayRangePreset; label: string }[] = [
     { id: 'this-week', label: 'This week' },
@@ -159,7 +180,7 @@ export default function CoverageScheduleToolbar({
   }, [])
 
   return (
-    <nav className="cov-chrome" aria-label="Coverage schedule navigation">
+    <nav className="cov-chrome cov-chrome--fixed" aria-label="Coverage schedule navigation">
       <div className="cov-chrome-primary">
         <div className="cov-chrome-primary-start">
           <div className="cov-chrome-group">
@@ -199,6 +220,32 @@ export default function CoverageScheduleToolbar({
           </div>
         </div>
 
+        {onCovThemeChange ? (
+          <>
+            <span className="cov-chrome-divider" aria-hidden="true" />
+            <div className="cov-chrome-group cov-chrome-group--theme">
+              <span className="cov-chrome-label">Style</span>
+              <div className="cov-theme-picker" role="radiogroup" aria-label="Coverage style theme">
+                {COV_THEME_OPTIONS.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={covTheme === option.id}
+                    className={
+                      'cov-tab cov-tab--sm cov-theme-option' +
+                      (covTheme === option.id ? ' cov-tab-active' : '')
+                    }
+                    onClick={() => onCovThemeChange(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
+
         <div className="cov-chrome-actions">
           {isAdmin ? (
             <>
@@ -236,7 +283,7 @@ export default function CoverageScheduleToolbar({
         </div>
       </div>
 
-      {showPeriodNav || showMyRotaMonthNav || showScheduleContext || showWhosOnContext || showTraderPicker ? (
+      {showPeriodNav || showMyRotaMonthNav || showWhosOnMonthNav || showWhosOnDayNav || showScheduleContext || showTraderPicker || (activeView === 'traders' && onWhosOnViewModeChange) ? (
         <div className="cov-chrome-context">
           {showTraderPicker ? (
             <div className="cov-chrome-group">
@@ -285,7 +332,131 @@ export default function CoverageScheduleToolbar({
             </div>
           ) : null}
 
+          {activeView === 'traders' && onWhosOnViewModeChange ? (
+            <div className="cov-chrome-group">
+              <span className="cov-chrome-label">View</span>
+              <div className="cov-filter-group" role="toolbar" aria-label="Who's on view mode">
+                <button
+                  type="button"
+                  className={'cov-tab cov-tab--sm' + (whosOnViewMode === 'day' ? ' cov-tab-active' : '')}
+                  onClick={() => onWhosOnViewModeChange('day')}
+                >
+                  Day
+                </button>
+                <button
+                  type="button"
+                  className={'cov-tab cov-tab--sm' + (whosOnViewMode === 'month' ? ' cov-tab-active' : '')}
+                  onClick={() => onWhosOnViewModeChange('month')}
+                >
+                  Month
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {showWhosOnDayNav ? (
+            <div className="cov-chrome-group cov-chrome-group--grow">
+              <span className="cov-chrome-label">Day</span>
+              <div className="cov-whoson-day-nav">
+                <button
+                  type="button"
+                  className="cov-btn cov-btn--icon cov-btn--sm"
+                  aria-label="Previous day"
+                  disabled={safeWhosOnIndex <= 0}
+                  onClick={() => onWhosOnDayIndexChange?.(Math.max(0, safeWhosOnIndex - 1))}
+                >
+                  ←
+                </button>
+                <div className="cov-tabs cov-tabs--chrome cov-whoson-day-tabs">
+                  {scheduleDays.map((day, index) => {
+                    const short = rosterDayShortLabel(day.label)
+                    const weekend = isWeekendDate(day.date)
+                    return (
+                      <button
+                        key={day.date}
+                        type="button"
+                        className={
+                          'cov-tab cov-tab--sm' +
+                          (safeWhosOnIndex === index ? ' cov-tab-active' : '') +
+                          (weekend ? ' cov-whoson-day-tab--weekend' : '')
+                        }
+                        onClick={() => onWhosOnDayIndexChange?.(index)}
+                      >
+                        {short.weekday} {short.rest.split(' ')[0]}
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  type="button"
+                  className="cov-btn cov-btn--icon cov-btn--sm"
+                  aria-label="Next day"
+                  disabled={safeWhosOnIndex >= scheduleDays.length - 1}
+                  onClick={() =>
+                    onWhosOnDayIndexChange?.(Math.min(scheduleDays.length - 1, safeWhosOnIndex + 1))
+                  }
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {showWhosOnMonthNav ? (
+            <div className="cov-chrome-group">
+              <span className="cov-chrome-label">Month</span>
+              <div className="cov-schedule-period-nav" aria-label="Who's on month">
+                <button
+                  type="button"
+                  className="cov-btn cov-btn--icon cov-btn--sm"
+                  aria-label="Previous month"
+                  disabled={!canGoPrevWhosOnMonth}
+                  onClick={onPrevWhosOnMonth}
+                >
+                  ←
+                </button>
+                <span className="cov-schedule-period-pill">{whosOnMonthLabel}</span>
+                <button
+                  type="button"
+                  className="cov-btn cov-btn--icon cov-btn--sm"
+                  aria-label="Next month"
+                  disabled={!canGoNextWhosOnMonth}
+                  onClick={onNextWhosOnMonth}
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {showPeriodNav && activeView !== 'traders' ? (
+            <div className="cov-chrome-group">
+              <span className="cov-chrome-label">Period</span>
+              <div className="cov-schedule-period-nav" aria-label="Schedule period">
+                <button
+                  type="button"
+                  className="cov-btn cov-btn--icon cov-btn--sm"
+                  aria-label="Previous period"
+                  disabled={!canGoPrevPeriod}
+                  onClick={onPrevPeriod}
+                >
+                  ←
+                </button>
+                <span className="cov-schedule-period-pill">{periodLabel}</span>
+                <button
+                  type="button"
+                  className="cov-btn cov-btn--icon cov-btn--sm"
+                  aria-label="Next period"
+                  disabled={!canGoNextPeriod}
+                  onClick={onNextPeriod}
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {showPeriodNav && activeView === 'traders' ? (
             <div className="cov-chrome-group">
               <span className="cov-chrome-label">Period</span>
               <div className="cov-schedule-period-nav" aria-label="Schedule period">
@@ -382,81 +553,6 @@ export default function CoverageScheduleToolbar({
             </>
           ) : null}
 
-          {showWhosOnContext ? (
-            <>
-              <div className="cov-chrome-group cov-chrome-group--grow">
-                <span className="cov-chrome-label">Day</span>
-                <div className="cov-whoson-day-nav">
-                  <button
-                    type="button"
-                    className="cov-btn cov-btn--icon cov-btn--sm"
-                    aria-label="Previous day"
-                    disabled={safeWhosOnIndex <= 0}
-                    onClick={() => onWhosOnDayIndexChange?.(Math.max(0, safeWhosOnIndex - 1))}
-                  >
-                    ←
-                  </button>
-                  <div className="cov-tabs cov-tabs--chrome cov-whoson-day-tabs">
-                    {scheduleDays.map((day, index) => {
-                      const short = rosterDayShortLabel(day.label)
-                      const weekend = isWeekendDate(day.date)
-                      return (
-                        <button
-                          key={day.date}
-                          type="button"
-                          className={
-                            'cov-tab cov-tab--sm' +
-                            (safeWhosOnIndex === index ? ' cov-tab-active' : '') +
-                            (weekend ? ' cov-whoson-day-tab--weekend' : '')
-                          }
-                          onClick={() => onWhosOnDayIndexChange?.(index)}
-                        >
-                          {short.weekday} {short.rest.split(' ')[0]}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <button
-                    type="button"
-                    className="cov-btn cov-btn--icon cov-btn--sm"
-                    aria-label="Next day"
-                    disabled={safeWhosOnIndex >= scheduleDays.length - 1}
-                    onClick={() =>
-                      onWhosOnDayIndexChange?.(Math.min(scheduleDays.length - 1, safeWhosOnIndex + 1))
-                    }
-                  >
-                    →
-                  </button>
-                </div>
-              </div>
-              {showPeriodNav ? (
-                <div className="cov-chrome-group">
-                  <span className="cov-chrome-label">Period</span>
-                  <div className="cov-schedule-period-nav" aria-label="Schedule period">
-                    <button
-                      type="button"
-                      className="cov-btn cov-btn--icon cov-btn--sm"
-                      aria-label="Previous period"
-                      disabled={!canGoPrevPeriod}
-                      onClick={onPrevPeriod}
-                    >
-                      ←
-                    </button>
-                    <span className="cov-schedule-period-pill">{periodLabel}</span>
-                    <button
-                      type="button"
-                      className="cov-btn cov-btn--icon cov-btn--sm"
-                      aria-label="Next period"
-                      disabled={!canGoNextPeriod}
-                      onClick={onNextPeriod}
-                    >
-                      →
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </>
-          ) : null}
         </div>
       ) : null}
 

@@ -2,7 +2,7 @@
 
 
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 
 import {
 
@@ -54,7 +54,13 @@ import {
 
 import { DEFAULT_TRADERS } from '../data/traders'
 
-import CoverageScheduleToolbar from './coverage/CoverageScheduleToolbar'
+import CoverageScheduleToolbar, { type WhosOnViewMode } from './coverage/CoverageScheduleToolbar'
+import {
+  applyCovThemeToDocument,
+  COV_THEME_STORAGE_KEY,
+  readStoredCovTheme,
+  type CovTheme,
+} from './coverage/covTheme'
 
 import { StatTile } from './coverage/CoverageShared'
 
@@ -84,6 +90,10 @@ interface CoverageScheduleSectionProps {
 
   standalone?: boolean
 
+  covTheme?: CovTheme
+
+  onCovThemeChange?: (theme: CovTheme) => void
+
 }
 
 
@@ -92,7 +102,11 @@ const SECONDARY_VIEWS: ScheduleView[] = ['coverage-numbers', 'import', 'ops-aler
 
 
 
-export default function CoverageScheduleSection({ standalone = false }: CoverageScheduleSectionProps) {
+export default function CoverageScheduleSection({
+  standalone = false,
+  covTheme: covThemeProp,
+  onCovThemeChange,
+}: CoverageScheduleSectionProps) {
 
   const [persona, setPersona] = useState<Persona>('admin')
 
@@ -103,8 +117,6 @@ export default function CoverageScheduleSection({ standalone = false }: Coverage
   const [listMode, setListMode] = useState<ScheduleListMode>('by-day')
 
   const [contentFilters, setContentFilters] = useState<ScheduleContentFilters>(DEFAULT_CONTENT_FILTERS)
-
-  const [whosOnDayIndex, setWhosOnDayIndex] = useState(0)
 
   const [showAllTraders, setShowAllTraders] = useState(false)
 
@@ -120,6 +132,16 @@ export default function CoverageScheduleSection({ standalone = false }: Coverage
   })
 
   const [myRotaMonth, setMyRotaMonth] = useState<MyRotaMonth>(() => getDefaultMyRotaMonth())
+
+  const [whosOnMonth, setWhosOnMonth] = useState<MyRotaMonth>(() => getDefaultMyRotaMonth())
+
+  const [whosOnViewMode, setWhosOnViewMode] = useState<WhosOnViewMode>('day')
+
+  const [whosOnDayIndex, setWhosOnDayIndex] = useState(0)
+
+  const [internalCovTheme, setInternalCovTheme] = useState<CovTheme>('default')
+
+  const covTheme = covThemeProp ?? internalCovTheme
 
 
 
@@ -233,6 +255,42 @@ export default function CoverageScheduleSection({ standalone = false }: Coverage
 
   }, [])
 
+  const whosOnMonthLabel = useMemo(
+
+    () => formatMyRotaMonthLabel(whosOnMonth.year, whosOnMonth.month),
+
+    [whosOnMonth],
+
+  )
+
+  const canGoPrevWhosOnMonth = useMemo(
+
+    () => canNavigateMyRotaMonth(whosOnMonth.year, whosOnMonth.month, 'prev', scheduleDays),
+
+    [whosOnMonth, scheduleDays],
+
+  )
+
+  const canGoNextWhosOnMonth = useMemo(
+
+    () => canNavigateMyRotaMonth(whosOnMonth.year, whosOnMonth.month, 'next', scheduleDays),
+
+    [whosOnMonth, scheduleDays],
+
+  )
+
+  const goPrevWhosOnMonth = useCallback(() => {
+
+    setWhosOnMonth((current) => navigateMyRotaMonth(current.year, current.month, 'prev'))
+
+  }, [])
+
+  const goNextWhosOnMonth = useCallback(() => {
+
+    setWhosOnMonth((current) => navigateMyRotaMonth(current.year, current.month, 'next'))
+
+  }, [])
+
 
 
   const goPrevPeriod = useCallback(() => {
@@ -251,15 +309,38 @@ export default function CoverageScheduleSection({ standalone = false }: Coverage
 
 
 
-  const visibleDayKey = visibleDays.map((d) => d.date).join(',')
-
-
-
   useEffect(() => {
 
-    setWhosOnDayIndex(0)
+    if (covThemeProp != null) return
 
-  }, [visibleDayKey])
+    setInternalCovTheme(readStoredCovTheme())
+
+  }, [covThemeProp])
+
+  const handleCovThemeChange = useCallback((theme: CovTheme) => {
+
+    if (onCovThemeChange) {
+
+      onCovThemeChange(theme)
+
+      return
+
+    }
+
+    setInternalCovTheme(theme)
+
+    localStorage.setItem(COV_THEME_STORAGE_KEY, theme)
+
+  }, [onCovThemeChange])
+
+  useLayoutEffect(() => {
+    applyCovThemeToDocument(covTheme)
+    return () => applyCovThemeToDocument(null)
+  }, [covTheme])
+
+  useEffect(() => {
+    setWhosOnDayIndex(0)
+  }, [dayRange])
 
 
 
@@ -305,51 +386,55 @@ export default function CoverageScheduleSection({ standalone = false }: Coverage
 
     <section
 
-      className={'cov-schedule-shell' + (standalone ? ' cov-schedule-shell--standalone' : '')}
+      className={
+        'cov-schedule-shell' +
+        (standalone ? ' cov-schedule-shell--standalone' : '') +
+        (!isSecondary ? ' cov-schedule-shell--chrome-fixed' : '')
+      }
 
       aria-label="Coverage schedule"
 
     >
 
-      <header className="cov-schedule-header">
-
-        <div className="cov-schedule-header-start">
-
-          {standalone ? (
-
-            <h1 className="cov-schedule-page-title">Coverage schedule</h1>
-
-          ) : (
-
-            <h2 className="cov-schedule-page-title">Coverage schedule</h2>
-
-          )}
-
-        </div>
-
-        {showHeaderStats ? (
-
-          <div className="cov-stats cov-stats--compact cov-stats--header">
-
-            <StatTile label="Fixtures" value={stats.total} />
-
-            <StatTile label="Unassigned" value={stats.gaps} tone="warn" />
-
-            <StatTile label="Needs action" value={stats.needsAction} tone="active" />
-
-            <StatTile label="Settled" value={stats.settled} tone="done" />
-
-          </div>
-
-        ) : null}
-
-      </header>
-
-
-
       {!isSecondary ? (
 
-        <CoverageScheduleToolbar
+        <div className="cov-schedule-fixed-zone">
+
+          <header className="cov-schedule-header">
+
+            <div className="cov-schedule-header-start">
+
+              {standalone ? (
+
+                <h1 className="cov-schedule-page-title">Coverage schedule</h1>
+
+              ) : (
+
+                <h2 className="cov-schedule-page-title">Coverage schedule</h2>
+
+              )}
+
+            </div>
+
+            {showHeaderStats ? (
+
+              <div className="cov-stats cov-stats--compact cov-stats--header">
+
+                <StatTile label="Fixtures" value={stats.total} />
+
+                <StatTile label="Unassigned" value={stats.gaps} tone="warn" />
+
+                <StatTile label="Needs action" value={stats.needsAction} tone="active" />
+
+                <StatTile label="Settled" value={stats.settled} tone="done" />
+
+              </div>
+
+            ) : null}
+
+          </header>
+
+          <CoverageScheduleToolbar
 
           persona={persona}
 
@@ -401,9 +486,23 @@ export default function CoverageScheduleSection({ standalone = false }: Coverage
 
           onContentFiltersChange={setContentFilters}
 
+          whosOnViewMode={whosOnViewMode}
+
+          onWhosOnViewModeChange={setWhosOnViewMode}
+
           whosOnDayIndex={whosOnDayIndex}
 
           onWhosOnDayIndexChange={setWhosOnDayIndex}
+
+          whosOnMonthLabel={whosOnMonthLabel}
+
+          canGoPrevWhosOnMonth={canGoPrevWhosOnMonth}
+
+          canGoNextWhosOnMonth={canGoNextWhosOnMonth}
+
+          onPrevWhosOnMonth={goPrevWhosOnMonth}
+
+          onNextWhosOnMonth={goNextWhosOnMonth}
 
           showAllTraders={showAllTraders}
 
@@ -433,11 +532,19 @@ export default function CoverageScheduleSection({ standalone = false }: Coverage
 
           onOpenReplicateSeason={() => setActiveView('replicate-season')}
 
+          covTheme={covTheme}
+
+          onCovThemeChange={handleCovThemeChange}
+
         />
+
+        </div>
 
       ) : null}
 
 
+
+      <div className={isSecondary ? 'cov-schedule-body cov-schedule-scroll' : 'cov-schedule-body'}>
 
       {activeView === 'schedule' ? (
 
@@ -471,9 +578,15 @@ export default function CoverageScheduleSection({ standalone = false }: Coverage
 
           persona={persona}
 
+          viewMode={whosOnViewMode}
+
           days={visibleDays}
 
           activeDayIndex={whosOnDayIndex}
+
+          year={whosOnMonth.year}
+
+          month={whosOnMonth.month}
 
           showAllTraders={showAllTraders}
 
@@ -570,6 +683,8 @@ export default function CoverageScheduleSection({ standalone = false }: Coverage
         />
 
       ) : null}
+
+      </div>
 
     </section>
 

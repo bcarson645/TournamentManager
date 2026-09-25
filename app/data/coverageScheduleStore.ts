@@ -64,6 +64,12 @@ export interface ScheduleFixture {
   id: string
   time: string
   match: string
+  /** Full match label from import when provided separately from home/away. */
+  matchName?: string
+  /** Full home team name from import (Matches sheet col Team1). */
+  home?: string
+  /** Full away team name from import (Matches sheet col Team2). */
+  away?: string
   trading: string | null
   prep: string | null
   lead: string | null
@@ -229,6 +235,15 @@ export const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: 'unassigned', label: 'Unassigned' },
 ]
 
+export type PipelineStatusTone = 'prepare' | 'publish' | 'settle' | 'price-check'
+
+export const STATUS_FILTER_TONE: Partial<Record<StatusFilter, PipelineStatusTone>> = {
+  'needs-prep': 'prepare',
+  'needs-publish': 'publish',
+  'needs-settle': 'settle',
+  'price-check': 'price-check',
+}
+
 export const TRADER_ROSTER_WEEK: TraderRosterDay[] = [
   {
     label: 'Mon 17',
@@ -346,9 +361,33 @@ export function fixtureNeedsPrepAssignment(fixture: ScheduleFixture): boolean {
 export interface FixtureAssignmentPatch {
   prep?: string | null
   trading?: string | null
+  coverageMode?: CoverageMode
 }
 
 export type FixtureLifecycleAction = 'prep-done' | 'published' | 'settled'
+
+function applyCoverageModeToFixture(fixture: ScheduleFixture, mode: CoverageMode): void {
+  const wasNotCovered =
+    fixture.coverageMode === 'not-covered' || fixture.coverageLabel === 'Not Covered'
+
+  fixture.coverageMode = mode
+
+  if (mode === 'not-covered') {
+    fixture.coverageLabel = 'Not Covered'
+    fixture.gap = false
+    return
+  }
+
+  if (wasNotCovered) {
+    fixture.coverageLabel = mode === 'live' ? 'Premium' : 'Standard'
+  }
+
+  if (!fixtureNeedsTrader(fixture)) {
+    fixture.gap = false
+  } else if (!fixture.trading) {
+    fixture.gap = true
+  }
+}
 
 function applyAssignmentToFixture(fixture: ScheduleFixture, patch: FixtureAssignmentPatch): void {
   if ('prep' in patch) {
@@ -361,6 +400,9 @@ function applyAssignmentToFixture(fixture: ScheduleFixture, patch: FixtureAssign
     } else if (fixtureNeedsTrader(fixture)) {
       fixture.gap = true
     }
+  }
+  if ('coverageMode' in patch && patch.coverageMode !== undefined) {
+    applyCoverageModeToFixture(fixture, patch.coverageMode)
   }
 }
 
@@ -427,6 +469,10 @@ export function markFixtureSettled(fixtureId: string): boolean {
 
 export function updateFixtureAssignment(fixtureId: string, patch: FixtureAssignmentPatch): boolean {
   return forEachFixtureById(fixtureId, (fixture) => applyAssignmentToFixture(fixture, patch))
+}
+
+export function updateFixtureCoverage(fixtureId: string, coverageMode: CoverageMode): boolean {
+  return updateFixtureAssignment(fixtureId, { coverageMode })
 }
 
 export function matchNeedsPrep(fixture: ScheduleFixture): boolean {
@@ -498,6 +544,52 @@ export function fixtureIsPreMatchOnly(fixture: ScheduleFixture): boolean {
 
 export function fixtureIsNotCovered(fixture: ScheduleFixture): boolean {
   return fixture.coverageMode === 'not-covered'
+}
+
+export type CoverageTagKind =
+  | 'premium'
+  | 'pre-match'
+  | 'not-covered'
+  | 'simulated'
+  | 'standard'
+  | 'live'
+  | 'unconfirmed'
+
+export function coverageTagKindFromLabel(label: CoverageLabel): CoverageTagKind {
+  switch (label) {
+    case 'Premium':
+      return 'premium'
+    case 'Simulated':
+      return 'simulated'
+    case 'Not Covered':
+      return 'not-covered'
+    case 'Unconfirmed':
+      return 'unconfirmed'
+    default:
+      return 'standard'
+  }
+}
+
+/** Resolve the strongest coverage-type tag for a fixture (mode beats label when exclusive). */
+export function resolveFixtureCoverageTagKind(
+  fixture: ScheduleFixture,
+  tournamentCode?: string,
+): CoverageTagKind | null {
+  const simulated = tournamentCode
+    ? isSimulatedFixture(fixture, tournamentCode)
+    : fixture.coverageLabel === 'Simulated'
+  if (simulated) return 'simulated'
+  if (fixtureIsNotCovered(fixture) || fixture.coverageLabel === 'Not Covered') return 'not-covered'
+  if (fixtureIsPreMatchOnly(fixture)) return 'pre-match'
+  if (fixture.coverageLabel === 'Premium') return 'premium'
+  if (fixture.coverageLabel === 'Unconfirmed') return 'unconfirmed'
+  if (fixture.coverageMode === 'live') return 'live'
+  if (fixture.coverageLabel === 'Standard') return 'standard'
+  return null
+}
+
+export function coverageTagClassName(kind: CoverageTagKind): string {
+  return `cov-coverage-tag cov-coverage-tag--${kind}`
 }
 
 export function fixtureHasLimitedCoverage(fixture: ScheduleFixture): boolean {
@@ -955,6 +1047,90 @@ export const TRADER_SCHEDULE_VIEWS: { id: ScheduleView; label: string }[] = [
   { id: 'schedule', label: 'Full schedule' },
   { id: 'traders', label: "All traders" },
 ]
+
+export function inferScheduleTournamentGender(code: string, name: string): string {
+  const trimmedCode = code.trim()
+  if (/\sW$/i.test(trimmedCode) || /\bwomen(?:'s)?\b/i.test(name)) return 'W'
+  if (/\bu-?19\b/i.test(name) || /^Y[A-Z]/i.test(trimmedCode)) return 'U19'
+  return 'M'
+}
+
+export function getScheduleTournamentFormat(group: ScheduleTournamentGroup): string {
+  const fromMatch = group.matches.find((fixture) => fixture.format)?.format
+  if (fromMatch) return fromMatch
+  return getTournamentByCode(group.code)?.format ?? ''
+}
+
+/** Compact suffix after code chip: gender + format (e.g. "M T20"). */
+export function formatScheduleTournamentCompactSuffix(group: ScheduleTournamentGroup): string {
+  const gender = inferScheduleTournamentGender(group.code, group.name)
+  const format = getScheduleTournamentFormat(group)
+  return format ? `${gender} ${format}` : gender
+}
+
+/** Full compact label: code + gender + format (e.g. "CPL M T20"). */
+export function formatScheduleTournamentCompactLabel(group: ScheduleTournamentGroup): string {
+  const suffix = formatScheduleTournamentCompactSuffix(group)
+  return `${group.code} ${suffix}`
+}
+
+/** Longest tournament name available for a schedule group (day cell or lookup). */
+export function getScheduleTournamentDisplayName(group: ScheduleTournamentGroup): string {
+  const imported = IMPORTED_TOURNAMENTS.find((t) => t.code === group.code)
+  const candidates = [group.name, imported?.name].filter(
+    (name): name is string => Boolean(name?.trim()),
+  )
+  if (candidates.length === 0) return group.code
+  return candidates.reduce((longest, name) => (name.length > longest.length ? name : longest))
+}
+
+/** Day-table tournament cell: always the full tournament name. */
+export function formatScheduleTournamentCellLabel(group: ScheduleTournamentGroup): string {
+  return getScheduleTournamentDisplayName(group)
+}
+
+/** Full match label — prefers matchName or imported home/away over short match code. */
+export function formatFixtureMatchLabel(fixture: ScheduleFixture): string {
+  const matchName = fixture.matchName?.trim()
+  if (matchName) return matchName
+  const home = fixture.home?.trim()
+  const away = fixture.away?.trim()
+  if (home && away) return `${home} v ${away}`
+  return fixture.match.trim()
+}
+
+/** Truncate text with ellipsis for narrow table cells (full string in title tooltip). */
+export function truncateWithEllipsis(text: string, maxChars = 48): string {
+  const trimmed = text.trim()
+  if (trimmed.length <= maxChars) return trimmed
+  return `${trimmed.slice(0, maxChars - 1)}…`
+}
+
+/** @deprecated Use truncateWithEllipsis */
+export const truncateMatchLabel = truncateWithEllipsis
+
+/** Display + tooltip strings for fixture match column. */
+export function formatFixtureMatchDisplay(
+  fixture: ScheduleFixture,
+  maxChars = 48,
+): { display: string; full: string } {
+  const full = formatFixtureMatchLabel(fixture)
+  return { display: truncateWithEllipsis(full, maxChars), full }
+}
+
+/** Meta line under the name when multiple fixtures share a day cell. */
+export function formatScheduleTournamentCellMeta(
+  group: ScheduleTournamentGroup,
+  matchCount: number,
+): string | null {
+  if (matchCount <= 1) return null
+  const parts: string[] = []
+  const format = getScheduleTournamentFormat(group)
+  if (format) parts.push(format)
+  parts.push(`${matchCount} game${matchCount !== 1 ? 's' : ''}`)
+  if (group.gapCount > 0) parts.push(`${group.gapCount} gap`)
+  return parts.join(' · ')
+}
 
 export function getTournamentByCode(code: string): ImportedTournament | undefined {
   return IMPORTED_TOURNAMENTS.find((t) => t.code === code)
@@ -1595,6 +1771,36 @@ export interface WhosOnDayLayout {
   gameCount: number
 }
 
+export interface WhosOnMonthGridDay {
+  date: string | null
+  dayOfMonth: number
+  weekdayShort: string
+  isWeekend: boolean
+  inScheduleRange: boolean
+}
+
+export interface WhosOnMonthGridCell {
+  date: string
+  isOnShift: boolean
+  isLead: boolean
+  assignmentCount: number
+}
+
+export interface WhosOnMonthGrid {
+  year: number
+  month: number
+  monthLabel: string
+  days: WhosOnMonthGridDay[]
+  traders: string[]
+  cells: Record<string, Record<string, WhosOnMonthGridCell>>
+  stats: {
+    traderCount: number
+    daysInMonth: number
+    shiftDaysTotal: number
+    tradersOnToday: number
+  }
+}
+
 const WHOS_ON_TIMELINE_START_HOUR = 6
 const WHOS_ON_TIMELINE_MIN_HOURS = 24
 const WHOS_ON_TIMELINE_MAX_HOURS = 36
@@ -1807,6 +2013,105 @@ export function buildWhosOnDayLayout(
     tradersOnCount: tradersOn.length,
     unassignedCount,
     gameCount,
+  }
+}
+
+export function buildWhosOnMonthGrid(
+  year: number,
+  month: number,
+  options: { showAllTraders?: boolean } = {},
+): WhosOnMonthGrid {
+  const roster = buildTraderRosterFromSchedule()
+  const rosterByDate = new Map(roster.map((entry) => [entry.date, entry]))
+  const scheduleByDate = new Map(SCHEDULE_DAYS.map((day) => [day.date, day]))
+  const scheduleDates = new Set(SCHEDULE_DAYS.map((day) => day.date))
+
+  const allTraders = new Set<string>()
+  for (const entry of roster) {
+    entry.on.forEach((name) => allTraders.add(name))
+    entry.off.forEach((name) => allTraders.add(name))
+  }
+  const sortedAllTraders = [...allTraders].sort()
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const days: WhosOnMonthGridDay[] = []
+
+  for (let dayOfMonth = 1; dayOfMonth <= daysInMonth; dayOfMonth++) {
+    const date = new Date(year, month, dayOfMonth, 12)
+    const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`
+    const weekdayShort = date.toLocaleString('en-GB', { weekday: 'short' })
+    const dayOfWeek = date.getDay()
+    days.push({
+      date: scheduleDates.has(iso) ? iso : null,
+      dayOfMonth,
+      weekdayShort,
+      isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+      inScheduleRange: scheduleDates.has(iso),
+    })
+  }
+
+  const tradersOnInMonth = new Set<string>()
+  for (const day of days) {
+    if (!day.date) continue
+    const entry = rosterByDate.get(day.date)
+    if (!entry) continue
+    entry.on.forEach((name) => tradersOnInMonth.add(name))
+    if (options.showAllTraders) entry.off.forEach((name) => tradersOnInMonth.add(name))
+  }
+
+  const traders = options.showAllTraders ? sortedAllTraders : [...tradersOnInMonth].sort()
+
+  const cells: Record<string, Record<string, WhosOnMonthGridCell>> = {}
+  let shiftDaysTotal = 0
+
+  for (const trader of traders) {
+    cells[trader] = {}
+    for (const day of days) {
+      const cellKey = day.date ?? `off-${day.dayOfMonth}`
+      if (!day.date) {
+        cells[trader][cellKey] = {
+          date: '',
+          isOnShift: false,
+          isLead: false,
+          assignmentCount: 0,
+        }
+        continue
+      }
+
+      const entry = rosterByDate.get(day.date)
+      const scheduleDay = scheduleByDate.get(day.date)
+      const isOnShift = entry?.on.includes(trader) ?? false
+      const isLead = isOnShift && scheduleDay?.dailyLead === trader
+      const assignment = entry?.assignments.find((row) => row.trader === trader)
+      const assignmentCount =
+        assignment && assignment.blocks !== '—' ? assignment.blocks.split(' · ').length : 0
+
+      cells[trader][cellKey] = {
+        date: day.date,
+        isOnShift,
+        isLead,
+        assignmentCount,
+      }
+      if (isOnShift) shiftDaysTotal++
+    }
+  }
+
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayEntry = rosterByDate.get(todayIso)
+
+  return {
+    year,
+    month,
+    monthLabel: formatMyRotaMonthLabel(year, month),
+    days,
+    traders,
+    cells,
+    stats: {
+      traderCount: traders.length,
+      daysInMonth,
+      shiftDaysTotal,
+      tradersOnToday: todayEntry?.on.length ?? 0,
+    },
   }
 }
 

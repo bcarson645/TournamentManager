@@ -6,7 +6,13 @@ import {
   countStatusFilter,
   DEFAULT_CONTENT_FILTERS,
   findFixtureById,
+  formatFixtureMatchDisplay,
+  formatScheduleTournamentCellLabel,
+  formatScheduleTournamentCellMeta,
+  getScheduleTournamentDisplayName,
   fixtureMatchesFilters,
+  coverageTagClassName,
+  coverageTagKindFromLabel,
   fixtureIsNotCovered,
   fixtureIsPreMatchOnly,
   fixtureNeedsTrader,
@@ -16,6 +22,7 @@ import {
   matchMatchesStatusFilter,
   SCHEDULE_DAYS,
   STATUS_FILTERS,
+  STATUS_FILTER_TONE,
   type Persona,
   type ScheduleContentFilters,
   type ScheduleDay,
@@ -25,11 +32,112 @@ import {
   type SelectedMatchContext,
   type StatusFilter,
   type TierFilter,
+  type CoverageTagKind,
   type FixtureAssignmentPatch,
   type FixtureLifecycleAction,
 } from '../../data/coverageScheduleStore'
 import StatusPipelineStrip from '../CoverageStatusPipeline'
 import CoverageMatchPanel from './CoverageMatchPanel'
+
+export function CoverageTag({
+  kind,
+  children,
+  className = '',
+}: {
+  kind: CoverageTagKind
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <span className={`${coverageTagClassName(kind)}${className ? ` ${className}` : ''}`}>
+      {children}
+    </span>
+  )
+}
+
+function fixtureCoveragePillClass(kind: CoverageTagKind): string {
+  return `cov-fixture-coverage-pill ${coverageTagClassName(kind)}`
+}
+
+export function MatchPanelMount({
+  selected,
+  persona,
+  onClose,
+  onUpdateAssignment,
+  onMarkLifecycle,
+}: {
+  selected: SelectedMatchContext
+  persona: Persona
+  onClose: () => void
+  onUpdateAssignment?: (patch: FixtureAssignmentPatch) => void
+  onMarkLifecycle?: (action: FixtureLifecycleAction) => void
+}) {
+  return (
+    <div className="cov-match-panel-mount" role="dialog" aria-modal="true" aria-label="Match detail">
+      <button
+        type="button"
+        className="cov-match-drawer-backdrop"
+        onClick={onClose}
+        aria-label="Close match panel"
+        tabIndex={-1}
+      />
+      <CoverageMatchPanel
+        fixture={selected.fixture}
+        day={selected.day}
+        tournament={selected.tournament}
+        persona={persona}
+        onClose={onClose}
+        onUpdateAssignment={onUpdateAssignment}
+        onMarkLifecycle={onMarkLifecycle}
+      />
+    </div>
+  )
+}
+
+export function scrollSelectedFixtureIntoView(fixtureId: string) {
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`[data-fixture-id="${fixtureId}"]`)
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  })
+}
+
+export function ScheduleMatchSplit({
+  selected,
+  persona,
+  onClose,
+  onUpdateAssignment,
+  onMarkLifecycle,
+  children,
+}: {
+  selected: SelectedMatchContext | null
+  persona: Persona
+  onClose: () => void
+  onUpdateAssignment?: (patch: FixtureAssignmentPatch) => void
+  onMarkLifecycle?: (action: FixtureLifecycleAction) => void
+  children: React.ReactNode
+}) {
+  useEffect(() => {
+    if (!selected) return
+    scrollSelectedFixtureIntoView(selected.fixture.id)
+  }, [selected?.fixture.id])
+
+  return (
+    <div className={'cov-schedule-split' + (selected ? ' cov-schedule-split--open' : '')}>
+      <div className="cov-schedule-split-main">
+        <div className="cov-schedule-scroll">{children}</div>
+      </div>
+      {selected ? (
+        <MatchPanelMount
+          selected={selected}
+          persona={persona}
+          onClose={onClose}
+          onUpdateAssignment={onUpdateAssignment}
+          onMarkLifecycle={onMarkLifecycle}
+        />
+      ) : null}
+    </div>
+  )
+}
 
 export function StatusFilterBar({
   statusFilter,
@@ -49,11 +157,18 @@ export function StatusFilterBar({
         const count =
           filter.id === 'all' ? allWeekFixtures(days).length : countStatusFilter(filter.id, days)
         const active = statusFilter === filter.id
+        const tone = STATUS_FILTER_TONE[filter.id]
+        const toneClass = tone ? ` cov-tab--status-${tone}` : ''
         return (
           <button
             key={filter.id}
             type="button"
-            className={'cov-tab' + (compact ? ' cov-tab--sm' : '') + (active ? ' cov-tab-active' : '')}
+            className={
+              'cov-tab' +
+              (compact ? ' cov-tab--sm' : '') +
+              toneClass +
+              (active ? ' cov-tab-active' : '')
+            }
             onClick={() => onChange(filter.id)}
           >
             {filter.label}
@@ -130,6 +245,7 @@ export function FixtureCard({
   const needsTrader = fixtureNeedsTrader(fixture)
   const tier1PriceCheck = tier === 1 && fixture.needsPriceCheck
   const showGap = fixture.gap && !simulated && needsTrader
+  const matchDisplay = formatFixtureMatchDisplay(fixture)
   const cardClass =
     'cov-fixture-card' +
     (selected ? ' cov-fixture-card--selected' : '') +
@@ -140,15 +256,15 @@ export function FixtureCard({
 
   function renderTraderColumn() {
     if (simulated) {
-      return <span className="cov-fixture-coverage-pill cov-fixture-coverage-pill--sim">Sim</span>
+      return <span className={fixtureCoveragePillClass('simulated')}>Sim</span>
     }
     if (notCovered) {
-      return <span className="cov-fixture-coverage-pill cov-fixture-coverage-pill--muted">Not covered</span>
+      return <span className={fixtureCoveragePillClass('not-covered')}>Not covered</span>
     }
     if (preMatchOnly) {
       return (
         <div className="cov-fixture-col-coverage">
-          <span className="cov-fixture-coverage-pill cov-fixture-coverage-pill--pre-match">Pre-match</span>
+          <span className={fixtureCoveragePillClass('pre-match')}>Pre-match</span>
           <span className="cov-fixture-col-note">Publish only</span>
         </div>
       )
@@ -160,11 +276,17 @@ export function FixtureCard({
   }
 
   return (
-    <button type="button" className={cardClass} onClick={onSelect} aria-pressed={selected}>
+    <button
+      type="button"
+      className={cardClass}
+      data-fixture-id={fixture.id}
+      onClick={onSelect}
+      aria-pressed={selected}
+    >
       <time className="cov-fixture-col-time">{fixture.time}</time>
       <div className="cov-fixture-col-match">
-        <span className="cov-fixture-title">
-          {fixture.match}
+        <span className="cov-fixture-title cov-fixture-match" title={matchDisplay.full}>
+          {matchDisplay.display}
           {fixture.fcDay ? ` · ${fixture.fcDay}` : ''}
         </span>
         <div className="cov-fixture-chips">
@@ -173,7 +295,9 @@ export function FixtureCard({
           ) : null}
           {tournamentCode ? <span className="cov-chip cov-chip--neutral">{tournamentCode}</span> : null}
           {fixture.coverageLabel ? (
-            <span className="cov-chip cov-chip--info">{fixture.coverageLabel}</span>
+            <CoverageTag kind={coverageTagKindFromLabel(fixture.coverageLabel)}>
+              {fixture.coverageLabel}
+            </CoverageTag>
           ) : null}
         </div>
       </div>
@@ -219,6 +343,7 @@ function FixtureTableGameRow({
   const needsTrader = fixtureNeedsTrader(fixture)
   const tier1PriceCheck = tier === 1 && fixture.needsPriceCheck
   const showGap = fixture.gap && !simulated && needsTrader
+  const matchDisplay = formatFixtureMatchDisplay(fixture)
   const rowClass =
     'cov-tournament-table-game' +
     (selected ? ' cov-tournament-table-game--selected' : '') +
@@ -228,15 +353,15 @@ function FixtureTableGameRow({
 
   function renderTraderColumn() {
     if (simulated) {
-      return <span className="cov-fixture-coverage-pill cov-fixture-coverage-pill--sim">Sim</span>
+      return <span className={fixtureCoveragePillClass('simulated')}>Sim</span>
     }
     if (notCovered) {
-      return <span className="cov-fixture-coverage-pill cov-fixture-coverage-pill--muted">Not covered</span>
+      return <span className={fixtureCoveragePillClass('not-covered')}>Not covered</span>
     }
     if (preMatchOnly) {
       return (
         <div className="cov-fixture-col-coverage">
-          <span className="cov-fixture-coverage-pill cov-fixture-coverage-pill--pre-match">Pre-match</span>
+          <span className={fixtureCoveragePillClass('pre-match')}>Pre-match</span>
           <span className="cov-fixture-col-note">Publish only</span>
         </div>
       )
@@ -248,11 +373,17 @@ function FixtureTableGameRow({
   }
 
   return (
-    <button type="button" className={rowClass} onClick={onSelect} aria-pressed={selected}>
+    <button
+      type="button"
+      className={rowClass}
+      data-fixture-id={fixture.id}
+      onClick={onSelect}
+      aria-pressed={selected}
+    >
       <time className="cov-fixture-col-time">{fixture.time}</time>
       <div className="cov-fixture-col-match">
-        <span className="cov-fixture-title">
-          {fixture.match}
+        <span className="cov-fixture-title cov-fixture-match" title={matchDisplay.full}>
+          {matchDisplay.display}
           {fixture.fcDay ? ` · ${fixture.fcDay}` : ''}
         </span>
         <div className="cov-fixture-chips">
@@ -260,7 +391,9 @@ function FixtureTableGameRow({
             <span className={`cov-chip cov-chip--${tier === 1 ? 'warn' : 'neutral'}`}>T{tier}</span>
           ) : null}
           {fixture.coverageLabel ? (
-            <span className="cov-chip cov-chip--info">{fixture.coverageLabel}</span>
+            <CoverageTag kind={coverageTagKindFromLabel(fixture.coverageLabel)}>
+              {fixture.coverageLabel}
+            </CoverageTag>
           ) : null}
         </div>
       </div>
@@ -311,24 +444,26 @@ function DayTournamentTable({
         <span>Mkts</span>
       </div>
       <div className="cov-tournament-table-body">
-        {visibleGroups.flatMap(({ group, matches }) => [
+        {visibleGroups.flatMap(({ group, matches }) => {
+          const singleGame = matches.length === 1
+          const displayLabel = formatScheduleTournamentCellLabel(group)
+          const metaLabel = formatScheduleTournamentCellMeta(group, matches.length)
+          return [
           <button
             key={`${group.code}-tournament`}
             type="button"
             className={
               'cov-tournament-table-cell' +
-              (matches.length === 1 ? ' cov-tournament-table-cell--single' : ' cov-tournament-table-cell--multi')
+              (singleGame ? ' cov-tournament-table-cell--single' : ' cov-tournament-table-cell--multi')
             }
             style={{ gridRow: `span ${matches.length}` }}
             onClick={() => onOpenTournament?.(group.code)}
-            title={`Open ${group.name}`}
+            title={`Open ${getScheduleTournamentDisplayName(group)}`}
           >
-            <span className="cov-chip cov-chip--neutral">{group.code}</span>
-            <span className="cov-tournament-table-name">{group.name}</span>
-            <span className="cov-tournament-table-meta">
-              {matches.length} game{matches.length !== 1 ? 's' : ''}
-              {group.gapCount > 0 ? ` · ${group.gapCount} gap` : ''}
+            <span className="cov-tournament-table-name" title={displayLabel}>
+              {displayLabel}
             </span>
+            {metaLabel ? <span className="cov-tournament-table-meta">{metaLabel}</span> : null}
           </button>,
           ...matches.map((fixture) => (
             <FixtureTableGameRow
@@ -340,7 +475,8 @@ function DayTournamentTable({
               onSelect={() => onSelect({ fixture, day, tournament: group })}
             />
           )),
-        ])}
+          ]
+        })}
       </div>
     </div>
   )
@@ -657,20 +793,15 @@ export function WeekScheduleLayout({
   )
 
   return (
-    <div className={'cov-schedule-split' + (selected ? ' cov-schedule-split--open' : '')}>
-      <div className="cov-schedule-split-main">{scheduleList}</div>
-      {selected ? (
-        <CoverageMatchPanel
-          fixture={selected.fixture}
-          day={selected.day}
-          tournament={selected.tournament}
-          persona={persona}
-          onClose={() => setSelected(null)}
-          onUpdateAssignment={handleUpdateAssignment}
-          onMarkLifecycle={handleMarkLifecycle}
-        />
-      ) : null}
-    </div>
+    <ScheduleMatchSplit
+      selected={selected}
+      persona={persona}
+      onClose={() => setSelected(null)}
+      onUpdateAssignment={handleUpdateAssignment}
+      onMarkLifecycle={handleMarkLifecycle}
+    >
+      {scheduleList}
+    </ScheduleMatchSplit>
   )
 }
 

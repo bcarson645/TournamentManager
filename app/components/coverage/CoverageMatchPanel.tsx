@@ -4,7 +4,11 @@ import { useState } from 'react'
 import {
   buildStatusLog,
   COVERAGE_MODE_LABELS,
+  coverageTagClassName,
+  coverageTagKindFromLabel,
   fixtureNeedsPrepAssignment,
+  formatScheduleTournamentCompactSuffix,
+  getFixtureTier,
   getRemainingActions,
   isSimulatedFixture,
   fixtureNeedsTrader,
@@ -53,7 +57,9 @@ export default function CoverageMatchPanel({
   const remaining = getRemainingActions(fixture)
   const log = buildStatusLog(fixture)
   const steps = pipelineStepsFromFixture(fixture)
-  const [coverageMode, setCoverageMode] = useState<CoverageMode>(fixture.coverageMode ?? 'standard')
+  const tier = getFixtureTier(fixture, tournament.code)
+  const tournamentSuffix = formatScheduleTournamentCompactSuffix(tournament)
+  const coverageMode = fixture.coverageMode ?? 'standard'
   const [draftTrader, setDraftTrader] = useState('')
   const [draftPrep, setDraftPrep] = useState('')
   const showSuggestions = admin && !simulated && needsTrader && !fixture.trading && !draftTrader
@@ -66,30 +72,50 @@ export default function CoverageMatchPanel({
     setDraftPrep('')
   }
 
+  const subtitleParts = [tournamentSuffix, `Tier ${tier}`].filter(Boolean)
+
   return (
     <aside className="cov-match-panel" aria-label="Match detail">
       <header className="cov-match-panel-head">
-        <div>
-          <p className="cov-match-panel-meta">
-            {tournament.code} · {day.label} · {fixture.time}
+        <div className="cov-match-panel-head-main">
+          <p className="cov-match-panel-eyebrow">
+            <span className="cov-match-panel-tournament-code">{tournament.code}</span>
+            <span className="cov-match-panel-eyebrow-sep" aria-hidden="true">·</span>
+            <span>{tournament.name}</span>
           </p>
-          <h3 className="cov-match-panel-title">
+          <h2 className="cov-match-panel-title">
             {fixture.match}
-            {fixture.fcDay ? ` · ${fixture.fcDay}` : ''}
-          </h3>
+            {fixture.fcDay ? (
+              <span className="cov-match-panel-fc-day"> · {fixture.fcDay}</span>
+            ) : null}
+          </h2>
+          <p className="cov-match-panel-subtitle">{subtitleParts.join(' · ')}</p>
+          <p className="cov-match-panel-datetime">
+            <time dateTime={day.date}>{day.label}</time>
+            <span className="cov-match-panel-kickoff" aria-label="Kick-off time">{fixture.time}</span>
+          </p>
         </div>
-        <button type="button" className="cov-btn cov-btn--icon" onClick={onClose} aria-label="Close panel">×</button>
+        <button type="button" className="cov-btn cov-btn--icon cov-match-panel-close" onClick={onClose} aria-label="Close panel">×</button>
       </header>
 
       <div className="cov-match-panel-body">
         <div className="cov-match-panel-tags">
+          {fixture.coverageLabel ? (
+            <span className={coverageTagClassName(coverageTagKindFromLabel(fixture.coverageLabel))}>
+              {fixture.coverageLabel}
+            </span>
+          ) : null}
+          {preMatchOnly ? (
+            <span className={coverageTagClassName('pre-match')}>{COVERAGE_MODE_LABELS['pre-match']}</span>
+          ) : null}
+          {notCovered ? (
+            <span className={coverageTagClassName('not-covered')}>{COVERAGE_MODE_LABELS['not-covered']}</span>
+          ) : null}
+          {simulated ? <span className={coverageTagClassName('simulated')}>Simulated</span> : null}
           {fixture.tier ? <span className="cov-chip cov-chip--warn">Tier {fixture.tier}</span> : null}
-          {fixture.coverageLabel ? <span className="cov-chip cov-chip--info">{fixture.coverageLabel}</span> : null}
-          <span className="cov-chip cov-chip--success">{COVERAGE_MODE_LABELS[coverageMode]}</span>
           {showUnassignedTag ? <span className="cov-chip cov-chip--danger">Unassigned</span> : null}
           {needsPrepAssign ? <span className="cov-chip cov-chip--warn">Prep unassigned</span> : null}
           {preMatchOnly ? <span className="cov-chip cov-chip--warn">Publish only — no trader</span> : null}
-          {notCovered ? <span className="cov-chip cov-chip--neutral">Not covered</span> : null}
           {!admin ? <span className="cov-chip cov-chip--info">Read only</span> : null}
         </div>
 
@@ -171,34 +197,32 @@ export default function CoverageMatchPanel({
           </>
         ) : null}
 
-        {admin && !simulated && needsTrader ? (
-          <>
-            {!showSuggestions ? (
-              <section className="cov-match-panel-section">
-                <h4 className="cov-match-panel-label">Trading</h4>
-                <select className="cov-input" defaultValue={fixture.trading ?? ''}>
-                  <option value="">Select trader…</option>
-                  {DEFAULT_TRADERS.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-                </select>
-              </section>
-            ) : null}
+        {admin && !simulated && needsTrader && !showSuggestions ? (
+          <section className="cov-match-panel-section">
+            <h4 className="cov-match-panel-label">Trading</h4>
+            <select className="cov-input" defaultValue={fixture.trading ?? ''}>
+              <option value="">Select trader…</option>
+              {DEFAULT_TRADERS.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+            </select>
+          </section>
+        ) : null}
 
-            <section className="cov-match-panel-section">
-              <h4 className="cov-match-panel-label">Client coverage</h4>
-              <div className="cov-tabs">
-                {COVERAGE_MODES.map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    className={'cov-tab' + (coverageMode === mode ? ' cov-tab-active' : '')}
-                    onClick={() => setCoverageMode(mode)}
-                  >
-                    {COVERAGE_MODE_LABELS[mode]}
-                  </button>
-                ))}
-              </div>
-            </section>
-          </>
+        {admin && !simulated ? (
+          <section className="cov-match-panel-section">
+            <h4 className="cov-match-panel-label">Client coverage</h4>
+            <div className="cov-tabs">
+              {COVERAGE_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={'cov-tab' + (coverageMode === mode ? ' cov-tab-active' : '')}
+                  onClick={() => onUpdateAssignment?.({ coverageMode: mode })}
+                >
+                  {COVERAGE_MODE_LABELS[mode]}
+                </button>
+              ))}
+            </div>
+          </section>
         ) : null}
 
         {fixture.preparedBy ? (
@@ -245,7 +269,10 @@ export default function CoverageMatchPanel({
           <footer className="cov-match-panel-foot">
             <button
               type="button"
-              className={'cov-btn' + (steps.prep === 'current' ? ' cov-btn--primary' : '')}
+              className={
+                'cov-btn' +
+                (steps.prep === 'current' ? ' cov-btn--status-prepare' : '')
+              }
               disabled={steps.prep === 'done'}
               onClick={() => onMarkLifecycle?.('prep-done')}
             >
@@ -253,7 +280,10 @@ export default function CoverageMatchPanel({
             </button>
             <button
               type="button"
-              className={'cov-btn' + (steps.publish === 'current' ? ' cov-btn--primary' : '')}
+              className={
+                'cov-btn' +
+                (steps.publish === 'current' ? ' cov-btn--status-publish' : '')
+              }
               disabled={steps.publish === 'done'}
               onClick={() => onMarkLifecycle?.('published')}
             >
@@ -261,7 +291,10 @@ export default function CoverageMatchPanel({
             </button>
             <button
               type="button"
-              className={'cov-btn' + (steps.settle === 'current' ? ' cov-btn--primary' : '')}
+              className={
+                'cov-btn' +
+                (steps.settle === 'current' ? ' cov-btn--status-settle' : '')
+              }
               disabled={steps.settle === 'done'}
               onClick={() => onMarkLifecycle?.('settled')}
             >

@@ -1,8 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 import AppNavSidebar, { type HomeNavId } from './components/AppNavSidebar'
 import CoverageScheduleSection from './components/CoverageScheduleSection'
+import {
+  applyCovThemeToDocument,
+  COV_THEME_STORAGE_KEY,
+  readStoredCovTheme,
+  type CovTheme,
+} from './components/coverage/covTheme'
 
 const PLACEHOLDER_LABELS: Partial<Record<HomeNavId, string>> = {
   'tournament-manager': 'Tournament Manager',
@@ -16,6 +22,24 @@ const PLACEHOLDER_LABELS: Partial<Record<HomeNavId, string>> = {
 
 export default function Home() {
   const [homeNav, setHomeNav] = useState<HomeNavId>('coverage')
+  const [covTheme, setCovTheme] = useState<CovTheme>('default')
+
+  useEffect(() => {
+    setCovTheme(readStoredCovTheme())
+  }, [])
+
+  useLayoutEffect(() => {
+    if (homeNav !== 'coverage') {
+      applyCovThemeToDocument(null)
+      return
+    }
+    applyCovThemeToDocument(covTheme)
+  }, [covTheme, homeNav])
+
+  const handleCovThemeChange = useCallback((theme: CovTheme) => {
+    setCovTheme(theme)
+    localStorage.setItem(COV_THEME_STORAGE_KEY, theme)
+  }, [])
 
   if (homeNav === 'coverage') {
     return (
@@ -23,7 +47,11 @@ export default function Home() {
         <AppNavSidebar activeId={homeNav} onSelect={setHomeNav} />
         <main className="app-home-main">
           <div className="page app-home-page app-home-page--wide">
-            <CoverageScheduleSection standalone />
+            <CoverageScheduleSection
+              standalone
+              covTheme={covTheme}
+              onCovThemeChange={handleCovThemeChange}
+            />
           </div>
         </main>
       </div>

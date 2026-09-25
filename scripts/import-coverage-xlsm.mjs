@@ -72,6 +72,8 @@ function parseMatchesSheet(wb) {
     const match = String(row[7] || '').trim()
     if (!dateIso || !match) continue
 
+    const home = String(row[5] || '').trim() || undefined
+    const away = String(row[6] || '').trim() || undefined
     const code = String(row[8] || 'UNK').trim()
     const tournamentName = String(row[9] || code).trim()
     const time = formatTime(row[4])
@@ -87,6 +89,8 @@ function parseMatchesSheet(wb) {
       code,
       tournamentName,
       match,
+      home,
+      away,
       time,
       trader,
       coverageLabel,
@@ -111,6 +115,8 @@ function buildMatchesLookup(matchesFixtures) {
     lookup.set(fixture.dedupeKey, {
       dateIso: fixture.dateIso,
       match: fixture.match,
+      home: fixture.home,
+      away: fixture.away,
       code: fixture.code,
       tournamentName: fixture.tournamentName,
       time: fixture.time,
@@ -125,7 +131,7 @@ function buildMatchesLookup(matchesFixtures) {
   return lookup
 }
 
-function parseCopySheet(wb) {
+function parseCopySheet(wb, matchesLookup) {
   const rows = XLSX.utils.sheet_to_json(wb.Sheets.Copy, { header: 1, defval: '' })
   const fixtures = []
 
@@ -134,6 +140,9 @@ function parseCopySheet(wb) {
     const match = String(row[7] || '').trim()
     if (!dateIso || !match) continue
 
+    const enriched = matchesLookup.get(dedupeKey(dateIso, match))
+    const home = enriched?.home
+    const away = enriched?.away
     const code = String(row[8] || 'UNK').trim()
     const tournamentName = String(row[9] || code).trim()
     const time = formatTime(row[4])
@@ -148,6 +157,8 @@ function parseCopySheet(wb) {
       code,
       tournamentName,
       match,
+      home,
+      away,
       time,
       trader,
       coverageLabel,
@@ -193,6 +204,8 @@ function parsePmRotaSheet(wb, matchesLookup) {
       code,
       tournamentName,
       match,
+      home: enriched?.home,
+      away: enriched?.away,
       time,
       trader,
       coverageLabel,
@@ -237,7 +250,12 @@ function mergeFixtures(matchesFixtures, copyFixtures, pmFixtures) {
   }
 
   for (const fixture of copyFixtures) {
-    merged.set(fixture.dedupeKey, fixture)
+    const existing = merged.get(fixture.dedupeKey)
+    merged.set(fixture.dedupeKey, {
+      ...fixture,
+      home: fixture.home ?? existing?.home,
+      away: fixture.away ?? existing?.away,
+    })
     sourceCounts[fixture.source] = (sourceCounts[fixture.source] || 0) + 1
   }
 
@@ -251,7 +269,7 @@ function mergeFixtures(matchesFixtures, copyFixtures, pmFixtures) {
 const wb = XLSX.readFile(xlsmPath)
 const matchesFixtures = parseMatchesSheet(wb)
 const matchesLookup = buildMatchesLookup(matchesFixtures)
-const copyFixtures = parseCopySheet(wb)
+const copyFixtures = parseCopySheet(wb, matchesLookup)
 const pmFixtures = parsePmRotaSheet(wb, matchesLookup)
 const { fixtures, sourceCounts } = mergeFixtures(matchesFixtures, copyFixtures, pmFixtures)
 
@@ -263,6 +281,8 @@ for (const entry of fixtures) {
     id: entry.id,
     time: entry.time,
     match: entry.match,
+    ...(entry.home ? { home: entry.home } : {}),
+    ...(entry.away ? { away: entry.away } : {}),
     trading: entry.trader,
     prep: null,
     lead: null,
