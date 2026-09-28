@@ -4,9 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   allWeekFixtures,
   countStatusFilter,
+  countPrepDueFilter,
   DEFAULT_CONTENT_FILTERS,
   findFixtureById,
   formatFixtureMatchDisplay,
+  formatPrepCompletedLabel,
+  formatPrepDueLabel,
   formatScheduleTournamentCellLabel,
   formatScheduleTournamentCellMeta,
   getScheduleTournamentDisplayName,
@@ -15,19 +18,26 @@ import {
   coverageTagKindFromLabel,
   fixtureIsNotCovered,
   fixtureIsPreMatchOnly,
+  fixtureNeedsPrep,
   fixtureNeedsTrader,
   getFixtureTier,
   IMPORTED_TOURNAMENTS,
+  isPrepDueSoon,
+  isPrepOverdue,
   isSimulatedFixture,
   matchMatchesStatusFilter,
+  PREP_DUE_FILTERS,
   SCHEDULE_DAYS,
   STATUS_FILTERS,
   STATUS_FILTER_TONE,
+  type PrepDueFilter,
   type Persona,
   type ScheduleContentFilters,
   type ScheduleDay,
   type ScheduleFixture,
   type ScheduleListMode,
+  type ScheduleLayoutDensity,
+  formatPrepDueShortLabel,
   type ScheduleTournamentGroup,
   type SelectedMatchContext,
   type StatusFilter,
@@ -220,11 +230,147 @@ export function ContentFilterBar({
   )
 }
 
-function renderPrepColumn(fixture: ScheduleFixture) {
-  if (fixture.prep) {
-    return <span className="cov-fixture-prep-pill">{fixture.prep}</span>
+export function PrepDueFilterBar({
+  prepDueFilter,
+  onChange,
+  days = SCHEDULE_DAYS,
+  compact = false,
+}: {
+  prepDueFilter: PrepDueFilter
+  onChange: (filter: PrepDueFilter) => void
+  days?: ScheduleDay[]
+  compact?: boolean
+}) {
+  return (
+    <div className="cov-filter-group" role="toolbar" aria-label="Prep due filters">
+      <span className={compact ? 'cov-chrome-label' : 'cov-schedule-filters-label'}>Prep due</span>
+      {PREP_DUE_FILTERS.map((filter) => {
+        const count =
+          filter.id === 'all' ? null : countPrepDueFilter(filter.id, days)
+        const active = prepDueFilter === filter.id
+        return (
+          <button
+            key={filter.id}
+            type="button"
+            className={
+              'cov-tab' +
+              (compact ? ' cov-tab--sm' : '') +
+              (filter.id === 'overdue' ? ' cov-tab--status-publish' : '') +
+              (active ? ' cov-tab-active' : '')
+            }
+            onClick={() => onChange(filter.id)}
+          >
+            {filter.label}
+            {count != null ? ` (${count})` : ''}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function PrepDueColumn({
+  fixture,
+  dayDate,
+  layoutDensity = 'comfortable',
+}: {
+  fixture: ScheduleFixture
+  dayDate?: string
+  layoutDensity?: ScheduleLayoutDensity
+}) {
+  if (!fixtureNeedsPrep(fixture)) {
+    return <span className="cov-muted">—</span>
   }
-  return <span className="cov-muted">—</span>
+  const overdue = dayDate ? isPrepOverdue(fixture, dayDate) : false
+  const dueSoon = !overdue && dayDate ? isPrepDueSoon(fixture, dayDate) : false
+  const dueLabel = dayDate ? formatPrepDueLabel(fixture, dayDate) : null
+  const shortDueLabel = dayDate ? formatPrepDueShortLabel(fixture, dayDate) : null
+  const completedLabel = formatPrepCompletedLabel(fixture)
+  const ultra = layoutDensity === 'ultra-condensed'
+
+  if (completedLabel) {
+    const display = ultra ? '✓' : completedLabel
+    return (
+      <span className="cov-fixture-prep-due cov-fixture-prep-due--done" title={completedLabel}>
+        {display}
+      </span>
+    )
+  }
+  if (!dueLabel) return <span className="cov-muted">—</span>
+
+  const className =
+    'cov-fixture-prep-due' +
+    (overdue ? ' cov-fixture-prep-due--overdue' : dueSoon ? ' cov-prep-due--soon' : '')
+
+  return (
+    <span className={className} title={dueLabel}>
+      {ultra ? shortDueLabel : dueLabel}
+      {!ultra && overdue ? <span className="cov-fixture-prep-overdue-badge">Overdue</span> : null}
+    </span>
+  )
+}
+
+function renderPrepColumn(fixture: ScheduleFixture) {
+  return fixture.prep ? (
+    <span className="cov-fixture-prep-pill">{fixture.prep}</span>
+  ) : (
+    <span className="cov-muted">—</span>
+  )
+}
+
+function ScoutBinocularsIcon() {
+  return (
+    <span className="cov-fixture-scout-icon" title="Scout">
+      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
+        <circle cx="4.5" cy="9" r="2.75" fill="none" stroke="currentColor" strokeWidth="1.25" />
+        <circle cx="11.5" cy="9" r="2.75" fill="none" stroke="currentColor" strokeWidth="1.25" />
+        <path d="M7.25 9h1.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+        <path d="M4.5 6.25V4.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+        <path d="M11.5 6.25V4.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+        <path d="M4.5 4.5h7" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+      </svg>
+    </span>
+  )
+}
+
+function renderFixtureMatchTitle(
+  fixture: ScheduleFixture,
+  matchDisplay: { display: string; full: string },
+  layoutDensity: ScheduleLayoutDensity,
+) {
+  const ultra = layoutDensity === 'ultra-condensed'
+  const comfortable = layoutDensity === 'comfortable'
+  const title = (
+    <span className="cov-fixture-title cov-fixture-match" title={matchDisplay.full}>
+      {matchDisplay.display}
+      {!ultra && fixture.fcDay ? ` · ${fixture.fcDay}` : ''}
+    </span>
+  )
+
+  if (!comfortable) return title
+
+  return (
+    <div className="cov-fixture-title-row">
+      {title}
+      {fixture.scout ? <ScoutBinocularsIcon /> : null}
+    </div>
+  )
+}
+
+function matchMaxCharsForDensity(layoutDensity: ScheduleLayoutDensity): number {
+  if (layoutDensity === 'ultra-condensed') return 0
+  if (layoutDensity === 'condensed') return 36
+  return 48
+}
+
+function pipelineVariantForDensity(layoutDensity: ScheduleLayoutDensity): 'default' | 'dots' {
+  return layoutDensity === 'ultra-condensed' ? 'dots' : 'default'
+}
+
+export function scheduleLayoutDensityClass(layoutDensity: ScheduleLayoutDensity): string {
+  if (layoutDensity === 'ultra-condensed') return ' cov-schedule-layout--ultra'
+  if (layoutDensity === 'condensed') return ' cov-schedule-layout--condensed'
+  return ''
 }
 
 export function FixtureCard({
@@ -232,11 +378,15 @@ export function FixtureCard({
   selected,
   onSelect,
   tournamentCode,
+  dayDate,
+  layoutDensity = 'comfortable',
 }: {
   fixture: ScheduleFixture
   selected: boolean
   onSelect: () => void
   tournamentCode?: string
+  dayDate?: string
+  layoutDensity?: ScheduleLayoutDensity
 }) {
   const tier = tournamentCode ? getFixtureTier(fixture, tournamentCode) : fixture.tier
   const simulated = tournamentCode ? isSimulatedFixture(fixture, tournamentCode) : false
@@ -245,11 +395,14 @@ export function FixtureCard({
   const needsTrader = fixtureNeedsTrader(fixture)
   const tier1PriceCheck = tier === 1 && fixture.needsPriceCheck
   const showGap = fixture.gap && !simulated && needsTrader
-  const matchDisplay = formatFixtureMatchDisplay(fixture)
+  const prepOverdue = dayDate ? isPrepOverdue(fixture, dayDate) : false
+  const matchDisplay = formatFixtureMatchDisplay(fixture, matchMaxCharsForDensity(layoutDensity))
+  const ultra = layoutDensity === 'ultra-condensed'
   const cardClass =
     'cov-fixture-card' +
     (selected ? ' cov-fixture-card--selected' : '') +
     (showGap ? ' cov-fixture-card--gap' : '') +
+    (prepOverdue ? ' cov-fixture-card--prep-overdue' : '') +
     (preMatchOnly ? ' cov-fixture-card--pre-match' : '') +
     (notCovered ? ' cov-fixture-card--not-covered' : '') +
     (tier1PriceCheck ? ' cov-fixture-card--price-check' : '')
@@ -259,20 +412,20 @@ export function FixtureCard({
       return <span className={fixtureCoveragePillClass('simulated')}>Sim</span>
     }
     if (notCovered) {
-      return <span className={fixtureCoveragePillClass('not-covered')}>Not covered</span>
+      return <span className={fixtureCoveragePillClass('not-covered')}>{ultra ? 'NC' : 'Not covered'}</span>
     }
     if (preMatchOnly) {
       return (
         <div className="cov-fixture-col-coverage">
-          <span className={fixtureCoveragePillClass('pre-match')}>Pre-match</span>
-          <span className="cov-fixture-col-note">Publish only</span>
+          <span className={fixtureCoveragePillClass('pre-match')}>{ultra ? 'PM' : 'Pre-match'}</span>
+          {!ultra ? <span className="cov-fixture-col-note">Publish only</span> : null}
         </div>
       )
     }
     if (fixture.trading) {
       return <span className="cov-fixture-trader-pill">{fixture.trading}</span>
     }
-    return <span className="cov-chip cov-chip--danger">Unassigned</span>
+    return <span className="cov-chip cov-chip--danger">{ultra ? '!' : 'Unassigned'}</span>
   }
 
   return (
@@ -285,36 +438,41 @@ export function FixtureCard({
     >
       <time className="cov-fixture-col-time">{fixture.time}</time>
       <div className="cov-fixture-col-match">
-        <span className="cov-fixture-title cov-fixture-match" title={matchDisplay.full}>
-          {matchDisplay.display}
-          {fixture.fcDay ? ` · ${fixture.fcDay}` : ''}
-        </span>
-        <div className="cov-fixture-chips">
-          {tier ? (
-            <span className={`cov-chip cov-chip--${tier === 1 ? 'warn' : 'neutral'}`}>T{tier}</span>
-          ) : null}
-          {tournamentCode ? <span className="cov-chip cov-chip--neutral">{tournamentCode}</span> : null}
-          {fixture.coverageLabel ? (
-            <CoverageTag kind={coverageTagKindFromLabel(fixture.coverageLabel)}>
-              {fixture.coverageLabel}
-            </CoverageTag>
-          ) : null}
-        </div>
+        {renderFixtureMatchTitle(fixture, matchDisplay, layoutDensity)}
+        {!ultra ? (
+          <div className="cov-fixture-chips">
+            {tier ? (
+              <span className={`cov-chip cov-chip--${tier === 1 ? 'warn' : 'neutral'}`}>T{tier}</span>
+            ) : null}
+            {tournamentCode ? <span className="cov-chip cov-chip--neutral">{tournamentCode}</span> : null}
+            {fixture.coverageLabel ? (
+              <CoverageTag kind={coverageTagKindFromLabel(fixture.coverageLabel)}>
+                {fixture.coverageLabel}
+              </CoverageTag>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div className="cov-fixture-col-trader">
-        {!simulated && needsTrader ? <span className="cov-fixture-trader-label">Trading</span> : null}
+        {!ultra && !simulated && needsTrader ? <span className="cov-fixture-trader-label">Trading</span> : null}
         {renderTraderColumn()}
       </div>
       <div className="cov-fixture-col-prep">
-        <span className="cov-fixture-trader-label">Prep</span>
+        {!ultra ? <span className="cov-fixture-trader-label">Prep</span> : null}
         {renderPrepColumn(fixture)}
       </div>
+      <div className="cov-fixture-col-prep-by">
+        {!ultra ? <span className="cov-fixture-trader-label">Prep by</span> : null}
+        <PrepDueColumn fixture={fixture} dayDate={dayDate} layoutDensity={layoutDensity} />
+      </div>
       <div className="cov-fixture-col-pipeline">
-        <StatusPipelineStrip fixture={fixture} />
+        <StatusPipelineStrip fixture={fixture} variant={pipelineVariantForDensity(layoutDensity)} />
       </div>
       <div className="cov-fixture-col-markets">
         {fixture.marketsSent != null ? (
-          <span className="cov-fixture-markets">{fixture.marketsSent} mkts</span>
+          <span className="cov-fixture-markets" title={`${fixture.marketsSent} markets`}>
+            {ultra ? fixture.marketsSent : `${fixture.marketsSent} mkts`}
+          </span>
         ) : (
           <span className="cov-muted">—</span>
         )}
@@ -329,12 +487,14 @@ function FixtureTableGameRow({
   day,
   selected,
   onSelect,
+  layoutDensity = 'comfortable',
 }: {
   fixture: ScheduleFixture
   tournament: ScheduleTournamentGroup
   day: ScheduleDay
   selected: boolean
   onSelect: () => void
+  layoutDensity?: ScheduleLayoutDensity
 }) {
   const tier = getFixtureTier(fixture, tournament.code)
   const simulated = isSimulatedFixture(fixture, tournament.code)
@@ -343,11 +503,14 @@ function FixtureTableGameRow({
   const needsTrader = fixtureNeedsTrader(fixture)
   const tier1PriceCheck = tier === 1 && fixture.needsPriceCheck
   const showGap = fixture.gap && !simulated && needsTrader
-  const matchDisplay = formatFixtureMatchDisplay(fixture)
+  const prepOverdue = isPrepOverdue(fixture, day.date)
+  const matchDisplay = formatFixtureMatchDisplay(fixture, matchMaxCharsForDensity(layoutDensity))
+  const ultra = layoutDensity === 'ultra-condensed'
   const rowClass =
     'cov-tournament-table-game' +
     (selected ? ' cov-tournament-table-game--selected' : '') +
     (showGap ? ' cov-tournament-table-game--gap' : '') +
+    (prepOverdue ? ' cov-tournament-table-game--prep-overdue' : '') +
     (preMatchOnly ? ' cov-tournament-table-game--pre-match' : '') +
     (notCovered ? ' cov-tournament-table-game--not-covered' : '')
 
@@ -356,20 +519,20 @@ function FixtureTableGameRow({
       return <span className={fixtureCoveragePillClass('simulated')}>Sim</span>
     }
     if (notCovered) {
-      return <span className={fixtureCoveragePillClass('not-covered')}>Not covered</span>
+      return <span className={fixtureCoveragePillClass('not-covered')}>{ultra ? 'NC' : 'Not covered'}</span>
     }
     if (preMatchOnly) {
       return (
         <div className="cov-fixture-col-coverage">
-          <span className={fixtureCoveragePillClass('pre-match')}>Pre-match</span>
-          <span className="cov-fixture-col-note">Publish only</span>
+          <span className={fixtureCoveragePillClass('pre-match')}>{ultra ? 'PM' : 'Pre-match'}</span>
+          {!ultra ? <span className="cov-fixture-col-note">Publish only</span> : null}
         </div>
       )
     }
     if (fixture.trading) {
       return <span className="cov-fixture-trader-pill">{fixture.trading}</span>
     }
-    return <span className="cov-chip cov-chip--danger">Unassigned</span>
+    return <span className="cov-chip cov-chip--danger">{ultra ? '!' : 'Unassigned'}</span>
   }
 
   return (
@@ -382,35 +545,40 @@ function FixtureTableGameRow({
     >
       <time className="cov-fixture-col-time">{fixture.time}</time>
       <div className="cov-fixture-col-match">
-        <span className="cov-fixture-title cov-fixture-match" title={matchDisplay.full}>
-          {matchDisplay.display}
-          {fixture.fcDay ? ` · ${fixture.fcDay}` : ''}
-        </span>
-        <div className="cov-fixture-chips">
-          {tier ? (
-            <span className={`cov-chip cov-chip--${tier === 1 ? 'warn' : 'neutral'}`}>T{tier}</span>
-          ) : null}
-          {fixture.coverageLabel ? (
-            <CoverageTag kind={coverageTagKindFromLabel(fixture.coverageLabel)}>
-              {fixture.coverageLabel}
-            </CoverageTag>
-          ) : null}
-        </div>
+        {renderFixtureMatchTitle(fixture, matchDisplay, layoutDensity)}
+        {!ultra ? (
+          <div className="cov-fixture-chips">
+            {tier ? (
+              <span className={`cov-chip cov-chip--${tier === 1 ? 'warn' : 'neutral'}`}>T{tier}</span>
+            ) : null}
+            {fixture.coverageLabel ? (
+              <CoverageTag kind={coverageTagKindFromLabel(fixture.coverageLabel)}>
+                {fixture.coverageLabel}
+              </CoverageTag>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div className="cov-fixture-col-trader">
-        {!simulated && needsTrader ? <span className="cov-fixture-trader-label">Trading</span> : null}
+        {!ultra && !simulated && needsTrader ? <span className="cov-fixture-trader-label">Trading</span> : null}
         {renderTraderColumn()}
       </div>
       <div className="cov-fixture-col-prep">
-        <span className="cov-fixture-trader-label">Prep</span>
+        {!ultra ? <span className="cov-fixture-trader-label">Prep</span> : null}
         {renderPrepColumn(fixture)}
       </div>
+      <div className="cov-fixture-col-prep-by">
+        {!ultra ? <span className="cov-fixture-trader-label">Prep by</span> : null}
+        <PrepDueColumn fixture={fixture} dayDate={day.date} layoutDensity={layoutDensity} />
+      </div>
       <div className="cov-fixture-col-pipeline">
-        <StatusPipelineStrip fixture={fixture} />
+        <StatusPipelineStrip fixture={fixture} variant={pipelineVariantForDensity(layoutDensity)} />
       </div>
       <div className="cov-fixture-col-markets">
         {fixture.marketsSent != null ? (
-          <span className="cov-fixture-markets">{fixture.marketsSent} mkts</span>
+          <span className="cov-fixture-markets" title={`${fixture.marketsSent} markets`}>
+            {ultra ? fixture.marketsSent : `${fixture.marketsSent} mkts`}
+          </span>
         ) : (
           <span className="cov-muted">—</span>
         )}
@@ -425,12 +593,14 @@ function DayTournamentTable({
   selectedFixtureId,
   onSelect,
   onOpenTournament,
+  layoutDensity = 'comfortable',
 }: {
   day: ScheduleDay
   visibleGroups: { group: ScheduleTournamentGroup; matches: ScheduleFixture[] }[]
   selectedFixtureId: string | null
   onSelect: (ctx: SelectedMatchContext) => void
   onOpenTournament?: (code: string) => void
+  layoutDensity?: ScheduleLayoutDensity
 }) {
   return (
     <div className="cov-tournament-table">
@@ -440,6 +610,7 @@ function DayTournamentTable({
         <span>Match</span>
         <span>Trading / coverage</span>
         <span>Prep</span>
+        <span>Prep by</span>
         <span>Status</span>
         <span>Mkts</span>
       </div>
@@ -448,6 +619,9 @@ function DayTournamentTable({
           const singleGame = matches.length === 1
           const displayLabel = formatScheduleTournamentCellLabel(group)
           const metaLabel = formatScheduleTournamentCellMeta(group, matches.length)
+          const ultra = layoutDensity === 'ultra-condensed'
+          const cellLabel = ultra && !singleGame ? group.code : displayLabel
+          const cellTitle = `Open ${getScheduleTournamentDisplayName(group)}`
           return [
           <button
             key={`${group.code}-tournament`}
@@ -458,12 +632,12 @@ function DayTournamentTable({
             }
             style={{ gridRow: `span ${matches.length}` }}
             onClick={() => onOpenTournament?.(group.code)}
-            title={`Open ${getScheduleTournamentDisplayName(group)}`}
+            title={cellTitle}
           >
             <span className="cov-tournament-table-name" title={displayLabel}>
-              {displayLabel}
+              {cellLabel}
             </span>
-            {metaLabel ? <span className="cov-tournament-table-meta">{metaLabel}</span> : null}
+            {!ultra && metaLabel ? <span className="cov-tournament-table-meta">{metaLabel}</span> : null}
           </button>,
           ...matches.map((fixture) => (
             <FixtureTableGameRow
@@ -473,6 +647,7 @@ function DayTournamentTable({
               day={day}
               selected={selectedFixtureId === fixture.id}
               onSelect={() => onSelect({ fixture, day, tournament: group })}
+              layoutDensity={layoutDensity}
             />
           )),
           ]
@@ -490,6 +665,7 @@ function DayFixtureList({
   selectedFixtureId,
   onSelect,
   onOpenTournament,
+  layoutDensity = 'comfortable',
 }: {
   day: ScheduleDay
   groups: ScheduleTournamentGroup[]
@@ -498,6 +674,7 @@ function DayFixtureList({
   selectedFixtureId: string | null
   onSelect: (ctx: SelectedMatchContext) => void
   onOpenTournament?: (code: string) => void
+  layoutDensity?: ScheduleLayoutDensity
 }) {
   const visibleGroups = useMemo(
     () =>
@@ -505,7 +682,7 @@ function DayFixtureList({
         .map((group) => ({
           group,
           matches: group.matches.filter((fixture) =>
-            fixtureMatchesFilters(fixture, group.code, statusFilter, contentFilters, day.dailyLead),
+            fixtureMatchesFilters(fixture, group.code, statusFilter, contentFilters, day.dailyLead, day.date),
           ),
         }))
         .filter((entry) => entry.matches.length > 0),
@@ -523,6 +700,7 @@ function DayFixtureList({
       selectedFixtureId={selectedFixtureId}
       onSelect={onSelect}
       onOpenTournament={onOpenTournament}
+      layoutDensity={layoutDensity}
     />
   )
 }
@@ -534,6 +712,7 @@ export function DayBlockCard({
   selectedFixtureId,
   onSelect,
   onOpenTournament,
+  layoutDensity = 'comfortable',
 }: {
   day: ScheduleDay
   statusFilter: StatusFilter
@@ -541,6 +720,7 @@ export function DayBlockCard({
   selectedFixtureId: string | null
   onSelect: (ctx: SelectedMatchContext) => void
   onOpenTournament?: (code: string) => void
+  layoutDensity?: ScheduleLayoutDensity
 }) {
   const visibleGroups = useMemo(
     () =>
@@ -548,7 +728,7 @@ export function DayBlockCard({
         .map((group) => ({
           group,
           matches: group.matches.filter((fixture) =>
-            fixtureMatchesFilters(fixture, group.code, statusFilter, contentFilters, day.dailyLead),
+            fixtureMatchesFilters(fixture, group.code, statusFilter, contentFilters, day.dailyLead, day.date),
           ),
         }))
         .filter((entry) => entry.matches.length > 0),
@@ -590,6 +770,7 @@ export function DayBlockCard({
           selectedFixtureId={selectedFixtureId}
           onSelect={onSelect}
           onOpenTournament={onOpenTournament}
+          layoutDensity={layoutDensity}
         />
       </div>
     </article>
@@ -602,18 +783,20 @@ function AllGamesList({
   contentFilters,
   selectedFixtureId,
   onSelect,
+  layoutDensity = 'comfortable',
 }: {
   days: ScheduleDay[]
   statusFilter: StatusFilter
   contentFilters: ScheduleContentFilters
   selectedFixtureId: string | null
   onSelect: (ctx: SelectedMatchContext) => void
+  layoutDensity?: ScheduleLayoutDensity
 }) {
   const items: SelectedMatchContext[] = []
   for (const day of days) {
     for (const tournament of day.tournaments) {
       for (const fixture of tournament.matches) {
-        if (fixtureMatchesFilters(fixture, tournament.code, statusFilter, contentFilters, day.dailyLead)) {
+        if (fixtureMatchesFilters(fixture, tournament.code, statusFilter, contentFilters, day.dailyLead, day.date)) {
           items.push({ fixture, day, tournament })
         }
       }
@@ -647,8 +830,10 @@ function AllGamesList({
                 key={ctx.fixture.id}
                 fixture={ctx.fixture}
                 tournamentCode={ctx.tournament.code}
+                dayDate={ctx.day.date}
                 selected={selectedFixtureId === ctx.fixture.id}
                 onSelect={() => onSelect(ctx)}
+                layoutDensity={layoutDensity}
               />
             ))}
           </div>
@@ -681,6 +866,7 @@ function TournamentList({
         statusFilter,
         contentFilters,
         dailyLeadByDate.get(f.dateIso),
+        f.dateIso,
       ),
     )
   })
@@ -711,6 +897,7 @@ export function WeekScheduleLayout({
   statusFilter,
   days,
   listMode = 'by-day',
+  layoutDensity = 'comfortable',
   contentFilters = DEFAULT_CONTENT_FILTERS,
   onOpenTournament,
   onUpdateAssignment,
@@ -720,6 +907,7 @@ export function WeekScheduleLayout({
   statusFilter: StatusFilter
   days: ScheduleDay[]
   listMode?: ScheduleListMode
+  layoutDensity?: ScheduleLayoutDensity
   contentFilters?: ScheduleContentFilters
   onOpenTournament?: (code: string) => void
   onUpdateAssignment?: (fixtureId: string, patch: FixtureAssignmentPatch) => void
@@ -755,7 +943,7 @@ export function WeekScheduleLayout({
   }, [selected])
 
   const scheduleList = (
-    <div className="cov-view-stack cov-view-stack--schedule">
+    <div className={'cov-view-stack cov-view-stack--schedule' + scheduleLayoutDensityClass(layoutDensity)}>
       {listMode === 'by-day' ? (
         <div className="cov-day-list">
           {days.map((day) => (
@@ -767,6 +955,7 @@ export function WeekScheduleLayout({
               selectedFixtureId={selected?.fixture.id ?? null}
               onSelect={setSelected}
               onOpenTournament={onOpenTournament}
+              layoutDensity={layoutDensity}
             />
           ))}
         </div>
@@ -779,6 +968,7 @@ export function WeekScheduleLayout({
           contentFilters={contentFilters}
           selectedFixtureId={selected?.fixture.id ?? null}
           onSelect={setSelected}
+          layoutDensity={layoutDensity}
         />
       ) : null}
 

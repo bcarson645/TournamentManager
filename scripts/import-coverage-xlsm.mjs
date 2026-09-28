@@ -7,6 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const xlsmPath = process.argv[2] || 'c:/Users/b.carson/Downloads/Coverage Schedule 2.2.xlsm'
 const outPath = path.join(__dirname, '../app/data/coverageScheduleImported.ts')
 
+const DAILY_LEAD_TRADERS = ['Collinson', 'Moore', 'Cooper', 'Dyer']
+
 function excelDateToIso(serial) {
   if (!serial || typeof serial !== 'number') return null
   const d = new Date(Date.UTC(1899, 11, 30 + serial))
@@ -286,7 +288,8 @@ for (const entry of fixtures) {
     trading: entry.trader,
     prep: null,
     lead: null,
-    scout: '—',
+    scout: false,
+    data: null,
     gap: entry.gap,
     tier: tierFromCode(entry.code, entry.coverageLabel),
     format: entry.format,
@@ -306,7 +309,7 @@ for (const entry of fixtures) {
       cricketDays: 1,
       fixtureCount: 0,
       gapCount: 0,
-      dailyLead: 'Collinson',
+      dailyLead: DAILY_LEAD_TRADERS[0],
       tradersOn: [],
       tournaments: new Map(),
     })
@@ -361,6 +364,18 @@ const scheduleDays = [...dayMap.entries()]
     tradersOn: day.tradersOn.sort(),
     tournaments: [...day.tournaments.values()].sort((a, b) => a.code.localeCompare(b.code)),
   }))
+
+const leadCounts = Object.fromEntries(DAILY_LEAD_TRADERS.map((name) => [name, 0]))
+for (const day of scheduleDays) {
+  const onShift = new Set(day.tradersOn.filter((name) => DAILY_LEAD_TRADERS.includes(name)))
+  const pool =
+    onShift.size > 0 ? DAILY_LEAD_TRADERS.filter((name) => onShift.has(name)) : DAILY_LEAD_TRADERS
+  const lead = pool
+    .slice()
+    .sort((a, b) => leadCounts[a] - leadCounts[b] || day.date.localeCompare(day.date) || a.localeCompare(b))[0]
+  day.dailyLead = lead
+  leadCounts[lead] += 1
+}
 
 const tournaments = [...tournamentMeta.values()].sort((a, b) => b.fixtureCount - a.fixtureCount)
 const sheetsUsed = Object.entries(sourceCounts)

@@ -2,13 +2,21 @@
 
 import { Fragment, useMemo, useState } from 'react'
 import {
+  buildFixturesPerDayCounts,
   buildRosterGameList,
   buildTraderMonthRoleGrid,
   buildTraderRosterFromSchedule,
+  buildTradersOnPerDay,
   buildWhosOnDayLayout,
   buildWhosOnMonthGrid,
+  canNavigateScheduleRange,
   COVERAGE_NUMBERS_BY_TOURNAMENT,
   COVERAGE_NUMBERS_BY_TRADER,
+  formatScheduleDayRangeLabel,
+  getScheduleDaysSlice,
+  matchScheduleDayRangePreset,
+  navigateScheduleDayRange,
+  scheduleDayRangeFromPreset,
   IMPORT_COLUMN_MAP,
   OPS_ALERTS,
   getTournamentByCode,
@@ -19,18 +27,24 @@ import {
   type SelectedMatchContext,
   findFixtureById,
   type FixtureAssignmentPatch,
+  type FixtureCoverageChartSeries,
+  type FixturesPerDayCount,
   type FixtureLifecycleAction,
   type Persona,
   type ScheduleDay,
+  type ScheduleDayRange,
+  type ScheduleDayRangePreset,
   type TraderMonthRoleGrid,
   type TraderMonthRoleId,
   type TraderMonthRoleTask,
+  type TradersOnPerDay,
   type WhosOnDayEvent,
   type WhosOnDayLayout,
   type WhosOnMonthGrid,
   type WhosOnMonthGridCell,
   type ScheduleContentFilters,
   type ScheduleListMode,
+  type ScheduleLayoutDensity,
   type StatusFilter,
 } from '../../data/coverageScheduleStore'
 import { FixtureCard, PanelCard, ScheduleMatchSplit, StatTile, WeekScheduleLayout } from './CoverageShared'
@@ -42,6 +56,7 @@ export function WeekScheduleView({
   persona,
   statusFilter,
   listMode,
+  layoutDensity,
   contentFilters,
   onOpenTournament,
   days = SCHEDULE_DAYS,
@@ -51,6 +66,7 @@ export function WeekScheduleView({
   persona: Persona
   statusFilter: StatusFilter
   listMode?: ScheduleListMode
+  layoutDensity?: ScheduleLayoutDensity
   contentFilters?: ScheduleContentFilters
   onOpenTournament?: (code: string) => void
   days?: ScheduleDay[]
@@ -62,6 +78,7 @@ export function WeekScheduleView({
       persona={persona}
       statusFilter={statusFilter}
       listMode={listMode}
+      layoutDensity={layoutDensity}
       contentFilters={contentFilters}
       days={days}
       onOpenTournament={onOpenTournament}
@@ -276,15 +293,387 @@ export function MyRotaView({
   )
 }
 
+const COVERAGE_CHART_SERIES: {
+  id: FixtureCoverageChartSeries
+  label: string
+  className: string
+}[] = [
+  { id: 'live', label: 'Live', className: 'cov-chart-seg--live' },
+  { id: 'preMatch', label: 'Pre-match', className: 'cov-chart-seg--pre-match' },
+  { id: 'standard', label: 'Standard', className: 'cov-chart-seg--standard' },
+  { id: 'notCovered', label: 'Not covered', className: 'cov-chart-seg--not-covered' },
+]
+
+const DEFAULT_COVERAGE_SERIES: Record<FixtureCoverageChartSeries, boolean> = {
+  live: true,
+  preMatch: true,
+  standard: true,
+  notCovered: true,
+}
+
+function formatChartDayLabel(label: string): string {
+  const parts = label.split(' ')
+  if (parts.length >= 2) return `${parts[0].slice(0, 3)} ${parts[1]}`
+  return label.slice(0, 6)
+}
+
+function CoverageChartToggles({
+  series,
+  showTotal,
+  onToggleSeries,
+  onToggleTotal,
+}: {
+  series: Record<FixtureCoverageChartSeries, boolean>
+  showTotal: boolean
+  onToggleSeries: (id: FixtureCoverageChartSeries) => void
+  onToggleTotal: () => void
+}) {
+  return (
+    <div className="cov-chart-toggles">
+      {COVERAGE_CHART_SERIES.map((item) => (
+        <label key={item.id} className="cov-chart-toggle">
+          <input
+            type="checkbox"
+            checked={series[item.id]}
+            onChange={() => onToggleSeries(item.id)}
+          />
+          <span className={`cov-chart-swatch ${item.className}`} aria-hidden />
+          {item.label}
+        </label>
+      ))}
+      <label className="cov-chart-toggle cov-chart-toggle--total">
+        <input type="checkbox" checked={showTotal} onChange={onToggleTotal} />
+        <span className="cov-chart-swatch cov-chart-seg--total" aria-hidden />
+        All (total line)
+      </label>
+    </div>
+  )
+}
+
+function FixturesPerDayChart({
+  rows,
+  series,
+  showTotal,
+}: {
+  rows: FixturesPerDayCount[]
+  series: Record<FixtureCoverageChartSeries, boolean>
+  showTotal: boolean
+}) {
+  const maxStack = Math.max(
+    1,
+    ...rows.map((row) => {
+      let sum = 0
+      if (series.live) sum += row.live
+      if (series.preMatch) sum += row.preMatch
+      if (series.standard) sum += row.standard
+      if (series.notCovered) sum += row.notCovered
+      return sum
+    }),
+  )
+  const maxTotal = Math.max(1, ...rows.map((row) => row.total))
+
+  return (
+    <div className="cov-numbers-chart-plot cov-vbar-chart-wrap">
+      <div className="cov-vbar-y-axis" aria-hidden>
+        <span>{maxStack}</span>
+        <span>{Math.round(maxStack / 2)}</span>
+        <span>0</span>
+      </div>
+      <div className="cov-vbar-chart-scroll">
+        <div className="cov-vbar-chart" role="img" aria-label="Fixtures per day by coverage type">
+        {rows.map((row) => {
+          const segments = COVERAGE_CHART_SERIES.filter((item) => series[item.id])
+          const stackTotal = segments.reduce((sum, item) => sum + row[item.id], 0)
+          const stackHeight = (stackTotal / maxStack) * 100
+          const totalHeight = showTotal ? (row.total / maxTotal) * 100 : 0
+          return (
+            <div key={row.date} className="cov-vbar-col" title={`${row.label}: ${stackTotal} fixtures`}>
+              <div className="cov-vbar-col-inner">
+                {showTotal ? (
+                  <div
+                    className="cov-vbar-total-marker"
+                    style={{ bottom: `${totalHeight}%` }}
+                    title={`Total: ${row.total}`}
+                  />
+                ) : null}
+                <div className="cov-vbar-stack" style={{ height: `${stackHeight}%` }}>
+                  {segments.map((item) => {
+                    const value = row[item.id]
+                    if (!value) return null
+                    return (
+                      <div
+                        key={item.id}
+                        className={`cov-vbar-seg ${item.className}`}
+                        style={{ flexGrow: value }}
+                        title={`${item.label}: ${value}`}
+                      />
+                    )
+                  })}
+                </div>
+              </div>
+              <span className="cov-vbar-label">{formatChartDayLabel(row.label)}</span>
+            </div>
+          )
+        })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FixturesVsTradersChart({
+  fixtureRows,
+  traderRows,
+  series,
+}: {
+  fixtureRows: FixturesPerDayCount[]
+  traderRows: TradersOnPerDay[]
+  series: Record<FixtureCoverageChartSeries, boolean>
+}) {
+  const minColWidth = 36
+  const chartWidth = Math.max(fixtureRows.length * minColWidth, 260)
+  const chartHeight = 200
+  const pad = { top: 20, right: 40, bottom: 32, left: 38 }
+  const innerW = chartWidth - pad.left - pad.right
+  const innerH = chartHeight - pad.top - pad.bottom
+
+  const maxFixtures = Math.max(
+    1,
+    ...fixtureRows.map((row) => {
+      let sum = 0
+      if (series.live) sum += row.live
+      if (series.preMatch) sum += row.preMatch
+      if (series.standard) sum += row.standard
+      if (series.notCovered) sum += row.notCovered
+      return sum
+    }),
+  )
+  const maxTraders = Math.max(1, ...traderRows.map((row) => row.countOn))
+  const colW = fixtureRows.length ? innerW / fixtureRows.length : innerW
+  const barW = Math.min(20, Math.max(10, colW * 0.65))
+
+  const traderPoints = traderRows.map((row, i) => {
+    const x = pad.left + i * colW + colW / 2
+    const y = pad.top + innerH - (row.countOn / maxTraders) * innerH
+    return `${x},${y}`
+  })
+
+  return (
+    <div className="cov-numbers-chart-plot cov-combo-chart-wrap">
+      <svg
+        className="cov-combo-chart"
+        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ minWidth: chartWidth }}
+        role="img"
+        aria-label="Fixtures per day compared with traders on"
+      >
+        {[0, 0.5, 1].map((tick) => {
+          const y = pad.top + innerH * (1 - tick)
+          const value = Math.round(maxFixtures * tick)
+          return (
+            <g key={`fix-${tick}`}>
+              <line
+                x1={pad.left}
+                y1={y}
+                x2={chartWidth - pad.right}
+                y2={y}
+                className="cov-combo-grid"
+              />
+              <text x={pad.left - 6} y={y + 4} textAnchor="end" className="cov-combo-axis-label">
+                {value}
+              </text>
+            </g>
+          )
+        })}
+        {[0, 0.5, 1].map((tick) => {
+          const y = pad.top + innerH * (1 - tick)
+          const value = Math.round(maxTraders * tick)
+          return (
+            <text
+              key={`trader-${tick}`}
+              x={chartWidth - pad.right + 6}
+              y={y + 4}
+              textAnchor="start"
+              className="cov-combo-axis-label cov-combo-axis-label--traders"
+            >
+              {value}
+            </text>
+          )
+        })}
+        {fixtureRows.map((row, i) => {
+          const segments = COVERAGE_CHART_SERIES.filter((item) => series[item.id])
+          const stackTotal = segments.reduce((sum, item) => sum + row[item.id], 0)
+          const x = pad.left + i * colW + (colW - barW) / 2
+          let yOffset = pad.top + innerH
+          return (
+            <g key={row.date}>
+              {segments.map((item) => {
+                const value = row[item.id]
+                if (!value) return null
+                const h = (value / maxFixtures) * innerH
+                yOffset -= h
+                return (
+                  <rect
+                    key={item.id}
+                    x={x}
+                    y={yOffset}
+                    width={barW}
+                    height={h}
+                    className={`cov-combo-bar ${item.className}`}
+                    rx={1}
+                  >
+                    <title>{`${row.label} — ${item.label}: ${value}`}</title>
+                  </rect>
+                )
+              })}
+              <text
+                x={x + barW / 2}
+                y={chartHeight - 6}
+                textAnchor="middle"
+                className="cov-combo-x-label"
+              >
+                {formatChartDayLabel(row.label)}
+              </text>
+              {stackTotal ? (
+                <text
+                  x={x + barW / 2}
+                  y={pad.top + innerH - (stackTotal / maxFixtures) * innerH - 4}
+                  textAnchor="middle"
+                  className="cov-combo-bar-total"
+                >
+                  {stackTotal}
+                </text>
+              ) : null}
+            </g>
+          )
+        })}
+        <polyline points={traderPoints.join(' ')} className="cov-combo-trader-line" fill="none" />
+        {traderRows.map((row, i) => {
+          const x = pad.left + i * colW + colW / 2
+          const y = pad.top + innerH - (row.countOn / maxTraders) * innerH
+          return (
+            <circle key={row.date} cx={x} cy={y} r={3.5} className="cov-combo-trader-dot">
+              <title>{`${row.label}: ${row.countOn} traders on`}</title>
+            </circle>
+          )
+        })}
+        <text x={pad.left} y={10} className="cov-combo-legend cov-combo-legend--fixtures">Fixtures</text>
+        <text
+          x={chartWidth - pad.right}
+          y={10}
+          textAnchor="end"
+          className="cov-combo-legend cov-combo-legend--traders"
+        >
+          Traders on
+        </text>
+      </svg>
+    </div>
+  )
+}
+
 export function CoverageNumbersView({ onBack }: { onBack: () => void }) {
+  const [dayRange, setDayRange] = useState<ScheduleDayRange>(() =>
+    scheduleDayRangeFromPreset('four-weeks', SCHEDULE_DAYS),
+  )
+  const [series, setSeries] = useState(DEFAULT_COVERAGE_SERIES)
+  const [showTotal, setShowTotal] = useState(false)
+
+  const numbersPresets: { id: ScheduleDayRangePreset; label: string }[] = [
+    { id: 'this-week', label: 'Week' },
+    { id: 'four-weeks', label: '4 weeks' },
+    { id: 'this-month', label: 'Month' },
+    { id: 'all', label: 'All days' },
+  ]
+
+  const visibleDays = useMemo(
+    () => getScheduleDaysSlice(SCHEDULE_DAYS, dayRange.mode === 'all' ? { mode: 'all', startIndex: 0 } : dayRange),
+    [dayRange],
+  )
+  const fixtureRows = useMemo(() => buildFixturesPerDayCounts(visibleDays), [visibleDays])
+  const traderRows = useMemo(() => buildTradersOnPerDay(visibleDays), [visibleDays])
+  const periodLabel = formatScheduleDayRangeLabel(
+    SCHEDULE_DAYS,
+    dayRange.mode === 'all' ? { mode: 'all', startIndex: 0 } : dayRange,
+  )
+
+  const toggleSeries = (id: FixtureCoverageChartSeries) => {
+    setSeries((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
   const maxGames = Math.max(...COVERAGE_NUMBERS_BY_TRADER.map((t) => t.games))
   return (
-    <div className="cov-view-stack">
+    <div className="cov-view-stack cov-numbers-view">
       <div className="cov-view-head">
         <h3 className="cov-view-title">Coverage numbers</h3>
         <button type="button" className="cov-btn" onClick={onBack}>← Back to schedule</button>
       </div>
-      <p className="cov-muted">Analytics vs previous years — not on the daily schedule.</p>
+      <p className="cov-muted">Imported schedule analytics and year-on-year comparison.</p>
+
+      <section className="cov-numbers-charts-section" aria-label="Coverage charts">
+        <div className="cov-numbers-toolbar">
+          <div className="cov-numbers-period">
+            <div className="cov-numbers-period-presets">
+              {numbersPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className={
+                    'cov-btn' +
+                    (matchScheduleDayRangePreset(dayRange, preset.id, SCHEDULE_DAYS) ? ' cov-btn--primary' : '')
+                  }
+                  onClick={() => setDayRange(scheduleDayRangeFromPreset(preset.id, SCHEDULE_DAYS))}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            {dayRange.mode !== 'all' ? (
+              <div className="cov-numbers-period-nav">
+                <button
+                  type="button"
+                  className="cov-btn"
+                  disabled={!canNavigateScheduleRange(SCHEDULE_DAYS, dayRange, 'prev')}
+                  onClick={() => setDayRange((r) => navigateScheduleDayRange(SCHEDULE_DAYS, r, 'prev'))}
+                >
+                  ← Prev
+                </button>
+                <span className="cov-muted">{periodLabel}</span>
+                <button
+                  type="button"
+                  className="cov-btn"
+                  disabled={!canNavigateScheduleRange(SCHEDULE_DAYS, dayRange, 'next')}
+                  onClick={() => setDayRange((r) => navigateScheduleDayRange(SCHEDULE_DAYS, r, 'next'))}
+                >
+                  Next →
+                </button>
+              </div>
+            ) : (
+              <span className="cov-muted">{periodLabel}</span>
+            )}
+          </div>
+          <CoverageChartToggles
+            series={series}
+            showTotal={showTotal}
+            onToggleSeries={toggleSeries}
+            onToggleTotal={() => setShowTotal((v) => !v)}
+          />
+        </div>
+
+        <div className="cov-numbers-charts-grid">
+          <PanelCard title="Fixtures per day by coverage">
+            <FixturesPerDayChart rows={fixtureRows} series={series} showTotal={showTotal} />
+          </PanelCard>
+
+          <PanelCard title="Fixtures vs trader availability">
+            <p className="cov-muted cov-combo-chart-caption">
+              Stacked bars = fixture count by coverage type. Line = traders on per day.
+            </p>
+            <FixturesVsTradersChart fixtureRows={fixtureRows} traderRows={traderRows} series={series} />
+          </PanelCard>
+        </div>
+      </section>
+
       <div className="cov-two-col">
         <PanelCard title="Coverage by trader (Aug 2026)">
           <div className="cov-hbar-chart">
@@ -529,6 +918,89 @@ function WhosOnDayGantt({
   )
 }
 
+const EMPTY_WHOS_ON_MONTH_ROLES = { prep: 0, data: 0, fixtureLead: 0, training: 0 }
+
+function whosOnMonthCellHasAssignments(cell: WhosOnMonthGridCell): boolean {
+  return (
+    cell.tradingGameCount > 0 ||
+    cell.roles.prep > 0 ||
+    cell.roles.data > 0 ||
+    cell.roles.fixtureLead > 0 ||
+    cell.roles.training > 0
+  )
+}
+
+function formatWhosOnMonthCellTitle(cell: WhosOnMonthGridCell): string {
+  if (!cell.isOnShift) return 'Off shift'
+  const parts = ['On shift']
+  parts.push(
+    `${cell.tradingGameCount} trading game${cell.tradingGameCount !== 1 ? 's' : ''}`,
+  )
+  if (cell.isLead) parts.push('Daily lead')
+  if (cell.roles.prep > 0) {
+    parts.push(`${cell.roles.prep} prep`)
+  }
+  if (cell.roles.data > 0) {
+    parts.push(`${cell.roles.data} data`)
+  }
+  if (cell.roles.fixtureLead > 0) {
+    parts.push(`${cell.roles.fixtureLead} fixture lead`)
+  }
+  if (cell.roles.training > 0) {
+    parts.push(`${cell.roles.training} training`)
+  }
+  return parts.join(' · ')
+}
+
+function WhosOnMonthRoleDots({ cell }: { cell: WhosOnMonthGridCell }) {
+  const dots: { role: string; label: string }[] = []
+  if (cell.roles.prep > 0) {
+    dots.push({ role: 'prep', label: `Prep (${cell.roles.prep})` })
+  }
+  if (cell.roles.data > 0) {
+    dots.push({ role: 'data', label: `Data (${cell.roles.data})` })
+  }
+  if (cell.isLead) {
+    dots.push({ role: 'lead', label: 'Daily lead' })
+  } else if (cell.roles.fixtureLead > 0) {
+    dots.push({ role: 'lead', label: `Lead (${cell.roles.fixtureLead})` })
+  }
+  if (cell.roles.training > 0) {
+    dots.push({ role: 'training', label: `Training (${cell.roles.training})` })
+  }
+  if (dots.length === 0) return null
+
+  return (
+    <div className="cov-whoson-month-cell-dots" aria-hidden="true">
+      {dots.map((dot) => (
+        <span
+          key={dot.role}
+          className={`cov-whoson-month-cell-dot cov-whoson-month-cell-dot--${dot.role}`}
+          title={dot.label}
+        />
+      ))}
+    </div>
+  )
+}
+
+function WhosOnMonthCellContent({ cell }: { cell: WhosOnMonthGridCell }) {
+  if (!cell.isOnShift) return null
+
+  return (
+    <>
+      <span
+        className={
+          'cov-whoson-month-cell-games' +
+          (cell.tradingGameCount === 0 ? ' cov-whoson-month-cell-games--zero' : '')
+        }
+      >
+        {cell.tradingGameCount}
+      </span>
+      <WhosOnMonthRoleDots cell={cell} />
+    </>
+  )
+}
+
 function WhosOnMonthCell({
   cell,
   dayInRange,
@@ -544,44 +1016,26 @@ function WhosOnMonthCell({
     return <div className="cov-whoson-month-cell cov-whoson-month-cell--off-range" aria-hidden="true" />
   }
 
-  const clickable = cell.isOnShift && cell.assignmentCount > 0
-  const title = cell.isOnShift
-    ? `${cell.isLead ? 'Lead · ' : ''}On shift${cell.assignmentCount > 0 ? ` · ${cell.assignmentCount} assignment${cell.assignmentCount !== 1 ? 's' : ''}` : ''}`
-    : 'Off'
+  const clickable = cell.isOnShift && whosOnMonthCellHasAssignments(cell)
+  const title = formatWhosOnMonthCellTitle(cell)
+  const cellClassName =
+    'cov-whoson-month-cell' +
+    (cell.isOnShift ? ' cov-whoson-month-cell--on' : ' cov-whoson-month-cell--off') +
+    (cell.isLead ? ' cov-whoson-month-cell--lead' : '') +
+    (clickable ? ' cov-whoson-month-cell--clickable' : '') +
+    (selected ? ' cov-whoson-month-cell--selected' : '')
 
   if (!clickable) {
     return (
-      <div
-        className={
-          'cov-whoson-month-cell' +
-          (cell.isOnShift ? ' cov-whoson-month-cell--on' : ' cov-whoson-month-cell--off') +
-          (cell.isLead ? ' cov-whoson-month-cell--lead' : '')
-        }
-        title={title}
-      >
-        <span className="cov-whoson-month-cell-status">{cell.isOnShift ? 'On' : 'Off'}</span>
-        {cell.isLead ? <span className="cov-whoson-month-cell-lead">Lead</span> : null}
-        {cell.isOnShift && cell.assignmentCount > 0 ? (
-          <span className="cov-whoson-month-cell-count">{cell.assignmentCount}</span>
-        ) : null}
+      <div className={cellClassName} title={title}>
+        <WhosOnMonthCellContent cell={cell} />
       </div>
     )
   }
 
   return (
-    <button
-      type="button"
-      className={
-        'cov-whoson-month-cell cov-whoson-month-cell--on cov-whoson-month-cell--clickable' +
-        (cell.isLead ? ' cov-whoson-month-cell--lead' : '') +
-        (selected ? ' cov-whoson-month-cell--selected' : '')
-      }
-      title={title}
-      onClick={onSelect}
-    >
-      <span className="cov-whoson-month-cell-status">On</span>
-      {cell.isLead ? <span className="cov-whoson-month-cell-lead">Lead</span> : null}
-      <span className="cov-whoson-month-cell-count">{cell.assignmentCount}</span>
+    <button type="button" className={cellClassName} title={title} onClick={onSelect}>
+      <WhosOnMonthCellContent cell={cell} />
     </button>
   )
 }
@@ -644,7 +1098,8 @@ function WhosOnMonthGridView({
                   date: day.date ?? '',
                   isOnShift: false,
                   isLead: false,
-                  assignmentCount: 0,
+                  tradingGameCount: 0,
+                  roles: EMPTY_WHOS_ON_MONTH_ROLES,
                 }
                 return (
                   <WhosOnMonthCell
@@ -761,7 +1216,7 @@ export function TradersRosterView({
             <p className="cov-muted">
               {viewMode === 'day'
                 ? `Traders on shift as columns; time runs down from ${dayLayout ? `${String(dayLayout.timelineStartHour).padStart(2, '0')}:00` : '06:00'} through the night. Click a bar to open match details.`
-                : 'Traders on the Y-axis, calendar days across the month. Click a cell with assignments to open match details.'}
+                : 'Traders on the Y-axis, calendar days across the month. Number = trading games; dots = other roles. Click a cell with assignments to open match details.'}
             </p>
           </div>
           {viewMode === 'day' && dayLayout ? (
@@ -808,10 +1263,13 @@ export function TradersRosterView({
       ) : (
         <>
           <div className="cov-roster-cal-legend cov-roster-cal-legend--compact">
-            <span className="cov-roster-cal-legend-item"><span className="cov-roster-cal-swatch cov-roster-cal-swatch--trading" /> On shift</span>
-            <span className="cov-roster-cal-legend-item"><span className="cov-roster-cal-swatch cov-roster-cal-swatch--lead" /> Lead</span>
+            <span className="cov-roster-cal-legend-item"><span className="cov-roster-cal-swatch cov-roster-cal-swatch--trading" /> On shift (cell fill)</span>
             <span className="cov-roster-cal-legend-item"><span className="cov-roster-cal-swatch cov-roster-cal-swatch--neutral" /> Off</span>
-            <span className="cov-muted">SRL hidden · count = assignments that day</span>
+            <span className="cov-muted">Number = trading games</span>
+            <span className="cov-roster-cal-legend-item"><span className="cov-whoson-month-cell-dot cov-whoson-month-cell-dot--prep" /> Prep</span>
+            <span className="cov-roster-cal-legend-item"><span className="cov-whoson-month-cell-dot cov-whoson-month-cell-dot--data" /> Data</span>
+            <span className="cov-roster-cal-legend-item"><span className="cov-whoson-month-cell-dot cov-whoson-month-cell-dot--lead" /> Lead</span>
+            <span className="cov-muted">SRL hidden</span>
           </div>
 
           {monthGrid.traders.length > 0 ? (

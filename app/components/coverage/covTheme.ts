@@ -1,4 +1,4 @@
-export type CovTheme = 'default' | 'light' | 'dark-sharp'
+export type CovTheme = 'default' | 'light-blue'
 
 export const COV_THEME_STORAGE_KEY = 'cov-theme'
 
@@ -16,28 +16,23 @@ export function applyCovThemeToDocument(theme: CovTheme | null): void {
 }
 
 export const COV_THEME_OPTIONS: { id: CovTheme; label: string }[] = [
-  { id: 'default', label: 'Default' },
-  { id: 'light', label: 'Light' },
-  { id: 'dark-sharp', label: 'Dark sharp' },
+  { id: 'light-blue', label: 'Light blue' },
+  { id: 'default', label: 'Dark mode' },
 ]
 
 export function readStoredCovTheme(): CovTheme {
-  if (typeof window === 'undefined') return 'default'
+  if (typeof window === 'undefined') return 'light-blue'
   const stored = localStorage.getItem(COV_THEME_STORAGE_KEY)
-  if (stored === 'accent-blue') {
+  if (stored === 'accent-blue' || stored === 'high-contrast' || stored === 'dark-sharp') {
     localStorage.setItem(COV_THEME_STORAGE_KEY, 'default')
     return 'default'
   }
-  if (stored === 'high-contrast') {
-    localStorage.setItem(COV_THEME_STORAGE_KEY, 'dark-sharp')
-    return 'dark-sharp'
+  if (stored === 'soft-light' || stored === 'light') {
+    localStorage.setItem(COV_THEME_STORAGE_KEY, 'light-blue')
+    return 'light-blue'
   }
-  if (stored === 'soft-light') {
-    localStorage.setItem(COV_THEME_STORAGE_KEY, 'light')
-    return 'light'
-  }
-  if (stored === 'light' || stored === 'dark-sharp' || stored === 'default') {
+  if (stored === 'light-blue' || stored === 'default') {
     return stored
   }
-  return 'default'
+  return 'light-blue'
 }

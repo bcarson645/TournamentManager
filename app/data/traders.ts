@@ -23,6 +23,19 @@ export const DEFAULT_TRADERS: Trader[] = [
   t('Wolff'),
 ]
 
+const PLACEHOLDER_TRADER_NAMES = new Set(['???'])
+
+/** True for real roster names (excludes empty, em-dash, and import placeholders like ???). */
+export function isValidTraderName(name: string | null | undefined): boolean {
+  if (!name || name.trim() === '' || name === '—') return false
+  return !PLACEHOLDER_TRADER_NAMES.has(name)
+}
+
+/** Traders available in assignment dropdowns and display pools. */
+export function getAssignableTraders(): Trader[] {
+  return DEFAULT_TRADERS.filter((trader) => isValidTraderName(trader.name))
+}
+
 /** @deprecated Use DEFAULT_TRADERS */
 export const SCHEDULE_TRADERS = DEFAULT_TRADERS
 

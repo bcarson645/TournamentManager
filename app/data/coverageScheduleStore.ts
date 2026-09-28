@@ -4,7 +4,7 @@ import {
   IMPORT_SOURCE,
   type ImportedTournament,
 } from './coverageScheduleImported'
-import { DEFAULT_TRADERS } from './traders'
+import { DEFAULT_TRADERS, isValidTraderName } from './traders'
 
 export type TournamentTier = 1 | 2 | 3
 
@@ -38,13 +38,25 @@ export type ScheduleView =
 
 export type ScheduleListMode = 'by-day' | 'all-games' | 'by-tournament'
 
+/** Row density for schedule fixture tables and lists. */
+export type ScheduleLayoutDensity = 'comfortable' | 'condensed' | 'ultra-condensed'
+
+export const SCHEDULE_LAYOUT_DENSITY_OPTIONS: { id: ScheduleLayoutDensity; label: string }[] = [
+  { id: 'comfortable', label: 'Comfortable' },
+  { id: 'condensed', label: 'Condensed' },
+  { id: 'ultra-condensed', label: 'Ultra condensed' },
+]
+
 export type TierFilter = 'all' | 'tier-1' | 'tier-1-2' | 'tier-3'
+
+export type PrepDueFilter = 'all' | 'due-this-week' | 'overdue' | 'due-next-7-days'
 
 export interface ScheduleContentFilters {
   showSrl: boolean
   tierFilter: TierFilter
   /** When set, only fixtures involving this trader (any role) are shown. */
   traderFilter: string | null
+  prepDueFilter: PrepDueFilter
 }
 
 export interface SelectedMatchContext {
@@ -73,7 +85,9 @@ export interface ScheduleFixture {
   trading: string | null
   prep: string | null
   lead: string | null
-  scout: string
+  /** Whether this fixture requires a scout (yes/no flag, not a person assignment). */
+  scout: boolean
+  /** Data trader assignment (distinct from scout flag). */
   data?: string | null
   gap: boolean
   tier?: TournamentTier
@@ -88,6 +102,8 @@ export interface ScheduleFixture {
   marketsTotal?: number
   prepared?: boolean
   preparedBy?: string
+  /** ISO date when prep was marked complete. */
+  preparedAt?: string
   fcDay?: string
   spansDays?: boolean
   format?: string
@@ -117,14 +133,47 @@ export interface ScheduleDay {
 export { IMPORT_SOURCE, type ImportedTournament }
 
 export const SCHEDULE_WEEK_SIZE = 7
+export const SCHEDULE_FOUR_WEEKS_SIZE = 28
 
-export type ScheduleDayRangeMode = 'week' | 'day' | 'all'
+export type ScheduleDayRangeMode = 'week' | 'four-weeks' | 'month' | 'day' | 'all'
 
-export type ScheduleDayRangePreset = 'this-week' | 'next-week' | 'all'
+export type ScheduleDayRangePreset =
+  | 'this-week'
+  | 'next-week'
+  | 'four-weeks'
+  | 'this-month'
+  | 'all'
 
 export interface ScheduleDayRange {
   mode: ScheduleDayRangeMode
   startIndex: number
+}
+
+function parseScheduleDate(iso: string): Date {
+  return new Date(`${iso}T12:00:00`)
+}
+
+function getScheduleMonthAtIndex(
+  allDays: ScheduleDay[],
+  index: number,
+): { year: number; month: number } {
+  const anchor = allDays[Math.max(0, Math.min(allDays.length - 1, index))]
+  const d = parseScheduleDate(anchor.date)
+  return { year: d.getFullYear(), month: d.getMonth() }
+}
+
+function findScheduleMonthStartIndex(allDays: ScheduleDay[], year: number, month: number): number {
+  return allDays.findIndex((day) => {
+    const d = parseScheduleDate(day.date)
+    return d.getFullYear() === year && d.getMonth() === month
+  })
+}
+
+function getScheduleDayRangeStep(range: ScheduleDayRange): number {
+  if (range.mode === 'day') return 1
+  if (range.mode === 'four-weeks') return SCHEDULE_FOUR_WEEKS_SIZE
+  if (range.mode === 'week') return SCHEDULE_WEEK_SIZE
+  return 0
 }
 
 export function getDefaultScheduleDayRange(): ScheduleDayRange {
@@ -140,7 +189,17 @@ export function getScheduleDaysSlice(
     const day = allDays[range.startIndex]
     return day ? [day] : []
   }
-  return allDays.slice(range.startIndex, range.startIndex + SCHEDULE_WEEK_SIZE)
+  if (range.mode === 'month') {
+    const anchor = allDays[range.startIndex]
+    if (!anchor) return []
+    const { year, month } = getScheduleMonthAtIndex(allDays, range.startIndex)
+    return allDays.filter((day) => {
+      const d = parseScheduleDate(day.date)
+      return d.getFullYear() === year && d.getMonth() === month
+    })
+  }
+  const size = range.mode === 'four-weeks' ? SCHEDULE_FOUR_WEEKS_SIZE : SCHEDULE_WEEK_SIZE
+  return allDays.slice(range.startIndex, range.startIndex + size)
 }
 
 export function formatScheduleDayRangeLabel(
@@ -156,6 +215,15 @@ export function formatScheduleDayRangeLabel(
   const slice = getScheduleDaysSlice(allDays, range)
   if (!slice.length) return 'No fixtures'
   if (range.mode === 'day') return slice[0].label
+  if (range.mode === 'month') {
+    const { year, month } = getScheduleMonthAtIndex(allDays, range.startIndex)
+    return new Date(year, month, 1).toLocaleString('en-GB', { month: 'long', year: 'numeric' })
+  }
+  if (range.mode === 'four-weeks') {
+    const first = slice[0].label
+    const last = slice[slice.length - 1].label
+    return first === last ? first : `${first} – ${last}`
+  }
   const firstDay = slice[0]
   const d = parseScheduleDate(firstDay.date)
   const dayNum = d.getDate()
@@ -169,7 +237,12 @@ export function canNavigateScheduleRange(
   direction: 'prev' | 'next',
 ): boolean {
   if (range.mode === 'all' || !allDays.length) return false
-  const step = range.mode === 'day' ? 1 : SCHEDULE_WEEK_SIZE
+  if (range.mode === 'month') {
+    const { year, month } = getScheduleMonthAtIndex(allDays, range.startIndex)
+    const target = new Date(year, month + (direction === 'next' ? 1 : -1), 1)
+    return findScheduleMonthStartIndex(allDays, target.getFullYear(), target.getMonth()) !== -1
+  }
+  const step = getScheduleDayRangeStep(range)
   if (direction === 'prev') return range.startIndex > 0
   if (range.mode === 'day') return range.startIndex < allDays.length - 1
   return range.startIndex + step < allDays.length
@@ -181,7 +254,14 @@ export function navigateScheduleDayRange(
   direction: 'prev' | 'next',
 ): ScheduleDayRange {
   if (range.mode === 'all' || !allDays.length) return range
-  const step = range.mode === 'day' ? 1 : SCHEDULE_WEEK_SIZE
+  if (range.mode === 'month') {
+    const { year, month } = getScheduleMonthAtIndex(allDays, range.startIndex)
+    const target = new Date(year, month + (direction === 'next' ? 1 : -1), 1)
+    const nextIndex = findScheduleMonthStartIndex(allDays, target.getFullYear(), target.getMonth())
+    if (nextIndex === -1) return range
+    return { mode: 'month', startIndex: nextIndex }
+  }
+  const step = getScheduleDayRangeStep(range)
   const delta = direction === 'prev' ? -step : step
   if (range.mode === 'day') {
     const nextIndex = Math.max(0, Math.min(allDays.length - 1, range.startIndex + delta))
@@ -201,9 +281,29 @@ export function scheduleDayRangeFromPreset(
       return { mode: 'week', startIndex: 0 }
     case 'next-week':
       return { mode: 'week', startIndex: Math.min(SCHEDULE_WEEK_SIZE, Math.max(0, allDays.length - 1)) }
+    case 'four-weeks':
+      return { mode: 'four-weeks', startIndex: 0 }
+    case 'this-month':
+      return { mode: 'month', startIndex: 0 }
     case 'all':
       return { mode: 'all', startIndex: 0 }
   }
+}
+
+export function matchScheduleDayRangePreset(
+  range: ScheduleDayRange,
+  preset: ScheduleDayRangePreset,
+  allDays: ScheduleDay[] = SCHEDULE_DAYS,
+): boolean {
+  const fromPreset = scheduleDayRangeFromPreset(preset, allDays)
+  if (fromPreset.mode !== range.mode) return false
+  if (range.mode === 'all') return true
+  if (range.mode === 'month') {
+    const current = getScheduleMonthAtIndex(allDays, range.startIndex)
+    const presetMonth = getScheduleMonthAtIndex(allDays, fromPreset.startIndex)
+    return current.year === presetMonth.year && current.month === presetMonth.month
+  }
+  return range.startIndex === fromPreset.startIndex
 }
 
 export function scheduleDayRangeForDayIndex(dayIndex: number, allDays: ScheduleDay[] = SCHEDULE_DAYS): ScheduleDayRange {
@@ -235,6 +335,13 @@ export const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
   { id: 'unassigned', label: 'Unassigned' },
 ]
 
+export const PREP_DUE_FILTERS: { id: PrepDueFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'due-this-week', label: 'Prep due this week' },
+  { id: 'overdue', label: 'Prep overdue' },
+  { id: 'due-next-7-days', label: 'Prep due next 7 days' },
+]
+
 export type PipelineStatusTone = 'prepare' | 'publish' | 'settle' | 'price-check'
 
 export const STATUS_FILTER_TONE: Partial<Record<StatusFilter, PipelineStatusTone>> = {
@@ -255,7 +362,7 @@ export const TRADER_ROSTER_WEEK: TraderRosterDay[] = [
   {
     label: 'Tue 18',
     date: '2026-08-18',
-    lead: 'Collinson',
+    lead: 'Moore',
     on: ['Moore', 'Dyer', 'Ewins', 'Collinson'],
     off: ['Cooper', 'Paul', 'Perry'],
   },
@@ -269,28 +376,28 @@ export const TRADER_ROSTER_WEEK: TraderRosterDay[] = [
   {
     label: 'Thu 20',
     date: '2026-08-20',
-    lead: 'Cooper',
+    lead: 'Dyer',
     on: ['Dyer', 'Moore', 'Paul', 'Cooper', 'Perry'],
     off: ['Collinson', 'Ewins'],
   },
   {
     label: 'Fri 21',
     date: '2026-08-21',
-    lead: 'Paul',
+    lead: 'Collinson',
     on: ['Paul', 'Perry', 'Moore'],
     off: ['Dyer', 'Collinson', 'Cooper', 'Ewins'],
   },
   {
     label: 'Sat 22',
     date: '2026-08-22',
-    lead: 'Ewins',
+    lead: 'Moore',
     on: ['Ewins', 'Moore'],
     off: ['Dyer', 'Paul', 'Perry', 'Collinson', 'Cooper'],
   },
   {
     label: 'Sun 23',
     date: '2026-08-23',
-    lead: 'Collinson',
+    lead: 'Cooper',
     on: ['Collinson', 'Dyer', 'Cooper'],
     off: ['Moore', 'Paul', 'Perry', 'Ewins'],
   },
@@ -362,6 +469,7 @@ export interface FixtureAssignmentPatch {
   prep?: string | null
   trading?: string | null
   coverageMode?: CoverageMode
+  scout?: boolean
 }
 
 export type FixtureLifecycleAction = 'prep-done' | 'published' | 'settled'
@@ -404,6 +512,9 @@ function applyAssignmentToFixture(fixture: ScheduleFixture, patch: FixtureAssign
   if ('coverageMode' in patch && patch.coverageMode !== undefined) {
     applyCoverageModeToFixture(fixture, patch.coverageMode)
   }
+  if ('scout' in patch && patch.scout !== undefined) {
+    fixture.scout = patch.scout
+  }
 }
 
 function forEachFixtureById(fixtureId: string, apply: (fixture: ScheduleFixture) => void): boolean {
@@ -432,6 +543,7 @@ function applyLifecycleAction(fixture: ScheduleFixture, action: FixtureLifecycle
   if (action === 'prep-done') {
     fixture.prepared = true
     if (!fixture.prepareBy) fixture.prepareBy = actor
+    if (!fixture.preparedAt) fixture.preparedAt = new Date().toISOString().slice(0, 10)
     return
   }
 
@@ -475,8 +587,156 @@ export function updateFixtureCoverage(fixtureId: string, coverageMode: CoverageM
   return updateFixtureAssignment(fixtureId, { coverageMode })
 }
 
+export function fixtureNeedsPrep(fixture: ScheduleFixture): boolean {
+  return !fixtureIsNotCovered(fixture) && fixture.coverageLabel !== 'Not Covered'
+}
+
 export function matchNeedsPrep(fixture: ScheduleFixture): boolean {
+  if (!fixtureNeedsPrep(fixture)) return false
   return pipelineStepsFromFixture(fixture).prep !== 'done'
+}
+
+const PREP_DUE_DAYS_BEFORE = 7
+const PREP_DUE_SOON_DAYS = 5
+
+function startOfCalendarDay(d: Date): Date {
+  const copy = new Date(d)
+  copy.setHours(0, 0, 0, 0)
+  return copy
+}
+
+export function getFixtureKickoffDate(fixture: ScheduleFixture, dayDate?: string | null): Date | null {
+  if (!dayDate) return null
+  const minutes = parseFixtureTimeToMinutes(fixture.time)
+  const kickoff = parseScheduleDate(dayDate)
+  kickoff.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0)
+  return kickoff
+}
+
+export function getPrepDueDate(fixture: ScheduleFixture, dayDate?: string | null): Date | null {
+  if (!fixtureNeedsPrep(fixture)) return null
+  const kickoff = getFixtureKickoffDate(fixture, dayDate)
+  if (!kickoff) return null
+  const due = new Date(kickoff)
+  due.setDate(due.getDate() - PREP_DUE_DAYS_BEFORE)
+  return due
+}
+
+export function isPrepDone(fixture: ScheduleFixture): boolean {
+  return pipelineStepsFromFixture(fixture).prep === 'done'
+}
+
+export function isPrepOverdue(
+  fixture: ScheduleFixture,
+  dayDate?: string | null,
+  referenceDate: Date = new Date(),
+): boolean {
+  if (!fixtureNeedsPrep(fixture)) return false
+  if (isPrepDone(fixture)) return false
+  const due = getPrepDueDate(fixture, dayDate)
+  if (!due) return false
+  return startOfCalendarDay(referenceDate) > startOfCalendarDay(due)
+}
+
+export function isPrepDueSoon(
+  fixture: ScheduleFixture,
+  dayDate?: string | null,
+  referenceDate: Date = new Date(),
+): boolean {
+  if (!fixtureNeedsPrep(fixture)) return false
+  if (isPrepDone(fixture)) return false
+  const due = getPrepDueDate(fixture, dayDate)
+  if (!due) return false
+  const today = startOfCalendarDay(referenceDate)
+  const dueDay = startOfCalendarDay(due)
+  if (today > dueDay) return false
+  const diffDays = (dueDay.getTime() - today.getTime()) / (24 * 60 * 60 * 1000)
+  return diffDays <= PREP_DUE_SOON_DAYS
+}
+
+export function formatPrepDueLabel(fixture: ScheduleFixture, dayDate?: string | null): string | null {
+  if (!fixtureNeedsPrep(fixture)) return null
+  const due = getPrepDueDate(fixture, dayDate)
+  if (!due) return null
+  const formatted = due.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  return `Prep by ${formatted}`
+}
+
+/** Short prep-due date for ultra-dense rows (e.g. "15 Sep"). */
+export function formatPrepDueShortLabel(fixture: ScheduleFixture, dayDate?: string | null): string | null {
+  if (!fixtureNeedsPrep(fixture)) return null
+  const due = getPrepDueDate(fixture, dayDate)
+  if (!due) return null
+  return due.toLocaleString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+export function formatPrepCompletedLabel(fixture: ScheduleFixture): string | null {
+  if (!fixtureNeedsPrep(fixture)) return null
+  if (!isPrepDone(fixture)) return null
+  const by = fixture.prepareBy ?? fixture.preparedBy
+  if (fixture.preparedAt) {
+    const completed = parseScheduleDate(fixture.preparedAt)
+    const dateLabel = completed.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    return by ? `Done ${dateLabel} · ${by}` : `Done ${dateLabel}`
+  }
+  return by ? `Done · ${by}` : 'Done'
+}
+
+function getWeekBounds(referenceDate: Date): { start: Date; end: Date } {
+  const today = startOfCalendarDay(referenceDate)
+  const day = today.getDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  const start = new Date(today)
+  start.setDate(today.getDate() + mondayOffset)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  return { start, end }
+}
+
+export function matchPrepDueFilter(
+  fixture: ScheduleFixture,
+  filter: PrepDueFilter,
+  dayDate?: string | null,
+  referenceDate: Date = new Date(),
+): boolean {
+  if (filter === 'all') return true
+  if (!fixtureNeedsPrep(fixture)) return false
+  const due = getPrepDueDate(fixture, dayDate)
+  if (!due) return false
+  const dueDay = startOfCalendarDay(due)
+  const today = startOfCalendarDay(referenceDate)
+
+  if (filter === 'overdue') {
+    return isPrepOverdue(fixture, dayDate, referenceDate)
+  }
+  if (filter === 'due-this-week') {
+    if (isPrepDone(fixture)) return false
+    const { start, end } = getWeekBounds(referenceDate)
+    return dueDay >= start && dueDay <= end
+  }
+  if (filter === 'due-next-7-days') {
+    if (isPrepDone(fixture)) return false
+    const end = new Date(today)
+    end.setDate(today.getDate() + 7)
+    return dueDay >= today && dueDay <= end
+  }
+  return true
+}
+
+export function countPrepDueFilter(
+  filter: PrepDueFilter,
+  days: ScheduleDay[] = SCHEDULE_DAYS,
+  referenceDate: Date = new Date(),
+): number {
+  let count = 0
+  for (const day of days) {
+    for (const group of day.tournaments) {
+      for (const fixture of group.matches) {
+        if (matchPrepDueFilter(fixture, filter, day.date, referenceDate)) count++
+      }
+    }
+  }
+  return count
 }
 
 export function matchNeedsPublish(fixture: ScheduleFixture): boolean {
@@ -600,11 +860,38 @@ function traderNameMatches(value: string | null | undefined, traderName: string)
   return Boolean(value && value !== '—' && value === traderName)
 }
 
-/** Data assignments are stored on the fixture scout field when populated. */
+export function formatScoutLabel(scout: boolean): 'Yes' | 'No' {
+  return scout ? 'Yes' : 'No'
+}
+
+/** Data trader assignment for roster / Who's on views. */
 export function getFixtureDataAssignment(fixture: ScheduleFixture): string | null {
-  const scout = fixture.scout?.trim()
-  if (!scout || scout === '—') return null
-  return scout
+  return sanitizeTraderField(fixture.data)
+}
+
+function normalizeScoutField(fixture: ScheduleFixture): void {
+  const raw = fixture.scout as unknown
+  if (typeof raw === 'boolean') return
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim()
+    if (trimmed === 'Yes' || trimmed === 'yes' || trimmed === 'Y') {
+      fixture.scout = true
+      return
+    }
+    if (trimmed === 'No' || trimmed === 'no' || trimmed === 'N' || trimmed === '—' || !trimmed) {
+      fixture.scout = false
+      return
+    }
+    // Legacy: scout previously stored a data trader name.
+    if (isValidTraderName(trimmed) && !fixture.data) {
+      fixture.data = trimmed
+    }
+    fixture.scout = false
+    return
+  }
+
+  fixture.scout = false
 }
 
 export function fixtureInvolvesTrader(
@@ -644,6 +931,7 @@ export function fixtureMatchesFilters(
   statusFilter: StatusFilter,
   contentFilters: ScheduleContentFilters,
   dailyLead?: string | null,
+  dayDate?: string | null,
 ): boolean {
   if (
     contentFilters.traderFilter &&
@@ -651,18 +939,82 @@ export function fixtureMatchesFilters(
   ) {
     return false
   }
-  return matchMatchesStatusFilter(fixture, statusFilter) &&
-    fixtureMatchesContentFilters(fixture, tournamentCode, contentFilters)
+  return (
+    matchMatchesStatusFilter(fixture, statusFilter) &&
+    fixtureMatchesContentFilters(fixture, tournamentCode, contentFilters) &&
+    matchPrepDueFilter(fixture, contentFilters.prepDueFilter, dayDate)
+  )
 }
 
 export const DEFAULT_CONTENT_FILTERS: ScheduleContentFilters = {
   showSrl: false,
   tierFilter: 'all',
   traderFilter: null,
+  prepDueFilter: 'all',
 }
 
 const MAX_TRADING_ASSIGNMENTS_PER_DAY = 2
+const MIN_TRADERS_ON_PER_DAY = 5
 const DISPLAY_DIVERSIFY_SEED = 0x5e4b7a31
+const DAILY_LEAD_TRADERS = ['Collinson', 'Moore', 'Cooper', 'Dyer'] as const
+
+function sanitizeTraderField(value: string | null | undefined): string | null {
+  if (!value || value === '—') return null
+  return isValidTraderName(value) ? value : null
+}
+
+function sanitizeScheduleDays(scheduleDays: ScheduleDay[]): void {
+  for (const day of scheduleDays) {
+    day.tradersOn = day.tradersOn.filter(isValidTraderName)
+    if (!isValidTraderName(day.dailyLead)) {
+      day.dailyLead =
+        day.tradersOn.find(isValidTraderName) ?? DEFAULT_TRADERS.find((t) => isValidTraderName(t.name))?.name ?? 'Dyer'
+    }
+
+    for (const group of day.tournaments) {
+      for (const fixture of group.matches) {
+        fixture.trading = sanitizeTraderField(fixture.trading)
+        fixture.prep = sanitizeTraderField(fixture.prep)
+        fixture.lead = sanitizeTraderField(fixture.lead)
+        fixture.data = sanitizeTraderField(fixture.data)
+        normalizeScoutField(fixture)
+        if (!isValidTraderName(fixture.preMatchTrader)) fixture.preMatchTrader = undefined
+        if (!isValidTraderName(fixture.preparedBy)) fixture.preparedBy = undefined
+        if (!isValidTraderName(fixture.prepareBy)) fixture.prepareBy = undefined
+        if (!isValidTraderName(fixture.publishBy)) fixture.publishBy = undefined
+        if (!isValidTraderName(fixture.settleBy)) fixture.settleBy = undefined
+      }
+    }
+  }
+}
+
+function collectTradersOnForDay(day: ScheduleDay): Set<string> {
+  const on = new Set<string>()
+  for (const name of day.tradersOn) {
+    if (isValidTraderName(name)) on.add(name)
+  }
+  for (const group of day.tournaments) {
+    for (const fixture of group.matches) {
+      if (!isRosterFixture(fixture, group.code)) continue
+      if (isValidTraderName(fixture.trading)) on.add(fixture.trading!)
+      if (isValidTraderName(fixture.prep)) on.add(fixture.prep!)
+    }
+  }
+  return on
+}
+
+function ensureMinimumTradersOnPerDay(scheduleDays: ScheduleDay[]): void {
+  const pool = DEFAULT_TRADERS.map((trader) => trader.name).filter(isValidTraderName)
+
+  for (const day of scheduleDays) {
+    const on = collectTradersOnForDay(day)
+    for (const trader of pool) {
+      if (on.size >= MIN_TRADERS_ON_PER_DAY) break
+      if (!on.has(trader)) on.add(trader)
+    }
+    day.tradersOn = [...on].sort()
+  }
+}
 
 function hashDisplaySeed(input: string): number {
   let h = DISPLAY_DIVERSIFY_SEED
@@ -693,19 +1045,19 @@ function seededShuffleById<T extends { id: string }>(items: T[], seed: number): 
 }
 
 function collectDisplayTraderPool(scheduleDays: ScheduleDay[]): string[] {
-  const fromDefaults = DEFAULT_TRADERS.map((trader) => trader.name)
+  const fromDefaults = DEFAULT_TRADERS.map((trader) => trader.name).filter(isValidTraderName)
   const pool = new Set(fromDefaults)
   for (const day of scheduleDays) {
     for (const group of day.tournaments) {
       for (const fixture of group.matches) {
         if (!isRosterFixture(fixture, group.code)) continue
-        for (const name of [fixture.trading, fixture.prep, fixture.lead, fixture.scout]) {
-          if (name && name !== '—') pool.add(name)
+        for (const name of [fixture.trading, fixture.prep, fixture.lead, fixture.data]) {
+          if (name && name !== '—' && isValidTraderName(name)) pool.add(name)
         }
       }
     }
   }
-  const extras = [...pool].filter((name) => !fromDefaults.includes(name)).sort()
+  const extras = [...pool].filter((name) => !fromDefaults.includes(name) && isValidTraderName(name)).sort()
   return [...fromDefaults, ...extras]
 }
 
@@ -726,15 +1078,7 @@ function pickBalancedTrader(
 }
 
 function rebuildDayTradersOn(day: ScheduleDay): void {
-  const on = new Set<string>()
-  for (const group of day.tournaments) {
-    for (const fixture of group.matches) {
-      if (!isRosterFixture(fixture, group.code)) continue
-      if (fixture.trading) on.add(fixture.trading)
-      if (fixture.prep) on.add(fixture.prep)
-    }
-  }
-  day.tradersOn = [...on].sort()
+  day.tradersOn = [...collectTradersOnForDay(day)].sort()
 }
 
 /** Spread trading assignments across the roster for demo display (max 2 trading games per trader per day). */
@@ -781,16 +1125,47 @@ export function diversifyTradingAssignmentsForDisplay(scheduleDays: ScheduleDay[
         fixture.gap = true
       }
 
-      if (!fixture.scout || fixture.scout === '—') {
+      if (!fixture.data) {
         const dataTrader = pickBalancedTrader(fixture.id, dataCounts, pool, fixture.trading)
         if (dataTrader) {
-          fixture.scout = dataTrader
+          fixture.data = dataTrader
           dataCounts.set(dataTrader, (dataCounts.get(dataTrader) ?? 0) + 1)
         }
       }
     }
 
     rebuildDayTradersOn(day)
+  }
+}
+
+/** Spread daily lead across the senior lead pool (balanced counts; prefer traders on shift). */
+function distributeDailyLeadAssignments(scheduleDays: ScheduleDay[]): void {
+  const leadCounts = new Map<string, number>()
+  for (const name of DAILY_LEAD_TRADERS) leadCounts.set(name, 0)
+
+  const sorted = [...scheduleDays].sort((a, b) => a.date.localeCompare(b.date))
+
+  for (const day of sorted) {
+    const onShift = new Set(
+      day.tradersOn.filter((name): name is (typeof DAILY_LEAD_TRADERS)[number] =>
+        (DAILY_LEAD_TRADERS as readonly string[]).includes(name),
+      ),
+    )
+    const pool =
+      onShift.size > 0
+        ? DAILY_LEAD_TRADERS.filter((name) => onShift.has(name))
+        : [...DAILY_LEAD_TRADERS]
+
+    const lead = pool
+      .slice()
+      .sort((a, b) => {
+        const diff = (leadCounts.get(a) ?? 0) - (leadCounts.get(b) ?? 0)
+        if (diff !== 0) return diff
+        return hashDisplaySeed(`${day.date}:${a}`) - hashDisplaySeed(`${day.date}:${b}`)
+      })[0]
+
+    day.dailyLead = lead
+    leadCounts.set(lead, (leadCounts.get(lead) ?? 0) + 1)
   }
 }
 
@@ -802,11 +1177,16 @@ function syncTournamentFixturesFromSchedule(
   scheduleDays: ScheduleDay[],
   tournaments: ImportedTournament[],
 ): ImportedTournament[] {
-  const patch = new Map<string, Pick<ScheduleFixture, 'trading' | 'gap' | 'scout'>>()
+  const patch = new Map<string, Pick<ScheduleFixture, 'trading' | 'gap' | 'scout' | 'data'>>()
   for (const day of scheduleDays) {
     for (const group of day.tournaments) {
       for (const fixture of group.matches) {
-        patch.set(fixture.id, { trading: fixture.trading, gap: fixture.gap, scout: fixture.scout })
+        patch.set(fixture.id, {
+          trading: fixture.trading,
+          gap: fixture.gap,
+          scout: fixture.scout,
+          data: fixture.data,
+        })
       }
     }
   }
@@ -823,7 +1203,10 @@ function syncTournamentFixturesFromSchedule(
 
 function buildDisplaySchedule(): ScheduleDay[] {
   const cloned = cloneScheduleDays(IMPORTED_SCHEDULE_DAYS)
+  sanitizeScheduleDays(cloned)
   diversifyTradingAssignmentsForDisplay(cloned)
+  ensureMinimumTradersOnPerDay(cloned)
+  distributeDailyLeadAssignments(cloned)
   return cloned
 }
 
@@ -1102,7 +1485,7 @@ export function formatFixtureMatchLabel(fixture: ScheduleFixture): string {
 /** Truncate text with ellipsis for narrow table cells (full string in title tooltip). */
 export function truncateWithEllipsis(text: string, maxChars = 48): string {
   const trimmed = text.trim()
-  if (trimmed.length <= maxChars) return trimmed
+  if (maxChars <= 0 || trimmed.length <= maxChars) return trimmed
   return `${trimmed.slice(0, maxChars - 1)}…`
 }
 
@@ -1146,27 +1529,22 @@ export function buildTraderRosterFromSchedule(): {
 }[] {
   const allTraders = new Set<string>()
   for (const day of SCHEDULE_DAYS) {
-    day.tradersOn.forEach((t) => allTraders.add(t))
+    day.tradersOn.forEach((t) => {
+      if (isValidTraderName(t)) allTraders.add(t)
+    })
     for (const group of day.tournaments) {
       for (const m of group.matches) {
         if (!isRosterFixture(m, group.code)) continue
-        if (m.trading) allTraders.add(m.trading)
-        if (m.prep) allTraders.add(m.prep)
-        if (m.lead) allTraders.add(m.lead)
+        if (isValidTraderName(m.trading)) allTraders.add(m.trading!)
+        if (isValidTraderName(m.prep)) allTraders.add(m.prep!)
+        if (isValidTraderName(m.lead)) allTraders.add(m.lead!)
       }
     }
   }
   const traderList = [...allTraders].sort()
 
   return SCHEDULE_DAYS.map((day) => {
-    const onSet = new Set(day.tradersOn)
-    for (const group of day.tournaments) {
-      for (const m of group.matches) {
-        if (!isRosterFixture(m, group.code)) continue
-        if (m.trading) onSet.add(m.trading)
-        if (m.prep) onSet.add(m.prep)
-      }
-    }
+    const onSet = collectTradersOnForDay(day)
     const on = [...onSet].sort()
     const off = traderList.filter((t) => !onSet.has(t))
     const assignments = on.map((trader) => {
@@ -1185,8 +1563,73 @@ export function buildTraderRosterFromSchedule(): {
   })
 }
 
-function parseScheduleDate(iso: string): Date {
-  return new Date(`${iso}T12:00:00`)
+export interface FixturesPerDayCount {
+  date: string
+  label: string
+  live: number
+  preMatch: number
+  notCovered: number
+  standard: number
+  total: number
+}
+
+export type FixtureCoverageChartSeries = 'live' | 'preMatch' | 'notCovered' | 'standard'
+
+function classifyFixtureForDayChart(
+  fixture: ScheduleFixture,
+  tournamentCode: string,
+): FixtureCoverageChartSeries {
+  const tag = resolveFixtureCoverageTagKind(fixture, tournamentCode)
+  if (tag === 'not-covered') return 'notCovered'
+  if (tag === 'pre-match') return 'preMatch'
+  if (tag === 'live' || tag === 'premium') return 'live'
+  return 'standard'
+}
+
+export function buildFixturesPerDayCounts(days: ScheduleDay[] = SCHEDULE_DAYS): FixturesPerDayCount[] {
+  return days.map((day) => {
+    let live = 0
+    let preMatch = 0
+    let notCovered = 0
+    let standard = 0
+    for (const group of day.tournaments) {
+      for (const fixture of group.matches) {
+        const bucket = classifyFixtureForDayChart(fixture, group.code)
+        if (bucket === 'live') live++
+        else if (bucket === 'preMatch') preMatch++
+        else if (bucket === 'notCovered') notCovered++
+        else standard++
+      }
+    }
+    return {
+      date: day.date,
+      label: day.label,
+      live,
+      preMatch,
+      notCovered,
+      standard,
+      total: live + preMatch + notCovered + standard,
+    }
+  })
+}
+
+export interface TradersOnPerDay {
+  date: string
+  label: string
+  countOn: number
+  countLead: number
+}
+
+export function buildTradersOnPerDay(days: ScheduleDay[] = SCHEDULE_DAYS): TradersOnPerDay[] {
+  const rosterByDate = new Map(
+    buildTraderRosterFromSchedule().map((entry) => [entry.date, entry.on.length]),
+  )
+  return days.map((day) => ({
+    date: day.date,
+    label: day.label,
+    countOn: rosterByDate.get(day.date) ?? day.tradersOn.length,
+    countLead: day.dailyLead && isValidTraderName(day.dailyLead) ? 1 : 0,
+  }))
 }
 
 export interface RosterGameEntry {
@@ -1779,11 +2222,19 @@ export interface WhosOnMonthGridDay {
   inScheduleRange: boolean
 }
 
+export interface WhosOnMonthGridCellRoles {
+  prep: number
+  data: number
+  fixtureLead: number
+  training: number
+}
+
 export interface WhosOnMonthGridCell {
   date: string
   isOnShift: boolean
   isLead: boolean
-  assignmentCount: number
+  tradingGameCount: number
+  roles: WhosOnMonthGridCellRoles
 }
 
 export interface WhosOnMonthGrid {
@@ -2016,6 +2467,29 @@ export function buildWhosOnDayLayout(
   }
 }
 
+function countWhosOnTraderDayRoles(
+  trader: string,
+  section: RosterDaySection | undefined,
+): { tradingGameCount: number; roles: WhosOnMonthGridCellRoles } {
+  let tradingGameCount = 0
+  let prep = 0
+  let data = 0
+  let fixtureLead = 0
+
+  for (const { ctx } of section?.games ?? []) {
+    const { fixture } = ctx
+    if (fixture.trading === trader) tradingGameCount++
+    if (fixture.prep === trader) prep++
+    if (getFixtureDataAssignment(fixture) === trader) data++
+    if (fixture.lead === trader) fixtureLead++
+  }
+
+  return {
+    tradingGameCount,
+    roles: { prep, data, fixtureLead, training: 0 },
+  }
+}
+
 export function buildWhosOnMonthGrid(
   year: number,
   month: number,
@@ -2025,6 +2499,9 @@ export function buildWhosOnMonthGrid(
   const rosterByDate = new Map(roster.map((entry) => [entry.date, entry]))
   const scheduleByDate = new Map(SCHEDULE_DAYS.map((day) => [day.date, day]))
   const scheduleDates = new Set(SCHEDULE_DAYS.map((day) => day.date))
+  const sectionsByDate = new Map(
+    buildRosterGameList().map((section) => [section.day.date, section]),
+  )
 
   const allTraders = new Set<string>()
   for (const entry of roster) {
@@ -2073,7 +2550,8 @@ export function buildWhosOnMonthGrid(
           date: '',
           isOnShift: false,
           isLead: false,
-          assignmentCount: 0,
+          tradingGameCount: 0,
+          roles: { prep: 0, data: 0, fixtureLead: 0, training: 0 },
         }
         continue
       }
@@ -2082,15 +2560,17 @@ export function buildWhosOnMonthGrid(
       const scheduleDay = scheduleByDate.get(day.date)
       const isOnShift = entry?.on.includes(trader) ?? false
       const isLead = isOnShift && scheduleDay?.dailyLead === trader
-      const assignment = entry?.assignments.find((row) => row.trader === trader)
-      const assignmentCount =
-        assignment && assignment.blocks !== '—' ? assignment.blocks.split(' · ').length : 0
+      const { tradingGameCount, roles } = countWhosOnTraderDayRoles(
+        trader,
+        sectionsByDate.get(day.date),
+      )
 
       cells[trader][cellKey] = {
         date: day.date,
         isOnShift,
         isLead,
-        assignmentCount,
+        tradingGameCount,
+        roles,
       }
       if (isOnShift) shiftDaysTotal++
     }

@@ -18,6 +18,8 @@ import {
 
   getDefaultScheduleDayRange,
 
+  isPrepOverdue,
+
   getScheduleDaysSlice,
 
   canNavigateMyRotaMonth,
@@ -46,13 +48,15 @@ import {
 
   type ScheduleListMode,
 
+  type ScheduleLayoutDensity,
+
   type ScheduleView,
 
   type StatusFilter,
 
 } from '../data/coverageScheduleStore'
 
-import { DEFAULT_TRADERS } from '../data/traders'
+import { DEFAULT_TRADERS, getAssignableTraders } from '../data/traders'
 
 import CoverageScheduleToolbar, { type WhosOnViewMode } from './coverage/CoverageScheduleToolbar'
 import {
@@ -116,6 +120,8 @@ export default function CoverageScheduleSection({
 
   const [listMode, setListMode] = useState<ScheduleListMode>('by-day')
 
+  const [layoutDensity, setLayoutDensity] = useState<ScheduleLayoutDensity>('comfortable')
+
   const [contentFilters, setContentFilters] = useState<ScheduleContentFilters>(DEFAULT_CONTENT_FILTERS)
 
   const [showAllTraders, setShowAllTraders] = useState(false)
@@ -139,7 +145,7 @@ export default function CoverageScheduleSection({
 
   const [whosOnDayIndex, setWhosOnDayIndex] = useState(0)
 
-  const [internalCovTheme, setInternalCovTheme] = useState<CovTheme>('default')
+  const [internalCovTheme, setInternalCovTheme] = useState<CovTheme>('light-blue')
 
   const covTheme = covThemeProp ?? internalCovTheme
 
@@ -173,6 +179,22 @@ export default function CoverageScheduleSection({
 
     const fixtures = allWeekFixtures(visibleDays)
 
+    let prepOverdue = 0
+
+    for (const day of visibleDays) {
+
+      for (const group of day.tournaments) {
+
+        for (const fixture of group.matches) {
+
+          if (isPrepOverdue(fixture, day.date)) prepOverdue++
+
+        }
+
+      }
+
+    }
+
     return {
 
       total: fixtures.length,
@@ -182,6 +204,8 @@ export default function CoverageScheduleSection({
       needsAction: fixtures.filter((f) => f.lifecycle === 'prepping' || f.lifecycle === 'price-check' || f.gap).length,
 
       settled: fixtures.filter((f) => f.lifecycle === 'settled').length,
+
+      prepOverdue,
 
     }
 
@@ -426,6 +450,10 @@ export default function CoverageScheduleSection({
 
                 <StatTile label="Needs action" value={stats.needsAction} tone="active" />
 
+                {stats.prepOverdue > 0 ? (
+                  <StatTile label="Prep overdue" value={stats.prepOverdue} tone="warn" />
+                ) : null}
+
                 <StatTile label="Settled" value={stats.settled} tone="done" />
 
               </div>
@@ -474,6 +502,10 @@ export default function CoverageScheduleSection({
 
           onListModeChange={setListMode}
 
+          layoutDensity={layoutDensity}
+
+          onLayoutDensityChange={setLayoutDensity}
+
           totalGames={totalGames}
 
           statusFilter={statusFilter}
@@ -508,7 +540,7 @@ export default function CoverageScheduleSection({
 
           onShowAllTradersChange={setShowAllTraders}
 
-          traders={DEFAULT_TRADERS}
+          traders={getAssignableTraders()}
 
           selectedTrader={selectedTrader}
 
@@ -555,6 +587,8 @@ export default function CoverageScheduleSection({
           statusFilter={statusFilter}
 
           listMode={listMode}
+
+          layoutDensity={layoutDensity}
 
           contentFilters={contentFilters}
 

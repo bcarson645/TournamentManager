@@ -37,10 +37,61 @@ function isPipelineComplete(
   return true
 }
 
-export default function StatusPipelineStrip({ fixture }: { fixture: ScheduleFixture }) {
+const PIPELINE_DOT_LABELS: Record<PipelineStepId, string> = {
+  prep: 'Prep',
+  publish: 'Publish',
+  settle: 'Settle',
+  'price-check': 'Price check',
+}
+
+function PipelineDots({
+  fixture,
+  steps,
+  priceCheck,
+}: {
+  fixture: ScheduleFixture
+  steps: ReturnType<typeof pipelineStepsFromFixture>
+  priceCheck: 'done' | 'current' | 'pending' | null
+}) {
+  const dots: Array<{ step: PipelineStepId; state: 'done' | 'current' | 'pending' }> = [
+    { step: 'prep', state: steps.prep },
+    { step: 'publish', state: steps.publish },
+    { step: 'settle', state: steps.settle },
+  ]
+  if (priceCheck) dots.push({ step: 'price-check', state: priceCheck })
+
+  const complete = isPipelineComplete(fixture, steps)
+
+  return (
+    <div
+      className={'cov-pipeline-dots' + (complete ? ' cov-pipeline-dots--complete' : '')}
+      aria-label="Prep, publish, settle status"
+    >
+      {dots.map((dot) => (
+        <span
+          key={dot.step}
+          className={`cov-pipeline-dot cov-pipeline-dot--${dot.step} cov-pipeline-dot--${dot.state}`}
+          title={`${PIPELINE_DOT_LABELS[dot.step]}: ${dot.state}`}
+        />
+      ))}
+    </div>
+  )
+}
+
+export default function StatusPipelineStrip({
+  fixture,
+  variant = 'default',
+}: {
+  fixture: ScheduleFixture
+  variant?: 'default' | 'dots'
+}) {
   const steps = pipelineStepsFromFixture(fixture)
   const priceCheck = priceCheckStepState(fixture)
   const complete = isPipelineComplete(fixture, steps)
+
+  if (variant === 'dots') {
+    return <PipelineDots fixture={fixture} steps={steps} priceCheck={priceCheck} />
+  }
 
   return (
     <div

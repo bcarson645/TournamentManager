@@ -6,18 +6,21 @@ import {
   TRADER_SCHEDULE_VIEWS,
   scheduleDayRangeForDayIndex,
   scheduleDayRangeFromPreset,
+  matchScheduleDayRangePreset,
   type Persona,
   type ScheduleContentFilters,
   type ScheduleDay,
   type ScheduleDayRange,
   type ScheduleDayRangePreset,
+  SCHEDULE_LAYOUT_DENSITY_OPTIONS,
   type ScheduleListMode,
+  type ScheduleLayoutDensity,
   type ScheduleView,
   type StatusFilter,
 } from '../../data/coverageScheduleStore'
 import type { Trader } from '../../data/traders'
 import { COV_THEME_OPTIONS, type CovTheme } from './covTheme'
-import { ContentFilterBar, StatusFilterBar } from './CoverageShared'
+import { ContentFilterBar, PrepDueFilterBar, StatusFilterBar } from './CoverageShared'
 
 export type WhosOnViewMode = 'day' | 'month'
 
@@ -55,6 +58,8 @@ interface CoverageScheduleToolbarProps {
   onDayRangeChange?: (range: ScheduleDayRange) => void
   listMode?: ScheduleListMode
   onListModeChange?: (mode: ScheduleListMode) => void
+  layoutDensity?: ScheduleLayoutDensity
+  onLayoutDensityChange?: (density: ScheduleLayoutDensity) => void
   totalGames?: number
   statusFilter?: StatusFilter
   onStatusFilterChange?: (filter: StatusFilter) => void
@@ -105,6 +110,8 @@ export default function CoverageScheduleToolbar({
   onDayRangeChange,
   listMode = 'by-day',
   onListModeChange,
+  layoutDensity = 'comfortable',
+  onLayoutDensityChange,
   totalGames = 0,
   statusFilter = 'all',
   onStatusFilterChange,
@@ -130,7 +137,7 @@ export default function CoverageScheduleToolbar({
   canGoNextMyRotaMonth = false,
   onPrevMyRotaMonth,
   onNextMyRotaMonth,
-  covTheme = 'default',
+  covTheme = 'light-blue',
   onCovThemeChange,
 }: CoverageScheduleToolbarProps) {
   const isAdmin = persona === 'admin'
@@ -156,17 +163,15 @@ export default function CoverageScheduleToolbar({
   const dayPresets: { id: ScheduleDayRangePreset; label: string }[] = [
     { id: 'this-week', label: 'This week' },
     { id: 'next-week', label: 'Next week' },
+    { id: 'four-weeks', label: '4 weeks' },
+    { id: 'this-month', label: 'This month' },
     { id: 'all', label: 'All days' },
   ]
 
   const activePreset =
-    dayRange?.mode === 'all'
-      ? 'all'
-      : dayRange?.mode === 'week' && dayRange.startIndex === 0
-        ? 'this-week'
-        : dayRange?.mode === 'week' && dayRange.startIndex === 7
-          ? 'next-week'
-          : null
+    dayRange && allDays.length
+      ? dayPresets.find((preset) => matchScheduleDayRangePreset(dayRange, preset.id, allDays))?.id ?? null
+      : null
 
   useEffect(() => {
     function onDocClick(event: MouseEvent) {
@@ -550,6 +555,25 @@ export default function CoverageScheduleToolbar({
                   </div>
                 </div>
               ) : null}
+              {onLayoutDensityChange ? (
+                <div className="cov-chrome-group">
+                  <span className="cov-chrome-label">Density</span>
+                  <div className="cov-filter-group" role="toolbar" aria-label="Schedule row density">
+                    {SCHEDULE_LAYOUT_DENSITY_OPTIONS.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={
+                          'cov-tab cov-tab--sm' + (layoutDensity === option.id ? ' cov-tab-active' : '')
+                        }
+                        onClick={() => onLayoutDensityChange(option.id)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </>
           ) : null}
 
@@ -569,6 +593,14 @@ export default function CoverageScheduleToolbar({
               <ContentFilterBar
                 filters={contentFilters}
                 onChange={onContentFiltersChange}
+                compact
+              />
+              <PrepDueFilterBar
+                prepDueFilter={contentFilters.prepDueFilter}
+                onChange={(prepDueFilter) =>
+                  onContentFiltersChange({ ...contentFilters, prepDueFilter })
+                }
+                days={statusFilterDays}
                 compact
               />
               {traders.length > 0 ? (

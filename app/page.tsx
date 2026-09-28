@@ -22,7 +22,7 @@ const PLACEHOLDER_LABELS: Partial<Record<HomeNavId, string>> = {
 
 export default function Home() {
   const [homeNav, setHomeNav] = useState<HomeNavId>('coverage')
-  const [covTheme, setCovTheme] = useState<CovTheme>('default')
+  const [covTheme, setCovTheme] = useState<CovTheme>('light-blue')
 
   useEffect(() => {
     setCovTheme(readStoredCovTheme())
