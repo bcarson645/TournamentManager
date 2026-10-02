@@ -6,6 +6,8 @@ import { useOutrightsTournaments, type OutrightsTournamentEntry } from '../hooks
 import { useTournamentOutrights } from '../hooks/useTournamentOutrights'
 import { useOutrightSuspensionScheduler } from '../hooks/useOutrightSuspensionScheduler'
 import OutrightsSidebar from './OutrightsSidebar'
+import OutrightsThemeToggle from './OutrightsThemeToggle'
+import { useOutrightsTheme, type OutrightsTheme } from '../hooks/useOutrightsTheme'
 import OutrightsAllTournamentsOverview from './OutrightsAllTournamentsOverview'
 import OutrightsPriceHistoryPanel from './OutrightsPriceHistoryPanel'
 import OutrightsSettlementPanel from './OutrightsSettlementPanel'
@@ -25,6 +27,7 @@ import {
   outrightStatusLabel,
   publishOutright,
   reactivateOutright,
+  resetOutrightSettlement,
   suspendOutright,
   updateOutrightSelectionField,
   type OutrightSelection,
@@ -88,11 +91,34 @@ function OutrightMarketStatusActions({
   outright: TournamentOutright
 }) {
   const status = outright.status ?? 'inactive'
+
+  function handleUndoSettlement() {
+    const restoreLabel =
+      outright.preSettlementStatus === 'suspended'
+        ? 'suspended'
+        : 'active (published)'
+    const ok = window.confirm(
+      `Undo settlement for this market? Winning selections will be cleared and the market will return to ${restoreLabel}.`,
+    )
+    if (!ok) return
+    const result = resetOutrightSettlement(tournamentId, outright.id)
+    if (!result.ok) window.alert(result.error ?? 'Could not undo settlement.')
+  }
+
   return (
     <div className="outrights-status-actions">
-      <span className={`outrights-status-badge outrights-status-${status}`}>
+      <span className={`outrights-status-badge outrights-status-${status}`} aria-live="polite">
         {outrightStatusLabel(status)}
       </span>
+      {status === 'settled' ? (
+        <button
+          type="button"
+          className="outrights-action-btn outrights-action-btn-sm outrights-action-btn-warn"
+          onClick={handleUndoSettlement}
+        >
+          Undo settlement
+        </button>
+      ) : null}
       {status === 'published' ? (
         <button
           type="button"
@@ -215,17 +241,18 @@ function OutrightSelectionsPane({
 
       <div className="teams-table-wrap outrights-selections-wrap outrights-grid-table-wrap">
         <table className="teams-table outrights-selections-table outrights-grid-table">
+          <caption className="sr-only">Selections and pricing for {OUTRIGHT_TYPE_LABELS[outright.type]}</caption>
           <thead>
             <tr>
-              <th className="outrights-th-id outrights-th-label">Selection ID</th>
-              <th className="outrights-th-label">Selection</th>
-              {showTeamCol && <th className="outrights-th-label">Team</th>}
-              <th className="outrights-th-odds outrights-col-divider">Bet365</th>
-              <th className="outrights-th-odds">Decimal</th>
-              <th className="outrights-th-odds">Average</th>
-              <th className="outrights-th-odds outrights-col-divider">Prepped</th>
-              <th className="outrights-th-odds">Modelled</th>
-              <th className="outrights-th-odds outrights-th-own">Own</th>
+              <th scope="col" className="outrights-th-id outrights-th-label">Selection ID</th>
+              <th scope="col" className="outrights-th-label">Selection</th>
+              {showTeamCol && <th scope="col" className="outrights-th-label">Team</th>}
+              <th scope="col" className="outrights-th-odds outrights-col-divider">Bet365</th>
+              <th scope="col" className="outrights-th-odds">Decimal</th>
+              <th scope="col" className="outrights-th-odds">Average</th>
+              <th scope="col" className="outrights-th-odds outrights-col-divider">Prepped</th>
+              <th scope="col" className="outrights-th-odds">Modelled</th>
+              <th scope="col" className="outrights-th-odds outrights-th-own">Own</th>
             </tr>
           </thead>
           <tbody>
@@ -299,11 +326,15 @@ function TournamentOverview({
   outrights,
   onOpenOutright,
   onOpenSimulator,
+  theme,
+  onToggleTheme,
 }: {
   entry: OutrightsTournamentEntry
   outrights: TournamentOutright[]
   onOpenOutright: (id: string) => void
   onOpenSimulator: () => void
+  theme: OutrightsTheme
+  onToggleTheme: () => void
 }) {
   const fmt = FORMATS.find((f) => f.key === entry.format)!
   const gen = GENDERS.find((g) => g.key === entry.gender)!
@@ -322,6 +353,7 @@ function TournamentOverview({
               {entry.tournament.country ? ` › ${entry.tournament.country}` : ''}
             </div>
           </div>
+          <OutrightsThemeToggle theme={theme} onToggle={onToggleTheme} />
         </div>
       </div>
 
@@ -354,12 +386,13 @@ function TournamentOverview({
           ) : (
             <div className="teams-table-wrap outrights-grid-table-wrap">
               <table className="teams-table outrights-overview-table outrights-grid-table">
+                <caption className="sr-only">Outright markets for {entry.tournament.name}</caption>
                 <thead>
                   <tr>
-                    <th className="outrights-overview-th-market">Market</th>
-                    <th className="outrights-overview-th-status">Status</th>
-                    <th className="outrights-overview-th-count">Selections</th>
-                    <th className="outrights-overview-th-actions">Actions</th>
+                    <th scope="col" className="outrights-overview-th-market">Market</th>
+                    <th scope="col" className="outrights-overview-th-status">Status</th>
+                    <th scope="col" className="outrights-overview-th-count">Selections</th>
+                    <th scope="col" className="outrights-overview-th-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -427,6 +460,7 @@ function TournamentOverview({
 
 export default function OutrightsSection({ onSelectTournament }: OutrightsSectionProps) {
   const tournaments = useOutrightsTournaments()
+  const { theme: outrightsTheme, toggle: toggleOutrightsTheme } = useOutrightsTheme()
   useOutrightSuspensionScheduler(tournaments.map((t) => t.tournament.id))
   const [selectedTournamentId, setSelectedTournamentId] = useState<string | null>(null)
   const [selectedOutrightId, setSelectedOutrightId] = useState<string | null>(null)
@@ -506,10 +540,13 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
   const sidebarMode = selectedEntry ? 'tournament' : 'tournaments'
 
   return (
-    <div className="outrights-root">
+    <div className="outrights-root" data-theme={outrightsTheme}>
       {tournaments.length === 0 ? (
         <div className="outrights-empty-page">
           <h1 className="page-heading">Outrights</h1>
+          <div className="outrights-empty-toolbar">
+            <OutrightsThemeToggle theme={outrightsTheme} onToggle={toggleOutrightsTheme} />
+          </div>
           <div className="empty-state">
             <div className="empty-state-icon">No outrights tournaments</div>
             <p>No tournaments have outrights enabled yet.</p>
@@ -533,6 +570,8 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
             onOpenSimulator={handleOpenSimulator}
             collapsed={sidebarCollapsed}
             onToggleCollapsed={toggleSidebarCollapsed}
+            theme={outrightsTheme}
+            onToggleTheme={toggleOutrightsTheme}
           />
 
           <main className="dashboard-main outrights-main">
@@ -540,6 +579,8 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
               <OutrightsAllTournamentsOverview
                 tournaments={tournaments}
                 onSelectTournament={handleSelectTournament}
+                theme={outrightsTheme}
+                onToggleTheme={toggleOutrightsTheme}
               />
             ) : showSimulatorPage ? (
               <div className="outrights-overview outrights-simulator-view">
@@ -551,6 +592,7 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
                         {selectedEntry.tournament.name} › Tournament simulation
                       </div>
                     </div>
+                    <OutrightsThemeToggle theme={outrightsTheme} onToggle={toggleOutrightsTheme} />
                   </div>
                 </div>
                 <div className="tournament-section-panel outrights-simulator-page-panel">
@@ -600,6 +642,7 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
                       >
                         {showPriceHistory ? 'Hide price history' : 'Price history'}
                       </button>
+                      <OutrightsThemeToggle theme={outrightsTheme} onToggle={toggleOutrightsTheme} />
                     </div>
                   </div>
                 </div>
@@ -643,6 +686,8 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
                 outrights={outrights}
                 onOpenOutright={handleOpenOutright}
                 onOpenSimulator={handleOpenSimulator}
+                theme={outrightsTheme}
+                onToggleTheme={toggleOutrightsTheme}
               />
             )}
           </main>

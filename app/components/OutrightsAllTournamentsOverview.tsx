@@ -9,10 +9,14 @@ import {
   type TournamentOutright,
 } from '../data/outrightsStore'
 import type { OutrightsTournamentEntry } from '../hooks/useOutrightsTournaments'
+import OutrightsThemeToggle from './OutrightsThemeToggle'
+import type { OutrightsTheme } from '../hooks/useOutrightsTheme'
 
 interface OutrightsAllTournamentsOverviewProps {
   tournaments: OutrightsTournamentEntry[]
   onSelectTournament: (entry: OutrightsTournamentEntry) => void
+  theme: OutrightsTheme
+  onToggleTheme: () => void
 }
 
 function countByStatus(outrights: TournamentOutright[]) {
@@ -33,6 +37,8 @@ function countByStatus(outrights: TournamentOutright[]) {
 export default function OutrightsAllTournamentsOverview({
   tournaments,
   onSelectTournament,
+  theme,
+  onToggleTheme,
 }: OutrightsAllTournamentsOverviewProps) {
   const [refreshTick, setRefreshTick] = useState(0)
 
@@ -72,6 +78,7 @@ export default function OutrightsAllTournamentsOverview({
             <h1 className="dashboard-title">Outrights</h1>
             <div className="dashboard-breadcrumb">All tournaments — markets & pricing overview</div>
           </div>
+          <OutrightsThemeToggle theme={theme} onToggle={onToggleTheme} />
         </div>
       </div>
 

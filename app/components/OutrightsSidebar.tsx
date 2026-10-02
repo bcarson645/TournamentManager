@@ -11,6 +11,8 @@ import {
   type TournamentOutright,
 } from '../data/outrightsStore'
 import type { OutrightsTournamentEntry } from '../hooks/useOutrightsTournaments'
+import OutrightsThemeToggle from './OutrightsThemeToggle'
+import type { OutrightsTheme } from '../hooks/useOutrightsTheme'
 
 type SidebarMode = 'tournaments' | 'tournament'
 
@@ -27,6 +29,8 @@ interface OutrightsSidebarProps {
   onOpenSimulator?: () => void
   collapsed?: boolean
   onToggleCollapsed?: () => void
+  theme: OutrightsTheme
+  onToggleTheme: () => void
 }
 
 export default function OutrightsSidebar({
@@ -42,6 +46,8 @@ export default function OutrightsSidebar({
   onOpenSimulator,
   collapsed = false,
   onToggleCollapsed,
+  theme,
+  onToggleTheme,
 }: OutrightsSidebarProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const createRef = useRef<HTMLDivElement>(null)
@@ -73,6 +79,7 @@ export default function OutrightsSidebar({
   return (
     <aside className={'sidebar outrights-sidebar' + (collapsed ? ' sidebar--collapsed' : '')}>
       <div className="sidebar-toolbar">
+        <OutrightsThemeToggle theme={theme} onToggle={onToggleTheme} />
         {onToggleCollapsed ? (
           <button
             type="button"

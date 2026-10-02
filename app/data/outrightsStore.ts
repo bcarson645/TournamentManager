@@ -45,6 +45,8 @@ export interface TournamentOutright {
   pricesConfirmed: boolean
   settledAt?: number
   winningSelectionIds?: string[]
+  /** Published or suspended status to restore after resetOutrightSettlement. */
+  preSettlementStatus?: 'published' | 'suspended'
 }
 
 export const OUTRIGHT_TYPES: OutrightType[] = [
@@ -173,6 +175,10 @@ function normalizeOutright(tournamentId: string, raw: Partial<TournamentOutright
     winningSelectionIds: Array.isArray(raw.winningSelectionIds)
       ? raw.winningSelectionIds.filter((id) => typeof id === 'string')
       : undefined,
+    preSettlementStatus:
+      raw.preSettlementStatus === 'suspended' || raw.preSettlementStatus === 'published'
+        ? raw.preSettlementStatus
+        : undefined,
   }
   if (typeof window !== 'undefined') {
     seedBet365CompetitorHistory(tournamentId, outright)
@@ -415,6 +421,9 @@ export function settleOutright(
     return { ok: false, error: 'Invalid winning selection.' }
   }
 
+  const preSettlementStatus: 'published' | 'suspended' =
+    outright.status === 'suspended' ? 'suspended' : 'published'
+
   all[tournamentId] = list.map((o) => {
     if (o.id !== outrightId) return o
     return {
@@ -422,6 +431,41 @@ export function settleOutright(
       status: 'settled' as OutrightStatus,
       settledAt: Date.now(),
       winningSelectionIds: unique,
+      preSettlementStatus,
+    }
+  })
+  writeAll(all)
+  return { ok: true }
+}
+
+/**
+ * Undo settlement: clears winners and settledAt, and returns the market to the
+ * status it had before settlement (published or suspended; defaults to published
+ * for markets settled before preSettlementStatus was stored).
+ */
+export function resetOutrightSettlement(
+  tournamentId: string,
+  outrightId: string,
+): { ok: boolean; error?: string } {
+  if (typeof window === 'undefined') return { ok: false, error: 'Not available on server.' }
+
+  const all = readAll()
+  const list = (all[tournamentId] ?? [])
+    .map((raw) => normalizeOutright(tournamentId, raw))
+    .filter((o): o is TournamentOutright => o !== null)
+
+  const outright = list.find((o) => o.id === outrightId)
+  if (!outright) return { ok: false, error: 'Market not found.' }
+  if (outright.status !== 'settled') return { ok: false, error: 'Market is not settled.' }
+
+  const restoredStatus: OutrightStatus = outright.preSettlementStatus ?? 'published'
+
+  all[tournamentId] = list.map((o) => {
+    if (o.id !== outrightId) return o
+    const { settledAt: _settledAt, winningSelectionIds: _winners, preSettlementStatus: _pre, ...rest } = o
+    return {
+      ...rest,
+      status: restoredStatus,
     }
   })
   writeAll(all)
