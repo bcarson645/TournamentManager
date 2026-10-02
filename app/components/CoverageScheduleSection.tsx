@@ -18,6 +18,8 @@ import {
 
   getDefaultScheduleDayRange,
 
+  findCoverageScheduleAnchorDayIndex,
+
   isPrepOverdue,
 
   getScheduleDaysSlice,
@@ -61,8 +63,10 @@ import { DEFAULT_TRADERS, getAssignableTraders } from '../data/traders'
 import CoverageScheduleToolbar, { type WhosOnViewMode } from './coverage/CoverageScheduleToolbar'
 import {
   applyCovThemeToDocument,
+  COV_FILTERS_COLLAPSED_STORAGE_KEY,
   COV_THEME_STORAGE_KEY,
   readStoredCovTheme,
+  readStoredFiltersCollapsed,
   type CovTheme,
 } from './coverage/covTheme'
 
@@ -143,15 +147,19 @@ export default function CoverageScheduleSection({
 
   const [whosOnViewMode, setWhosOnViewMode] = useState<WhosOnViewMode>('day')
 
-  const [whosOnDayIndex, setWhosOnDayIndex] = useState(0)
+  const [whosOnDayIndex, setWhosOnDayIndex] = useState(() => findCoverageScheduleAnchorDayIndex(SCHEDULE_DAYS))
 
   const [internalCovTheme, setInternalCovTheme] = useState<CovTheme>('light-blue')
+
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false)
 
   const covTheme = covThemeProp ?? internalCovTheme
 
 
 
-  const scheduleDays = useMemo(() => SCHEDULE_DAYS, [scheduleTick])
+  // The store mutates SCHEDULE_DAYS in place; hand out a fresh array per tick so every memo that
+  // derives from it (visible slice, header stats, counts, matrix) recomputes after a save.
+  const scheduleDays = useMemo(() => [...SCHEDULE_DAYS], [scheduleTick])
 
   const visibleDays = useMemo(() => getScheduleDaysSlice(scheduleDays, dayRange), [scheduleDays, dayRange])
 
@@ -340,6 +348,15 @@ export default function CoverageScheduleSection({
     setInternalCovTheme(readStoredCovTheme())
 
   }, [covThemeProp])
+
+  useEffect(() => {
+    setFiltersCollapsed(readStoredFiltersCollapsed())
+  }, [])
+
+  const handleFiltersCollapsedChange = useCallback((collapsed: boolean) => {
+    setFiltersCollapsed(collapsed)
+    localStorage.setItem(COV_FILTERS_COLLAPSED_STORAGE_KEY, collapsed ? '1' : '0')
+  }, [])
 
   const handleCovThemeChange = useCallback((theme: CovTheme) => {
 
@@ -567,6 +584,10 @@ export default function CoverageScheduleSection({
           covTheme={covTheme}
 
           onCovThemeChange={handleCovThemeChange}
+
+          filtersCollapsed={filtersCollapsed}
+
+          onFiltersCollapsedChange={handleFiltersCollapsedChange}
 
         />
 

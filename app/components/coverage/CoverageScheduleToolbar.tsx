@@ -87,6 +87,8 @@ interface CoverageScheduleToolbarProps {
   onNextMyRotaMonth?: () => void
   covTheme?: CovTheme
   onCovThemeChange?: (theme: CovTheme) => void
+  filtersCollapsed?: boolean
+  onFiltersCollapsedChange?: (collapsed: boolean) => void
 }
 
 export default function CoverageScheduleToolbar({
@@ -139,6 +141,8 @@ export default function CoverageScheduleToolbar({
   onNextMyRotaMonth,
   covTheme = 'light-blue',
   onCovThemeChange,
+  filtersCollapsed = false,
+  onFiltersCollapsedChange,
 }: CoverageScheduleToolbarProps) {
   const isAdmin = persona === 'admin'
   const views = isAdmin ? ADMIN_SCHEDULE_VIEWS : TRADER_SCHEDULE_VIEWS
@@ -173,6 +177,29 @@ export default function CoverageScheduleToolbar({
       ? dayPresets.find((preset) => matchScheduleDayRangePreset(dayRange, preset.id, allDays))?.id ?? null
       : null
 
+  const activeViewLabel = views.find((view) => view.id === activeView)?.label ?? 'Schedule'
+
+  const collapsedContextLabel = (() => {
+    if (activeView === 'my-rota') return myRotaMonthLabel
+    if (activeView === 'traders') {
+      if (whosOnViewMode === 'month') return whosOnMonthLabel
+      const day = scheduleDays[safeWhosOnIndex]
+      return day?.label ?? periodLabel
+    }
+    return periodLabel
+  })()
+
+  const showCollapsibleSections =
+    showPeriodNav ||
+    showMyRotaMonthNav ||
+    showWhosOnMonthNav ||
+    showWhosOnDayNav ||
+    showScheduleContext ||
+    showTraderPicker ||
+    (activeView === 'traders' && onWhosOnViewModeChange) ||
+    showScheduleFilters ||
+    (activeView === 'traders' && onShowAllTradersChange)
+
   useEffect(() => {
     function onDocClick(event: MouseEvent) {
       if (!menuRef.current?.open) return
@@ -185,7 +212,12 @@ export default function CoverageScheduleToolbar({
   }, [])
 
   return (
-    <nav className="cov-chrome cov-chrome--fixed" aria-label="Coverage schedule navigation">
+    <nav
+      className={
+        'cov-chrome cov-chrome--fixed' + (filtersCollapsed ? ' cov-chrome--filters-collapsed' : '')
+      }
+      aria-label="Coverage schedule navigation"
+    >
       <div className="cov-chrome-primary">
         <div className="cov-chrome-primary-start">
           <div className="cov-chrome-group">
@@ -203,29 +235,46 @@ export default function CoverageScheduleToolbar({
               ))}
             </div>
           </div>
-          <span className="cov-chrome-divider" aria-hidden="true" />
-          <div className="cov-chrome-group cov-chrome-group--persona">
-            <span className="cov-chrome-label">Preview as</span>
-            <div className="cov-tabs cov-tabs--chrome">
-              <button
-                type="button"
-                className={'cov-tab cov-tab--sm' + (persona === 'trader' ? ' cov-tab-active' : '')}
-                onClick={() => onPersonaChange('trader')}
-              >
-                Trader
-              </button>
-              <button
-                type="button"
-                className={'cov-tab cov-tab--sm' + (persona === 'admin' ? ' cov-tab-active' : '')}
-                onClick={() => onPersonaChange('admin')}
-              >
-                Admin / OC
-              </button>
-            </div>
-          </div>
+
+          {filtersCollapsed ? (
+            <span className="cov-chrome-collapsed-summary" aria-live="polite">
+              <span className="cov-chrome-collapsed-summary-view">{activeViewLabel}</span>
+              {collapsedContextLabel ? (
+                <>
+                  <span className="cov-chrome-collapsed-summary-sep" aria-hidden="true">
+                    ·
+                  </span>
+                  <span className="cov-chrome-collapsed-summary-context">{collapsedContextLabel}</span>
+                </>
+              ) : null}
+            </span>
+          ) : (
+            <>
+              <span className="cov-chrome-divider" aria-hidden="true" />
+              <div className="cov-chrome-group cov-chrome-group--persona">
+                <span className="cov-chrome-label">Preview as</span>
+                <div className="cov-tabs cov-tabs--chrome">
+                  <button
+                    type="button"
+                    className={'cov-tab cov-tab--sm' + (persona === 'trader' ? ' cov-tab-active' : '')}
+                    onClick={() => onPersonaChange('trader')}
+                  >
+                    Trader
+                  </button>
+                  <button
+                    type="button"
+                    className={'cov-tab cov-tab--sm' + (persona === 'admin' ? ' cov-tab-active' : '')}
+                    onClick={() => onPersonaChange('admin')}
+                  >
+                    Admin / OC
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
-        {onCovThemeChange ? (
+        {!filtersCollapsed && onCovThemeChange ? (
           <>
             <span className="cov-chrome-divider" aria-hidden="true" />
             <div className="cov-chrome-group cov-chrome-group--theme">
@@ -252,7 +301,21 @@ export default function CoverageScheduleToolbar({
         ) : null}
 
         <div className="cov-chrome-actions">
-          {isAdmin ? (
+          {onFiltersCollapsedChange && showCollapsibleSections ? (
+            <button
+              type="button"
+              className="cov-btn cov-btn--sm cov-btn--icon cov-chrome-collapse-toggle"
+              aria-expanded={!filtersCollapsed}
+              aria-controls="cov-chrome-collapsible"
+              aria-label={filtersCollapsed ? 'Expand filters' : 'Collapse filters'}
+              title={filtersCollapsed ? 'Expand filters' : 'Collapse filters'}
+              onClick={() => onFiltersCollapsedChange(!filtersCollapsed)}
+            >
+              {filtersCollapsed ? '▼' : '▲'}
+            </button>
+          ) : null}
+
+          {!filtersCollapsed && isAdmin ? (
             <>
               <span className="cov-chip cov-chip--danger">4 alerts</span>
               <button type="button" className="cov-btn cov-btn--sm cov-btn--primary" onClick={onOpenImport}>
@@ -277,19 +340,26 @@ export default function CoverageScheduleToolbar({
                 </div>
               </details>
             </>
-          ) : (
+          ) : !filtersCollapsed ? (
             <>
               <span className="cov-chip cov-chip--info">Can&apos;t assign</span>
               {gapCount > 0 ? (
                 <span className="cov-chip cov-chip--danger">{gapCount} gaps this week</span>
               ) : null}
             </>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {showPeriodNav || showMyRotaMonthNav || showWhosOnMonthNav || showWhosOnDayNav || showScheduleContext || showTraderPicker || (activeView === 'traders' && onWhosOnViewModeChange) ? (
-        <div className="cov-chrome-context">
+      {!filtersCollapsed &&
+      (showPeriodNav ||
+        showMyRotaMonthNav ||
+        showWhosOnMonthNav ||
+        showWhosOnDayNav ||
+        showScheduleContext ||
+        showTraderPicker ||
+        (activeView === 'traders' && onWhosOnViewModeChange)) ? (
+        <div id="cov-chrome-collapsible" className="cov-chrome-context">
           {showTraderPicker ? (
             <div className="cov-chrome-group">
               <span className="cov-chrome-label">Trader</span>
@@ -540,6 +610,14 @@ export default function CoverageScheduleToolbar({
                     </button>
                     <button
                       type="button"
+                      className={'cov-tab cov-tab--sm' + (listMode === 'day-matrix' ? ' cov-tab-active' : '')}
+                      onClick={() => onListModeChange('day-matrix')}
+                      title="One day: fixtures as rows, traders on shift as columns"
+                    >
+                      Day matrix
+                    </button>
+                    <button
+                      type="button"
                       className={'cov-tab cov-tab--sm' + (listMode === 'all-games' ? ' cov-tab-active' : '')}
                       onClick={() => onListModeChange('all-games')}
                     >
@@ -580,7 +658,7 @@ export default function CoverageScheduleToolbar({
         </div>
       ) : null}
 
-      {showScheduleFilters || (activeView === 'traders' && onShowAllTradersChange) ? (
+      {!filtersCollapsed && (showScheduleFilters || (activeView === 'traders' && onShowAllTradersChange)) ? (
         <div className="cov-chrome-filters">
           {showScheduleFilters ? (
             <>

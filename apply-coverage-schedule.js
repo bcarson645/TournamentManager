@@ -7,12 +7,15 @@ const src = path.join(__dirname)
 const copies = [
   ['app/data/coverageScheduleImported.ts', 'app/data/coverageScheduleImported.ts'],
   ['app/data/coverageScheduleStore.ts', 'app/data/coverageScheduleStore.ts'],
+  ['app/data/coverageDayMatrix.ts', 'app/data/coverageDayMatrix.ts'],
   ['app/components/CoverageScheduleSection.tsx', 'app/components/CoverageScheduleSection.tsx'],
   ['app/components/CoverageStatusPipeline.tsx', 'app/components/CoverageStatusPipeline.tsx'],
   ['app/components/coverage/CoverageShared.tsx', 'app/components/coverage/CoverageShared.tsx'],
   ['app/components/coverage/CoverageScheduleToolbar.tsx', 'app/components/coverage/CoverageScheduleToolbar.tsx'],
   ['app/components/coverage/covTheme.ts', 'app/components/coverage/covTheme.ts'],
   ['app/components/coverage/CoverageViews.tsx', 'app/components/coverage/CoverageViews.tsx'],
+  ['app/components/coverage/CoverageDayMatrix.tsx', 'app/components/coverage/CoverageDayMatrix.tsx'],
+  ['app/components/coverage/CoverageMarketsProgress.tsx', 'app/components/coverage/CoverageMarketsProgress.tsx'],
   ['app/components/coverage/CoverageMatchPanel.tsx', 'app/components/coverage/CoverageMatchPanel.tsx'],
   ['scripts/import-coverage-xlsm.mjs', 'scripts/import-coverage-xlsm.mjs'],
 ]

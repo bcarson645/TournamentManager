@@ -25,7 +25,7 @@ import {
   SCHEDULE_DAYS,
   SCHEDULING_SUGGESTIONS,
   type SelectedMatchContext,
-  findFixtureById,
+  getScheduleRevision,
   type FixtureAssignmentPatch,
   type FixtureCoverageChartSeries,
   type FixturesPerDayCount,
@@ -47,7 +47,14 @@ import {
   type ScheduleLayoutDensity,
   type StatusFilter,
 } from '../../data/coverageScheduleStore'
-import { FixtureCard, PanelCard, ScheduleMatchSplit, StatTile, WeekScheduleLayout } from './CoverageShared'
+import {
+  FixtureCard,
+  PanelCard,
+  ScheduleMatchSplit,
+  StatTile,
+  useSelectedMatch,
+  WeekScheduleLayout,
+} from './CoverageShared'
 import type { WhosOnViewMode } from './CoverageScheduleToolbar'
 
 const WHOS_ON_HOUR_HEIGHT = 38
@@ -226,11 +233,15 @@ export function MyRotaView({
   onUpdateAssignment?: (fixtureId: string, patch: FixtureAssignmentPatch) => void
   onMarkLifecycle?: (fixtureId: string, action: FixtureLifecycleAction) => void
 }) {
-  const [selected, setSelected] = useState<SelectedMatchContext | null>(null)
+  const { selected, setSelected, clear, handleUpdateAssignment, handleMarkLifecycle } = useSelectedMatch(
+    onUpdateAssignment,
+    onMarkLifecycle,
+  )
 
   const monthGrid = useMemo(
     () => buildTraderMonthRoleGrid(traderName, year, month),
-    [traderName, year, month],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates in-place store mutations
+    [traderName, year, month, getScheduleRevision()],
   )
 
   const mainContent = (
@@ -274,19 +285,9 @@ export function MyRotaView({
     <ScheduleMatchSplit
       selected={selected}
       persona={persona ?? 'trader'}
-      onClose={() => setSelected(null)}
-      onUpdateAssignment={(patch) => {
-        if (!selected) return
-        onUpdateAssignment?.(selected.fixture.id, patch)
-        const refreshed = findFixtureById(selected.fixture.id)
-        if (refreshed) setSelected(refreshed)
-      }}
-      onMarkLifecycle={(action) => {
-        if (!selected) return
-        onMarkLifecycle?.(selected.fixture.id, action)
-        const refreshed = findFixtureById(selected.fixture.id)
-        if (refreshed) setSelected(refreshed)
-      }}
+      onClose={clear}
+      onUpdateAssignment={handleUpdateAssignment}
+      onMarkLifecycle={handleMarkLifecycle}
     >
       {mainContent}
     </ScheduleMatchSplit>
@@ -1144,11 +1145,15 @@ export function TradersRosterView({
 }) {
   const roster = buildTraderRosterFromSchedule()
   const gameSections = buildRosterGameList()
-  const [selected, setSelected] = useState<SelectedMatchContext | null>(null)
+  const { selected, setSelected, clear, handleUpdateAssignment, handleMarkLifecycle } = useSelectedMatch(
+    onUpdateAssignment,
+    onMarkLifecycle,
+  )
 
   const monthGrid = useMemo(
     () => buildWhosOnMonthGrid(year, month, { showAllTraders }),
-    [year, month, showAllTraders],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates in-place store mutations
+    [year, month, showAllTraders, getScheduleRevision()],
   )
 
   const visibleDates = useMemo(() => new Set(days.map((d) => d.date)), [days])
@@ -1290,19 +1295,9 @@ export function TradersRosterView({
     <ScheduleMatchSplit
       selected={selected}
       persona={persona}
-      onClose={() => setSelected(null)}
-      onUpdateAssignment={(patch) => {
-        if (!selected) return
-        onUpdateAssignment?.(selected.fixture.id, patch)
-        const refreshed = findFixtureById(selected.fixture.id)
-        if (refreshed) setSelected(refreshed)
-      }}
-      onMarkLifecycle={(action) => {
-        if (!selected) return
-        onMarkLifecycle?.(selected.fixture.id, action)
-        const refreshed = findFixtureById(selected.fixture.id)
-        if (refreshed) setSelected(refreshed)
-      }}
+      onClose={clear}
+      onUpdateAssignment={handleUpdateAssignment}
+      onMarkLifecycle={handleMarkLifecycle}
     >
       {rosterSummary}
     </ScheduleMatchSplit>
@@ -1323,7 +1318,10 @@ export function TournamentDetailView({
   onMarkLifecycle?: (fixtureId: string, action: FixtureLifecycleAction) => void
 }) {
   const tournament = getTournamentByCode(code)
-  const [selected, setSelected] = useState<SelectedMatchContext | null>(null)
+  const { selected, setSelected, clear, handleUpdateAssignment, handleMarkLifecycle } = useSelectedMatch(
+    onUpdateAssignment,
+    onMarkLifecycle,
+  )
 
   if (!tournament) {
     return <p className="cov-empty-msg">Tournament not found.</p>
@@ -1396,19 +1394,9 @@ export function TournamentDetailView({
     <ScheduleMatchSplit
       selected={selected}
       persona={persona}
-      onClose={() => setSelected(null)}
-      onUpdateAssignment={(patch) => {
-        if (!selected) return
-        onUpdateAssignment?.(selected.fixture.id, patch)
-        const refreshed = findFixtureById(selected.fixture.id)
-        if (refreshed) setSelected(refreshed)
-      }}
-      onMarkLifecycle={(action) => {
-        if (!selected) return
-        onMarkLifecycle?.(selected.fixture.id, action)
-        const refreshed = findFixtureById(selected.fixture.id)
-        if (refreshed) setSelected(refreshed)
-      }}
+      onClose={clear}
+      onUpdateAssignment={handleUpdateAssignment}
+      onMarkLifecycle={handleMarkLifecycle}
     >
       {fixtureList}
     </ScheduleMatchSplit>

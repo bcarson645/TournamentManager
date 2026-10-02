@@ -36,3 +36,11 @@ export function readStoredCovTheme(): CovTheme {
   }
   return 'light-blue'
 }
+
+export const COV_FILTERS_COLLAPSED_STORAGE_KEY = 'cov-filters-collapsed'
+
+export function readStoredFiltersCollapsed(): boolean {
+  if (typeof window === 'undefined') return false
+  const stored = localStorage.getItem(COV_FILTERS_COLLAPSED_STORAGE_KEY)
+  return stored === '1' || stored === 'true'
+}

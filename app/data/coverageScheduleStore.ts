@@ -14,6 +14,15 @@ export type GameLifecycle = 'prepping' | 'published' | 'settled' | 'price-check'
 
 export type PipelineStepState = 'done' | 'current' | 'pending'
 
+/** Operational workflow steps a trader can own on a game (trading is deliberately not a task). */
+export type CoverageTaskId = 'prep' | 'publish' | 'price-check' | 'settle' | 'scout'
+
+/** Hard cap on markets per game (one game never has more than this many markets sent). */
+export const MAX_MARKETS_PER_GAME = 150
+
+/** Markets sent per "Publish" click in the day matrix (3 clicks fill a 150-market game). */
+export const PUBLISH_BATCH_SIZE = 50
+
 export type StatusFilter =
   | 'all'
   | 'needs-prep'
@@ -36,7 +45,7 @@ export type ScheduleView =
   | 'import'
   | 'ops-alerts'
 
-export type ScheduleListMode = 'by-day' | 'all-games' | 'by-tournament'
+export type ScheduleListMode = 'by-day' | 'day-matrix' | 'all-games' | 'by-tournament'
 
 /** Row density for schedule fixture tables and lists. */
 export type ScheduleLayoutDensity = 'comfortable' | 'condensed' | 'ultra-condensed'
@@ -98,8 +107,14 @@ export interface ScheduleFixture {
   publishBy?: string
   settleBy?: string
   preMatchTrader?: string
+  /** Markets sent so far for this game (0..marketsTotal, never above MAX_MARKETS_PER_GAME). */
   marketsSent?: number
+  /** Markets to send for this game (capped at MAX_MARKETS_PER_GAME). */
   marketsTotal?: number
+  /** Who owns each workflow step (prep uses `prep`, scout uses `data`). */
+  taskOwners?: Partial<Record<CoverageTaskId, string>>
+  /** Per-task pool override: `false` = require a named owner first; omit or clear when assigned (default pool is open). */
+  taskOpen?: Partial<Record<CoverageTaskId, boolean>>
   prepared?: boolean
   preparedBy?: string
   /** ISO date when prep was marked complete. */
@@ -176,8 +191,10 @@ function getScheduleDayRangeStep(range: ScheduleDayRange): number {
   return 0
 }
 
-export function getDefaultScheduleDayRange(): ScheduleDayRange {
-  return { mode: 'week', startIndex: 0 }
+export function getDefaultScheduleDayRange(allDays: ScheduleDay[] = SCHEDULE_DAYS): ScheduleDayRange {
+  const anchor = findCoverageScheduleAnchorDayIndex(allDays)
+  const startIndex = Math.max(0, Math.min(anchor, Math.max(0, allDays.length - SCHEDULE_WEEK_SIZE)))
+  return { mode: 'week', startIndex }
 }
 
 export function getScheduleDaysSlice(
@@ -276,15 +293,23 @@ export function scheduleDayRangeFromPreset(
   preset: ScheduleDayRangePreset,
   allDays: ScheduleDay[] = SCHEDULE_DAYS,
 ): ScheduleDayRange {
+  const anchor = findCoverageScheduleAnchorDayIndex(allDays)
+  const thisWeekStart = Math.max(0, Math.min(anchor, Math.max(0, allDays.length - SCHEDULE_WEEK_SIZE)))
   switch (preset) {
     case 'this-week':
-      return { mode: 'week', startIndex: 0 }
+      return { mode: 'week', startIndex: thisWeekStart }
     case 'next-week':
-      return { mode: 'week', startIndex: Math.min(SCHEDULE_WEEK_SIZE, Math.max(0, allDays.length - 1)) }
+      return {
+        mode: 'week',
+        startIndex: Math.min(thisWeekStart + SCHEDULE_WEEK_SIZE, Math.max(0, allDays.length - 1)),
+      }
     case 'four-weeks':
-      return { mode: 'four-weeks', startIndex: 0 }
+      return {
+        mode: 'four-weeks',
+        startIndex: Math.max(0, Math.min(anchor, Math.max(0, allDays.length - SCHEDULE_FOUR_WEEKS_SIZE))),
+      }
     case 'this-month':
-      return { mode: 'month', startIndex: 0 }
+      return { mode: 'month', startIndex: anchor }
     case 'all':
       return { mode: 'all', startIndex: 0 }
   }
@@ -470,9 +495,61 @@ export interface FixtureAssignmentPatch {
   trading?: string | null
   coverageMode?: CoverageMode
   scout?: boolean
+  /** Assign (or clear, with `trader: null`) the owner of a workflow task. `open: true` restores the open pool; `open: false` requires a named owner first. */
+  taskOwner?: { task: CoverageTaskId; trader: string | null; open?: boolean }
 }
 
-export type FixtureLifecycleAction = 'prep-done' | 'published' | 'settled'
+export type FixtureLifecycleAction =
+  | 'prep-done'
+  | 'publish-batch'
+  | 'published'
+  | 'price-checked'
+  | 'settled'
+
+function getFixtureTaskOwnerRaw(fixture: ScheduleFixture, task: CoverageTaskId): string | null {
+  if (task === 'prep') return sanitizeTraderField(fixture.prep)
+  if (task === 'scout') return sanitizeTraderField(fixture.data)
+  return sanitizeTraderField(fixture.taskOwners?.[task])
+}
+
+/**
+ * True when the task is in the open pool (any trader can claim).
+ * Default is open until someone is assigned; `taskOpen[task] === false` means a named owner is required first.
+ */
+export function isFixtureTaskOpen(fixture: ScheduleFixture, task: CoverageTaskId): boolean {
+  if (getFixtureTaskOwnerRaw(fixture, task)) return false
+  if (fixture.taskOpen?.[task] === false) return false
+  // Prep, publish, settle, scout, and price-check all default to the open pool until assigned.
+  return true
+}
+
+/** Current owner of a workflow task on a fixture, or null when in the open pool or unassigned. */
+export function getFixtureTaskOwner(fixture: ScheduleFixture, task: CoverageTaskId): string | null {
+  if (isFixtureTaskOpen(fixture, task)) return null
+  return getFixtureTaskOwnerRaw(fixture, task)
+}
+
+export type FixtureMarketsState = 'idle' | 'sending' | 'complete'
+
+export interface FixtureMarketsProgress {
+  sent: number
+  total: number
+  /** 0..100 */
+  pct: number
+  state: FixtureMarketsState
+}
+
+/** Markets sent / total for a fixture (total capped at MAX_MARKETS_PER_GAME). */
+export function getFixtureMarketsProgress(fixture: ScheduleFixture): FixtureMarketsProgress {
+  const total = Math.max(1, Math.min(MAX_MARKETS_PER_GAME, Math.round(fixture.marketsTotal ?? MAX_MARKETS_PER_GAME)))
+  const published =
+    fixture.lifecycle === 'published' || fixture.lifecycle === 'settled' || fixture.lifecycle === 'price-check'
+  const sent = published
+    ? Math.min(total, Math.max(0, Math.round(fixture.marketsSent ?? total)))
+    : Math.min(total, Math.max(0, Math.round(fixture.marketsSent ?? 0)))
+  const state: FixtureMarketsState = sent >= total ? 'complete' : sent > 0 ? 'sending' : 'idle'
+  return { sent, total, pct: Math.round((sent / total) * 100), state }
+}
 
 function applyCoverageModeToFixture(fixture: ScheduleFixture, mode: CoverageMode): void {
   const wasNotCovered =
@@ -515,6 +592,42 @@ function applyAssignmentToFixture(fixture: ScheduleFixture, patch: FixtureAssign
   if ('scout' in patch && patch.scout !== undefined) {
     fixture.scout = patch.scout
   }
+  if (patch.taskOwner) {
+    const { task, trader, open } = patch.taskOwner
+    const nextOpen = { ...(fixture.taskOpen ?? {}) }
+
+    if (open === true) {
+      delete nextOpen[task]
+      fixture.taskOpen = Object.keys(nextOpen).length > 0 ? nextOpen : undefined
+      if (task === 'prep') {
+        fixture.prep = null
+      } else if (task === 'scout') {
+        fixture.data = null
+      } else {
+        const owners = { ...(fixture.taskOwners ?? {}) }
+        delete owners[task]
+        fixture.taskOwners = owners
+      }
+    } else if (open === false) {
+      nextOpen[task] = false
+      fixture.taskOpen = nextOpen
+    } else {
+      delete nextOpen[task]
+      fixture.taskOpen = Object.keys(nextOpen).length > 0 ? nextOpen : undefined
+
+      const owner = trader && isValidTraderName(trader) ? trader : null
+      if (task === 'prep') {
+        fixture.prep = owner
+      } else if (task === 'scout') {
+        fixture.data = owner
+      } else {
+        const owners = { ...(fixture.taskOwners ?? {}) }
+        if (owner) owners[task] = owner
+        else delete owners[task]
+        fixture.taskOwners = owners
+      }
+    }
+  }
 }
 
 function forEachFixtureById(fixtureId: string, apply: (fixture: ScheduleFixture) => void): boolean {
@@ -552,19 +665,80 @@ function applyLifecycleAction(fixture: ScheduleFixture, action: FixtureLifecycle
     if (!fixture.prepareBy) fixture.prepareBy = actor
   }
 
-  if (action === 'published') {
-    fixture.lifecycle = 'published'
-    if (!fixture.publishBy) fixture.publishBy = actor
+  if (action === 'publish-batch' || action === 'published') {
+    const publisher = fixture.taskOwners?.publish ?? actor
+    const total = Math.max(1, Math.min(MAX_MARKETS_PER_GAME, fixture.marketsTotal ?? MAX_MARKETS_PER_GAME))
+    fixture.marketsTotal = total
+    const sent = action === 'published' ? total : Math.min(total, (fixture.marketsSent ?? 0) + PUBLISH_BATCH_SIZE)
+    fixture.marketsSent = sent
+    // A game only counts as published once every market has gone out; until then it stays "publishing".
+    if (sent >= total) {
+      fixture.lifecycle = 'published'
+      if (!fixture.publishBy) fixture.publishBy = publisher
+    }
     return
   }
 
-  if (!fixture.publishBy) fixture.publishBy = actor
+  if (action === 'price-checked') {
+    fixture.needsPriceCheck = false
+    if (fixture.lifecycle === 'price-check') fixture.lifecycle = 'published'
+    return
+  }
+
+  if (!fixture.publishBy) fixture.publishBy = fixture.taskOwners?.publish ?? actor
+  if (fixture.marketsTotal != null || fixture.marketsSent != null) {
+    const total = Math.max(1, Math.min(MAX_MARKETS_PER_GAME, fixture.marketsTotal ?? MAX_MARKETS_PER_GAME))
+    fixture.marketsTotal = total
+    fixture.marketsSent = total
+  }
   fixture.lifecycle = 'settled'
-  if (!fixture.settleBy) fixture.settleBy = actor
+  if (!fixture.settleBy) fixture.settleBy = fixture.taskOwners?.settle ?? actor
+}
+
+/**
+ * Monotonic revision bumped after every store mutation. The schedule data is mutated in place, so
+ * React memo deps that only reference day / group / fixture objects never invalidate on their own —
+ * views read this counter (or the parent's tick) to know when derived data is stale.
+ */
+let scheduleRevision = 0
+
+export function getScheduleRevision(): number {
+  return scheduleRevision
+}
+
+/**
+ * Re-derive aggregates that are cached on the day / tournament objects (gap counts, traders on shift)
+ * after fixtures were edited in place, then bump the revision.
+ */
+function refreshScheduleDerived(): void {
+  for (const day of SCHEDULE_DAYS) {
+    let dayGaps = 0
+    const on = new Set(day.tradersOn)
+    for (const group of day.tournaments) {
+      const gaps = group.matches.filter((fixture) => fixture.gap).length
+      group.gapCount = gaps
+      group.fixtureCount = group.matches.length
+      dayGaps += gaps
+      for (const fixture of group.matches) {
+        if (isSimulatedFixture(fixture, group.code)) continue
+        for (const name of [fixture.trading, fixture.prep, fixture.data]) {
+          if (name && isValidTraderName(name)) on.add(name)
+        }
+      }
+    }
+    day.gapCount = dayGaps
+    day.tradersOn = [...on].sort()
+  }
+  for (const tournament of IMPORTED_TOURNAMENTS) {
+    tournament.gapCount = tournament.fixtures.filter((fixture) => fixture.gap).length
+  }
+  scheduleRevision += 1
 }
 
 export function updateFixtureLifecycle(fixtureId: string, action: FixtureLifecycleAction): boolean {
-  return forEachFixtureById(fixtureId, (fixture) => applyLifecycleAction(fixture, action))
+  const updated = forEachFixtureById(fixtureId, (fixture) => applyLifecycleAction(fixture, action))
+  if (updated) refreshScheduleDerived()
+  return updated
 }
 
 export function markFixturePrepDone(fixtureId: string): boolean {
@@ -580,7 +754,9 @@ export function markFixtureSettled(fixtureId: string): boolean {
 }
 
 export function updateFixtureAssignment(fixtureId: string, patch: FixtureAssignmentPatch): boolean {
-  return forEachFixtureById(fixtureId, (fixture) => applyAssignmentToFixture(fixture, patch))
+  const updated = forEachFixtureById(fixtureId, (fixture) => applyAssignmentToFixture(fixture, patch))
+  if (updated) refreshScheduleDerived()
+  return updated
 }
 
 export function updateFixtureCoverage(fixtureId: string, coverageMode: CoverageMode): boolean {
@@ -603,6 +779,60 @@ function startOfCalendarDay(d: Date): Date {
   const copy = new Date(d)
   copy.setHours(0, 0, 0, 0)
   return copy
+}
+
+/** Demo override for coverage “today” (ISO yyyy-mm-dd). Null = real clock. */
+export const COVERAGE_SCHEDULE_TODAY_OVERRIDE: string | null = null
+
+/** Calendar days after a fixture’s schedule day that it stays in the UI (hidden once today > D + this). */
+export const PAST_SCHEDULE_DAY_RETENTION_DAYS = 3
+
+export function getCoverageScheduleToday(): Date {
+  if (COVERAGE_SCHEDULE_TODAY_OVERRIDE) {
+    return startOfCalendarDay(parseScheduleDate(COVERAGE_SCHEDULE_TODAY_OVERRIDE))
+  }
+  return startOfCalendarDay(new Date())
+}
+
+export function getCoverageScheduleTodayIso(): string {
+  const t = getCoverageScheduleToday()
+  const month = String(t.getMonth() + 1).padStart(2, '0')
+  const date = String(t.getDate()).padStart(2, '0')
+  return `${t.getFullYear()}-${month}-${date}`
+}
+
+/**
+ * Schedule rows for day D remain visible through D+3 (inclusive), then drop off — past games are
+ * not tracked indefinitely regardless of settle / coverage state.
+ */
+export function isScheduleDayVisibleInCoverageUi(
+  dayDateIso: string,
+  referenceDate: Date = getCoverageScheduleToday(),
+): boolean {
+  const day = startOfCalendarDay(parseScheduleDate(dayDateIso))
+  const lastVisible = new Date(day)
+  lastVisible.setDate(lastVisible.getDate() + PAST_SCHEDULE_DAY_RETENTION_DAYS)
+  return startOfCalendarDay(referenceDate) <= startOfCalendarDay(lastVisible)
+}
+
+/** Index of the schedule day on or before coverage “today” (0 if every day is still in the future). */
+export function findCoverageScheduleAnchorDayIndex(
+  allDays: ScheduleDay[],
+  referenceDate: Date = getCoverageScheduleToday(),
+): number {
+  if (!allDays.length) return 0
+  const today = startOfCalendarDay(referenceDate)
+  let anchor = 0
+  for (let i = 0; i < allDays.length; i++) {
+    const d = startOfCalendarDay(parseScheduleDate(allDays[i].date))
+    if (d <= today) anchor = i
+    else break
+  }
+  return anchor
+}
+
+function dropExpiredScheduleDays(days: ScheduleDay[]): ScheduleDay[] {
+  return days.filter((day) => isScheduleDayVisibleInCoverageUi(day.date))
 }
 
 export function getFixtureKickoffDate(fixture: ScheduleFixture, dayDate?: string | null): Date | null {
@@ -933,6 +1163,7 @@ export function fixtureMatchesFilters(
   dailyLead?: string | null,
   dayDate?: string | null,
 ): boolean {
+  if (dayDate && !isScheduleDayVisibleInCoverageUi(dayDate)) return false
   if (
     contentFilters.traderFilter &&
     !fixtureInvolvesTrader(fixture, contentFilters.traderFilter, { dailyLead })
@@ -983,6 +1214,70 @@ function sanitizeScheduleDays(scheduleDays: ScheduleDay[]): void {
         if (!isValidTraderName(fixture.prepareBy)) fixture.prepareBy = undefined
         if (!isValidTraderName(fixture.publishBy)) fixture.publishBy = undefined
         if (!isValidTraderName(fixture.settleBy)) fixture.settleBy = undefined
+        if (fixture.taskOwners) {
+          const owners: Partial<Record<CoverageTaskId, string>> = {}
+          for (const [task, name] of Object.entries(fixture.taskOwners)) {
+            if (name && isValidTraderName(name)) owners[task as CoverageTaskId] = name
+          }
+          fixture.taskOwners = owners
+        }
+        if (fixture.taskOpen) {
+          const open: Partial<Record<CoverageTaskId, boolean>> = {}
+          for (const [task, flag] of Object.entries(fixture.taskOpen)) {
+            const id = task as CoverageTaskId
+            const hasOwner =
+              (id === 'prep' && sanitizeTraderField(fixture.prep)) ||
+              (id === 'scout' && sanitizeTraderField(fixture.data)) ||
+              (id !== 'prep' && id !== 'scout' && sanitizeTraderField(fixture.taskOwners?.[id]))
+            if (hasOwner) continue
+            if (flag === false) open[id] = false
+          }
+          fixture.taskOpen = Object.keys(open).length > 0 ? open : undefined
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Clamp imported market counts to MAX_MARKETS_PER_GAME (the sheet's "Totals" column can hold huge
+ * values) and seed a deterministic demo mix of "prep done", "ready to publish" and "publishing
+ * (partial markets)" games so the publish workflow has something to show.
+ */
+function normalizeFixtureMarkets(scheduleDays: ScheduleDay[]): void {
+  for (const day of scheduleDays) {
+    for (const group of day.tournaments) {
+      for (const fixture of group.matches) {
+        if (isSimulatedFixture(fixture, group.code) || fixtureIsNotCovered(fixture)) {
+          // Not worked by traders, but still honour the per-game cap.
+          if (fixture.marketsTotal != null) fixture.marketsTotal = Math.min(MAX_MARKETS_PER_GAME, fixture.marketsTotal)
+          if (fixture.marketsSent != null) fixture.marketsSent = Math.min(fixture.marketsTotal ?? MAX_MARKETS_PER_GAME, fixture.marketsSent)
+          continue
+        }
+
+        const rawTotal = fixture.marketsTotal && fixture.marketsTotal > 0 ? fixture.marketsTotal : MAX_MARKETS_PER_GAME
+        const total = Math.min(MAX_MARKETS_PER_GAME, Math.round(rawTotal))
+        let sent = Math.min(total, Math.max(0, Math.round(fixture.marketsSent ?? 0)))
+        const out =
+          fixture.lifecycle === 'published' || fixture.lifecycle === 'settled' || fixture.lifecycle === 'price-check'
+
+        if (out) {
+          // Already published: every market has gone out.
+          sent = total
+        } else if (fixture.lifecycle === 'prepping' && !fixture.prepared) {
+          const roll = hashDisplaySeed(`markets:${fixture.id}`) % 100
+          if (roll < 30) {
+            fixture.prepared = true
+            if (fixture.prep) fixture.preparedBy = fixture.prep
+            if (roll >= 12 && total >= 20) {
+              // Publishing: some markets sent; publish task stays in the open pool until a trader claims it.
+              sent = Math.max(5, Math.min(total - 5, 10 + (hashDisplaySeed(`sent:${fixture.id}`) % 14) * 10))
+            }
+          }
+        }
+
+        fixture.marketsTotal = total
+        fixture.marketsSent = sent
       }
     }
   }
@@ -1177,7 +1472,10 @@ function syncTournamentFixturesFromSchedule(
   scheduleDays: ScheduleDay[],
   tournaments: ImportedTournament[],
 ): ImportedTournament[] {
-  const patch = new Map<string, Pick<ScheduleFixture, 'trading' | 'gap' | 'scout' | 'data'>>()
+  const patch = new Map<
+    string,
+    Pick<ScheduleFixture, 'trading' | 'gap' | 'scout' | 'data' | 'marketsSent' | 'marketsTotal' | 'prepared' | 'preparedBy'>
+  >()
   for (const day of scheduleDays) {
     for (const group of day.tournaments) {
       for (const fixture of group.matches) {
@@ -1186,6 +1484,10 @@ function syncTournamentFixturesFromSchedule(
           gap: fixture.gap,
           scout: fixture.scout,
           data: fixture.data,
+          marketsSent: fixture.marketsSent,
+          marketsTotal: fixture.marketsTotal,
+          prepared: fixture.prepared,
+          preparedBy: fixture.preparedBy,
         })
       }
     }
@@ -1204,17 +1506,33 @@ function syncTournamentFixturesFromSchedule(
 function buildDisplaySchedule(): ScheduleDay[] {
   const cloned = cloneScheduleDays(IMPORTED_SCHEDULE_DAYS)
   sanitizeScheduleDays(cloned)
+  normalizeFixtureMarkets(cloned)
   diversifyTradingAssignmentsForDisplay(cloned)
   ensureMinimumTradersOnPerDay(cloned)
   distributeDailyLeadAssignments(cloned)
-  return cloned
+  return dropExpiredScheduleDays(cloned)
 }
 
 export const SCHEDULE_DAYS: ScheduleDay[] = buildDisplaySchedule()
 export const SCHEDULE_WEEK_DAYS = SCHEDULE_DAYS
-export const IMPORTED_TOURNAMENTS: ImportedTournament[] = syncTournamentFixturesFromSchedule(
-  SCHEDULE_DAYS,
-  JSON.parse(JSON.stringify(RAW_IMPORTED_TOURNAMENTS)) as ImportedTournament[],
+
+function pruneImportedTournamentsToVisibleDays(tournaments: ImportedTournament[]): ImportedTournament[] {
+  return tournaments.map((tournament) => {
+    const fixtures = tournament.fixtures.filter((fixture) => isScheduleDayVisibleInCoverageUi(fixture.dateIso))
+    return {
+      ...tournament,
+      fixtures,
+      fixtureCount: fixtures.length,
+      gapCount: fixtures.filter((f) => f.gap).length,
+    }
+  })
+}
+
+export const IMPORTED_TOURNAMENTS: ImportedTournament[] = pruneImportedTournamentsToVisibleDays(
+  syncTournamentFixturesFromSchedule(
+    SCHEDULE_DAYS,
+    JSON.parse(JSON.stringify(RAW_IMPORTED_TOURNAMENTS)) as ImportedTournament[],
+  ),
 )
 
 export function allWeekFixtures(days: ScheduleDay[] = SCHEDULE_DAYS): ScheduleFixture[] {
@@ -1289,6 +1607,25 @@ export function findFixtureById(id: string): SelectedMatchContext | null {
 
 export function findFixtureContext(id: string): SelectedMatchContext | null {
   return findFixtureById(id)
+}
+
+/** Look up a fixture on a specific day (ids can repeat across days for multi-day fixtures). */
+export function findFixtureByIdAndDate(id: string, dayDate: string): SelectedMatchContext | null {
+  for (const day of SCHEDULE_DAYS) {
+    if (day.date !== dayDate) continue
+    for (const tournament of day.tournaments) {
+      const fixture = tournament.matches.find((m) => m.id === id)
+      if (fixture) return { fixture, day, tournament }
+    }
+  }
+  return findFixtureById(id)
+}
+
+/** Coverage mode as shown in the match panel (falls back to the label when the mode is unset). */
+export function getFixtureCoverageMode(fixture: ScheduleFixture): CoverageMode {
+  if (fixture.coverageMode) return fixture.coverageMode
+  if (fixture.coverageLabel === 'Not Covered') return 'not-covered'
+  return 'standard'
 }
 
 export const SCHEDULE_TRADER_NAMES = ['Dyer', 'Moore', 'Perry', 'Paul', 'Collinson', 'Cooper', 'Ewins']
@@ -1709,10 +2046,10 @@ export const TRADER_MONTH_ROLE_ROWS: { id: TraderMonthRoleId; label: string }[] 
 
 export function getDefaultMyRotaMonth(allDays: ScheduleDay[] = SCHEDULE_DAYS): MyRotaMonth {
   if (!allDays.length) {
-    const now = new Date()
+    const now = getCoverageScheduleToday()
     return { year: now.getFullYear(), month: now.getMonth() }
   }
-  const d = parseScheduleDate(allDays[0].date)
+  const d = parseScheduleDate(allDays[findCoverageScheduleAnchorDayIndex(allDays)].date)
   return { year: d.getFullYear(), month: d.getMonth() }
 }
 

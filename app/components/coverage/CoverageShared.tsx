@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import {
   allWeekFixtures,
   countStatusFilter,
   countPrepDueFilter,
   DEFAULT_CONTENT_FILTERS,
-  findFixtureById,
+  findFixtureByIdAndDate,
+  getScheduleRevision,
   formatFixtureMatchDisplay,
   formatPrepCompletedLabel,
   formatPrepDueLabel,
@@ -48,6 +49,8 @@ import {
 } from '../../data/coverageScheduleStore'
 import StatusPipelineStrip from '../CoverageStatusPipeline'
 import CoverageMatchPanel from './CoverageMatchPanel'
+import CoverageDayMatrix from './CoverageDayMatrix'
+import FixtureMarketsBar from './CoverageMarketsProgress'
 
 export function CoverageTag({
   kind,
@@ -92,6 +95,7 @@ export function MatchPanelMount({
         tabIndex={-1}
       />
       <CoverageMatchPanel
+        key={`${selected.day.date}:${selected.fixture.id}`}
         fixture={selected.fixture}
         day={selected.day}
         tournament={selected.tournament}
@@ -107,8 +111,62 @@ export function MatchPanelMount({
 export function scrollSelectedFixtureIntoView(fixtureId: string) {
   requestAnimationFrame(() => {
     const el = document.querySelector(`[data-fixture-id="${fixtureId}"]`)
-    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
   })
+}
+
+/**
+ * Selected-match state shared by every view that opens the match panel.
+ *
+ * The schedule store mutates fixtures in place, so a stored copy of the selection goes stale. We keep
+ * only the identity (fixture id + day) and re-resolve it from the store on every render — keyed on the
+ * store revision — so the panel always shows what was just saved, even when the fixture appears on
+ * more than one day or only exists in a tournament listing.
+ */
+export function useSelectedMatch(
+  onUpdateAssignment?: (fixtureId: string, patch: FixtureAssignmentPatch) => void,
+  onMarkLifecycle?: (fixtureId: string, action: FixtureLifecycleAction) => void,
+) {
+  const [picked, setPicked] = useState<SelectedMatchContext | null>(null)
+  const [, forceRender] = useReducer((tick: number) => tick + 1, 0)
+  const revision = getScheduleRevision()
+
+  const selected = useMemo(() => {
+    if (!picked) return null
+    return findFixtureByIdAndDate(picked.fixture.id, picked.day.date) ?? picked
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates in-place store mutations
+  }, [picked, revision])
+
+  const handleUpdateAssignment = useCallback(
+    (patch: FixtureAssignmentPatch) => {
+      if (!selected || !onUpdateAssignment) return
+      onUpdateAssignment(selected.fixture.id, patch)
+      forceRender()
+    },
+    [selected, onUpdateAssignment],
+  )
+
+  const handleMarkLifecycle = useCallback(
+    (action: FixtureLifecycleAction) => {
+      if (!selected || !onMarkLifecycle) return
+      onMarkLifecycle(selected.fixture.id, action)
+      forceRender()
+    },
+    [selected, onMarkLifecycle],
+  )
+
+  const clear = useCallback(() => setPicked(null), [])
+
+  useEffect(() => {
+    if (!picked) return
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setPicked(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [picked])
+
+  return { selected, setSelected: setPicked, clear, handleUpdateAssignment, handleMarkLifecycle }
 }
 
 export function ScheduleMatchSplit({
@@ -117,6 +175,7 @@ export function ScheduleMatchSplit({
   onClose,
   onUpdateAssignment,
   onMarkLifecycle,
+  fill = false,
   children,
 }: {
   selected: SelectedMatchContext | null
@@ -124,17 +183,31 @@ export function ScheduleMatchSplit({
   onClose: () => void
   onUpdateAssignment?: (patch: FixtureAssignmentPatch) => void
   onMarkLifecycle?: (action: FixtureLifecycleAction) => void
+  /** Let the child manage its own scrolling (sticky headers / horizontal scroll). */
+  fill?: boolean
   children: React.ReactNode
 }) {
   useEffect(() => {
     if (!selected) return
     scrollSelectedFixtureIntoView(selected.fixture.id)
-  }, [selected?.fixture.id])
+  }, [selected?.fixture.id, selected?.day.date])
+
+  // Lock page scroll behind the full-screen drawer on narrow viewports.
+  useEffect(() => {
+    if (!selected) return
+    const query = window.matchMedia('(max-width: 1099px)')
+    if (!query.matches) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [selected != null])
 
   return (
     <div className={'cov-schedule-split' + (selected ? ' cov-schedule-split--open' : '')}>
       <div className="cov-schedule-split-main">
-        <div className="cov-schedule-scroll">{children}</div>
+        <div className={'cov-schedule-scroll' + (fill ? ' cov-schedule-scroll--fill' : '')}>{children}</div>
       </div>
       {selected ? (
         <MatchPanelMount
@@ -469,12 +542,10 @@ export function FixtureCard({
         <StatusPipelineStrip fixture={fixture} variant={pipelineVariantForDensity(layoutDensity)} />
       </div>
       <div className="cov-fixture-col-markets">
-        {fixture.marketsSent != null ? (
-          <span className="cov-fixture-markets" title={`${fixture.marketsSent} markets`}>
-            {ultra ? fixture.marketsSent : `${fixture.marketsSent} mkts`}
-          </span>
-        ) : (
+        {simulated || notCovered ? (
           <span className="cov-muted">—</span>
+        ) : (
+          <FixtureMarketsBar fixture={fixture} compact={ultra} />
         )}
       </div>
     </button>
@@ -575,12 +646,10 @@ function FixtureTableGameRow({
         <StatusPipelineStrip fixture={fixture} variant={pipelineVariantForDensity(layoutDensity)} />
       </div>
       <div className="cov-fixture-col-markets">
-        {fixture.marketsSent != null ? (
-          <span className="cov-fixture-markets" title={`${fixture.marketsSent} markets`}>
-            {ultra ? fixture.marketsSent : `${fixture.marketsSent} mkts`}
-          </span>
-        ) : (
+        {simulated || notCovered ? (
           <span className="cov-muted">—</span>
+        ) : (
+          <FixtureMarketsBar fixture={fixture} compact={ultra} />
         )}
       </div>
     </button>
@@ -612,7 +681,7 @@ function DayTournamentTable({
         <span>Prep</span>
         <span>Prep by</span>
         <span>Status</span>
-        <span>Mkts</span>
+        <span>Markets</span>
       </div>
       <div className="cov-tournament-table-body">
         {visibleGroups.flatMap(({ group, matches }) => {
@@ -686,7 +755,8 @@ function DayFixtureList({
           ),
         }))
         .filter((entry) => entry.matches.length > 0),
-    [groups, statusFilter, contentFilters, day.dailyLead],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates in-place store mutations
+    [groups, statusFilter, contentFilters, day.dailyLead, day.date, getScheduleRevision()],
   )
 
   if (visibleGroups.length === 0) {
@@ -732,7 +802,8 @@ export function DayBlockCard({
           ),
         }))
         .filter((entry) => entry.matches.length > 0),
-    [day.tournaments, statusFilter, contentFilters, day.dailyLead],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- revision invalidates in-place store mutations
+    [day.tournaments, statusFilter, contentFilters, day.dailyLead, day.date, getScheduleRevision()],
   )
 
   const visibleCount = visibleGroups.reduce((sum, entry) => sum + entry.matches.length, 0)
@@ -803,6 +874,7 @@ function AllGamesList({
     }
   }
 
+  // `items` is rebuilt every render, so this memo simply groups the fresh list by day.
   const sections = useMemo(() => {
     const map = new Map<string, { label: string; items: SelectedMatchContext[] }>()
     for (const ctx of items) {
@@ -913,34 +985,10 @@ export function WeekScheduleLayout({
   onUpdateAssignment?: (fixtureId: string, patch: FixtureAssignmentPatch) => void
   onMarkLifecycle?: (fixtureId: string, action: FixtureLifecycleAction) => void
 }) {
-  const [selected, setSelected] = useState<SelectedMatchContext | null>(null)
-
-  function refreshSelected() {
-    if (!selected) return
-    const refreshed = findFixtureById(selected.fixture.id)
-    if (refreshed) setSelected(refreshed)
-  }
-
-  function handleUpdateAssignment(patch: FixtureAssignmentPatch) {
-    if (!selected || !onUpdateAssignment) return
-    onUpdateAssignment(selected.fixture.id, patch)
-    refreshSelected()
-  }
-
-  function handleMarkLifecycle(action: FixtureLifecycleAction) {
-    if (!selected || !onMarkLifecycle) return
-    onMarkLifecycle(selected.fixture.id, action)
-    refreshSelected()
-  }
-
-  useEffect(() => {
-    if (!selected) return
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setSelected(null)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selected])
+  const { selected, setSelected, clear, handleUpdateAssignment, handleMarkLifecycle } = useSelectedMatch(
+    onUpdateAssignment,
+    onMarkLifecycle,
+  )
 
   const scheduleList = (
     <div className={'cov-view-stack cov-view-stack--schedule' + scheduleLayoutDensityClass(layoutDensity)}>
@@ -982,11 +1030,35 @@ export function WeekScheduleLayout({
     </div>
   )
 
+  if (listMode === 'day-matrix') {
+    return (
+      <ScheduleMatchSplit
+        selected={selected}
+        persona={persona}
+        onClose={clear}
+        onUpdateAssignment={handleUpdateAssignment}
+        onMarkLifecycle={handleMarkLifecycle}
+        fill
+      >
+        <CoverageDayMatrix
+          days={days}
+          persona={persona}
+          onUpdateAssignment={onUpdateAssignment}
+          statusFilter={statusFilter}
+          contentFilters={contentFilters}
+          layoutDensity={layoutDensity}
+          selectedFixtureId={selected?.fixture.id ?? null}
+          onSelect={setSelected}
+        />
+      </ScheduleMatchSplit>
+    )
+  }
+
   return (
     <ScheduleMatchSplit
       selected={selected}
       persona={persona}
-      onClose={() => setSelected(null)}
+      onClose={clear}
       onUpdateAssignment={handleUpdateAssignment}
       onMarkLifecycle={handleMarkLifecycle}
     >

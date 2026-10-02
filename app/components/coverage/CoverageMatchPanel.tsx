@@ -2,7 +2,7 @@
 
 
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import {
 
@@ -24,6 +24,8 @@ import {
 
   formatScoutLabel,
 
+  getFixtureCoverageMode,
+  MAX_MARKETS_PER_GAME,
   getFixtureDataAssignment,
 
   getFixtureTier,
@@ -65,6 +67,7 @@ import {
 import { getAssignableTraders } from '../../data/traders'
 
 import StatusPipelineStrip from '../CoverageStatusPipeline'
+import FixtureMarketsBar from './CoverageMarketsProgress'
 
 
 
@@ -154,7 +157,7 @@ export default function CoverageMatchPanel({
 
   const prepCompletedLabel = formatPrepCompletedLabel(fixture)
 
-  const savedCoverageMode = fixture.coverageMode ?? 'standard'
+  const savedCoverageMode = getFixtureCoverageMode(fixture)
 
   const savedTrading = fixture.trading ?? ''
 
@@ -171,6 +174,13 @@ export default function CoverageMatchPanel({
   const [draftCoverageMode, setDraftCoverageMode] = useState<CoverageMode>(savedCoverageMode)
 
   const [draftScout, setDraftScout] = useState(savedScout)
+  const [justSaved, setJustSaved] = useState(false)
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Editable sections follow the *draft* coverage mode, so picking Live / Pre-match / Not covered
+  // immediately shows (or hides) the matching inputs instead of waiting for a save round-trip.
+  const draftNeedsTrader = draftCoverageMode === 'live' || draftCoverageMode === 'standard'
+  const draftNotCovered = draftCoverageMode === 'not-covered'
 
 
 
@@ -184,17 +194,32 @@ export default function CoverageMatchPanel({
 
     setDraftScout(savedScout)
 
-  }, [fixture.id, savedTrading, savedPrep, savedCoverageMode, savedScout])
+  }, [fixture.id, day.date, savedTrading, savedPrep, savedCoverageMode, savedScout])
+
+  useEffect(() => {
+    setJustSaved(false)
+  }, [fixture.id, day.date])
+
+  useEffect(
+    () => () => {
+      if (savedTimer.current) clearTimeout(savedTimer.current)
+    },
+    [],
+  )
 
 
+
+  // Prep stays editable (assign / reassign / clear) for any covered fixture — previously the select
+  // vanished as soon as a prep trader was saved, so it could never be changed again.
+  const prepEditable = admin && !simulated && !draftNotCovered
 
   const hasUnsavedChanges = useMemo(() => {
 
     if (!admin || simulated) return false
 
-    const tradingChanged = needsTrader && draftTrading !== savedTrading
+    const tradingChanged = draftNeedsTrader && draftTrading !== savedTrading
 
-    const prepChanged = needsPrepAssign && draftPrep !== savedPrep
+    const prepChanged = prepEditable && draftPrep !== savedPrep
 
     const coverageChanged = draftCoverageMode !== savedCoverageMode
 
@@ -208,13 +233,13 @@ export default function CoverageMatchPanel({
 
     simulated,
 
-    needsTrader,
+    draftNeedsTrader,
 
     draftTrading,
 
     savedTrading,
 
-    needsPrepAssign,
+    prepEditable,
 
     draftPrep,
 
@@ -234,13 +259,13 @@ export default function CoverageMatchPanel({
 
   const showSuggestions =
 
-    admin && !simulated && needsTrader && !savedTrading && !draftTrading
+    admin && !simulated && draftNeedsTrader && !savedTrading && !draftTrading
 
   const showUnassignedTag = fixture.gap && !simulated && needsTrader
 
-  const showPrepAssign = admin && !simulated && needsPrepAssign
+  const showPrepAssign = prepEditable
 
-  const showTradingSelect = admin && !simulated && needsTrader
+  const showTradingSelect = admin && !simulated && draftNeedsTrader
 
 
 
@@ -252,13 +277,13 @@ export default function CoverageMatchPanel({
 
     const patch: FixtureAssignmentPatch = {}
 
-    if (needsTrader && draftTrading !== savedTrading) {
+    if (draftNeedsTrader && draftTrading !== savedTrading) {
 
       patch.trading = draftTrading || null
 
     }
 
-    if (needsPrepAssign && draftPrep !== savedPrep) {
+    if (prepEditable && draftPrep !== savedPrep) {
 
       patch.prep = draftPrep || null
 
@@ -279,6 +304,10 @@ export default function CoverageMatchPanel({
 
 
     onUpdateAssignment(patch)
+
+    setJustSaved(true)
+    if (savedTimer.current) clearTimeout(savedTimer.current)
+    savedTimer.current = setTimeout(() => setJustSaved(false), 2800)
 
   }
 
@@ -516,7 +545,9 @@ export default function CoverageMatchPanel({
 
             <h4 className="cov-match-panel-label">Prep</h4>
 
-            <p className="cov-muted">Assign a prep trader for this fixture.</p>
+            <p className="cov-muted">
+              {savedPrep ? 'Change or clear the prep trader.' : 'Assign a prep trader for this fixture.'}
+            </p>
 
             <select
 
@@ -722,14 +753,11 @@ export default function CoverageMatchPanel({
 
 
 
-        {fixture.marketsSent != null ? (
-
-          <p className="cov-muted">
-
-            Markets sent: {fixture.marketsSent}{fixture.marketsTotal ? ` / ${fixture.marketsTotal}` : ''}
-
-          </p>
-
+        {!simulated && !notCovered ? (
+          <section className="cov-match-panel-section">
+            <h4 className="cov-match-panel-label">Markets sent (max {MAX_MARKETS_PER_GAME})</h4>
+            <FixtureMarketsBar fixture={fixture} />
+          </section>
         ) : null}
 
 
@@ -806,7 +834,7 @@ export default function CoverageMatchPanel({
 
               }
 
-              disabled={steps.prep === 'done'}
+              disabled={simulated || steps.prep === 'done'}
 
               onClick={() => onMarkLifecycle?.('prep-done')}
 
@@ -828,7 +856,7 @@ export default function CoverageMatchPanel({
 
               }
 
-              disabled={steps.publish === 'done'}
+              disabled={simulated || steps.publish === 'done'}
 
               onClick={() => onMarkLifecycle?.('published')}
 
@@ -850,7 +878,7 @@ export default function CoverageMatchPanel({
 
               }
 
-              disabled={steps.settle === 'done'}
+              disabled={simulated || steps.settle === 'done'}
 
               onClick={() => onMarkLifecycle?.('settled')}
 
@@ -863,6 +891,16 @@ export default function CoverageMatchPanel({
           </div>
 
           <div className="cov-match-panel-foot-save">
+            <p
+              className={
+                'cov-match-panel-save-status' +
+                (hasUnsavedChanges ? ' cov-match-panel-save-status--dirty' : justSaved ? ' cov-match-panel-save-status--saved' : '')
+              }
+              role="status"
+              aria-live="polite"
+            >
+              {hasUnsavedChanges ? 'Unsaved changes' : justSaved ? '✓ Saved' : ''}
+            </p>
 
             <button
 
