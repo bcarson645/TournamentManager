@@ -4499,49 +4499,49 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   --cov-tournament-table-cols: minmax(7rem, 0.85fr) var(--cov-fixture-grid-cols);
 }
 
-.cov-schedule-layout--ultra {
+.cov-schedule-layout--compact {
   --cov-fixture-grid-cols: minmax(0, 0.5fr) minmax(0, 3.2fr) minmax(0, 0.6fr) minmax(0, 0.45fr) minmax(0, 0.45fr) minmax(0, 0.35fr) minmax(0, 0.7fr);
   --cov-tournament-table-cols: minmax(0, 0.4fr) var(--cov-fixture-grid-cols);
 }
 
-/* Ultra: never force horizontal scroll — fluid fr tracks with 0 minima use
+/* Compact: never force horizontal scroll — fluid fr tracks with 0 minima use
    available width efficiently instead of stretching past the viewport. */
-.cov-schedule-layout--ultra .cov-tournament-table-body,
-.cov-schedule-layout--ultra .cov-tournament-table-game,
-.cov-schedule-layout--ultra .cov-fixture-card {
+.cov-schedule-layout--compact .cov-tournament-table-body,
+.cov-schedule-layout--compact .cov-tournament-table-game,
+.cov-schedule-layout--compact .cov-fixture-card {
   min-width: 0;
   max-width: 100%;
 }
 
-.cov-schedule-layout--ultra .cov-tournament-table-game > *,
-.cov-schedule-layout--ultra .cov-fixture-card > *,
-.cov-schedule-layout--ultra .cov-tournament-table-cell {
+.cov-schedule-layout--compact .cov-tournament-table-game > *,
+.cov-schedule-layout--compact .cov-fixture-card > *,
+.cov-schedule-layout--compact .cov-tournament-table-cell {
   min-width: 0;
   overflow: hidden;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-col-time,
-.cov-schedule-layout--ultra .cov-fixture-prep-due,
-.cov-schedule-layout--ultra .cov-mkts-label {
+.cov-schedule-layout--compact .cov-fixture-col-time,
+.cov-schedule-layout--compact .cov-fixture-prep-due,
+.cov-schedule-layout--compact .cov-mkts-label {
   white-space: nowrap;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-title,
-.cov-schedule-layout--ultra .cov-tournament-table-name {
+.cov-schedule-layout--compact .cov-fixture-title,
+.cov-schedule-layout--compact .cov-tournament-table-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-col-markets {
+.cov-schedule-layout--compact .cov-fixture-col-markets {
   min-width: 0;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-col-markets .cov-mkts {
+.cov-schedule-layout--compact .cov-fixture-col-markets .cov-mkts {
   min-width: 0;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-col-markets .cov-mkts-track {
+.cov-schedule-layout--compact .cov-fixture-col-markets .cov-mkts-track {
   min-width: 1rem;
 }
 
@@ -4549,7 +4549,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   gap: 0.55rem;
 }
 
-.cov-schedule-layout--ultra .cov-day-list {
+.cov-schedule-layout--compact .cov-day-list {
   gap: 0.35rem;
 }
 
@@ -4557,7 +4557,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   padding: 0.42rem 0.65rem;
 }
 
-.cov-schedule-layout--ultra .cov-day-block-head {
+.cov-schedule-layout--compact .cov-day-block-head {
   padding: 0.28rem 0.5rem;
 }
 
@@ -4565,7 +4565,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   font-size: 0.86rem;
 }
 
-.cov-schedule-layout--ultra .cov-day-block-title {
+.cov-schedule-layout--compact .cov-day-block-title {
   font-size: 0.76rem;
 }
 
@@ -4574,11 +4574,11 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   font-size: 0.72rem;
 }
 
-.cov-schedule-layout--ultra .cov-day-block-meta {
+.cov-schedule-layout--compact .cov-day-block-meta {
   font-size: 0.66rem;
 }
 
-.cov-schedule-layout--ultra .cov-day-block-traders {
+.cov-schedule-layout--compact .cov-day-block-traders {
   display: none;
 }
 
@@ -4586,7 +4586,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   padding: 0.32rem 0.5rem 0.5rem;
 }
 
-.cov-schedule-layout--ultra .cov-day-block-body {
+.cov-schedule-layout--compact .cov-day-block-body {
   padding: 0.2rem 0.35rem 0.35rem;
 }
 
@@ -4594,7 +4594,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   gap: 0.16rem 0.5rem;
 }
 
-.cov-schedule-layout--ultra .cov-tournament-table-body {
+.cov-schedule-layout--compact .cov-tournament-table-body {
   gap: 0.1rem 0.35rem;
 }
 
@@ -4604,8 +4604,8 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   padding: 0.28rem 0.5rem;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-card,
-.cov-schedule-layout--ultra .cov-tournament-table-game {
+.cov-schedule-layout--compact .cov-fixture-card,
+.cov-schedule-layout--compact .cov-tournament-table-game {
   gap: 0.18rem 0.35rem;
   padding: 0.14rem 0.35rem;
   border-radius: calc(var(--radius) - 2px);
@@ -4615,7 +4615,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   font-size: 0.72rem;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-col-time {
+.cov-schedule-layout--compact .cov-fixture-col-time {
   font-size: 0.68rem;
 }
 
@@ -4623,11 +4623,11 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   font-size: 0.78rem;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-col-match {
+.cov-schedule-layout--compact .cov-fixture-col-match {
   min-width: 0;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-title {
+.cov-schedule-layout--compact .cov-fixture-title {
   font-size: 0.72rem;
   line-height: 1.1;
 }
@@ -4643,9 +4643,9 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   font-size: 0.68rem;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-trader-pill,
-.cov-schedule-layout--ultra .cov-fixture-prep-pill,
-.cov-schedule-layout--ultra .cov-fixture-coverage-pill {
+.cov-schedule-layout--compact .cov-fixture-trader-pill,
+.cov-schedule-layout--compact .cov-fixture-prep-pill,
+.cov-schedule-layout--compact .cov-fixture-coverage-pill {
   padding: 0.04rem 0.28rem;
   font-size: 0.62rem;
   line-height: 1.15;
@@ -4655,7 +4655,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   font-size: 0.64rem;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-prep-due {
+.cov-schedule-layout--compact .cov-fixture-prep-due {
   font-size: 0.62rem;
 }
 
@@ -4663,7 +4663,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   font-size: 0.68rem;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-markets {
+.cov-schedule-layout--compact .cov-fixture-markets {
   font-size: 0.64rem;
   font-weight: 700;
 }
@@ -4672,7 +4672,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   gap: 0.18rem;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-list {
+.cov-schedule-layout--compact .cov-fixture-list {
   gap: 0.1rem;
 }
 
@@ -4680,7 +4680,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   padding: 0.28rem 0.4rem;
 }
 
-.cov-schedule-layout--ultra .cov-tournament-table-cell {
+.cov-schedule-layout--compact .cov-tournament-table-cell {
   padding: 0.14rem 0.3rem;
   gap: 0.08rem;
 }
@@ -4690,7 +4690,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   -webkit-line-clamp: 3;
 }
 
-.cov-schedule-layout--ultra .cov-tournament-table-name {
+.cov-schedule-layout--compact .cov-tournament-table-name {
   font-size: 0.66rem;
   -webkit-line-clamp: 1;
 }
@@ -4704,25 +4704,25 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   font-size: 0.62rem;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-trader-label,
-.cov-schedule-layout--ultra .cov-fixture-col-note,
-.cov-schedule-layout--ultra .cov-fixture-prep-overdue-badge {
+.cov-schedule-layout--compact .cov-fixture-trader-label,
+.cov-schedule-layout--compact .cov-fixture-col-note,
+.cov-schedule-layout--compact .cov-fixture-prep-overdue-badge {
   display: none;
 }
 
-.cov-schedule-layout--ultra .cov-fixture-col-trader,
-.cov-schedule-layout--ultra .cov-fixture-col-prep,
-.cov-schedule-layout--ultra .cov-fixture-col-prep-by {
+.cov-schedule-layout--compact .cov-fixture-col-trader,
+.cov-schedule-layout--compact .cov-fixture-col-prep,
+.cov-schedule-layout--compact .cov-fixture-col-prep-by {
   flex-direction: row;
   align-items: center;
   gap: 0;
 }
 
-.cov-schedule-layout--ultra .cov-all-games-day-head {
+.cov-schedule-layout--compact .cov-all-games-day-head {
   padding: 0.2rem 0;
 }
 
-.cov-schedule-layout--ultra .cov-all-games-day-title {
+.cov-schedule-layout--compact .cov-all-games-day-title {
   font-size: 0.76rem;
 }
 
@@ -4844,7 +4844,7 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
   --dm-row-h: 3.15rem;
 }
 
-.cov-dm--ultra {
+.cov-dm--compact {
   --dm-fixture-w: 15rem;
   --dm-cell-w: 2.2rem;
   --dm-row-h: 1.85rem;
@@ -5222,31 +5222,31 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
 
 /* Ultra: fit the viewport — fluid grid that uses available width instead of
    stretching past it (no horizontal scrollbar at 1280–1920px). */
-.cov-dm--ultra .cov-dm-grid {
+.cov-dm--compact .cov-dm-grid {
   width: 100%;
   min-width: 0;
 }
 
-.cov-dm--ultra .cov-dm-row {
+.cov-dm--compact .cov-dm-row {
   grid-template-columns: minmax(9rem, 1.7fr) repeat(var(--dm-cols, 1), minmax(0, 1fr));
 }
 
-.cov-dm--ultra .cov-dm-row > *,
-.cov-dm--ultra .cov-dm-corner,
-.cov-dm--ultra .cov-dm-fixture,
-.cov-dm--ultra .cov-dm-cell,
-.cov-dm--ultra .cov-dm-colhead,
-.cov-dm--ultra .cov-dm-group-cell,
-.cov-dm--ultra .cov-dm-group-head {
+.cov-dm--compact .cov-dm-row > *,
+.cov-dm--compact .cov-dm-corner,
+.cov-dm--compact .cov-dm-fixture,
+.cov-dm--compact .cov-dm-cell,
+.cov-dm--compact .cov-dm-colhead,
+.cov-dm--compact .cov-dm-group-cell,
+.cov-dm--compact .cov-dm-group-head {
   min-width: 0;
   overflow: hidden;
 }
 
-.cov-dm--ultra .cov-dm-fixture-hit {
+.cov-dm--compact .cov-dm-fixture-hit {
   min-width: 0;
 }
 
-.cov-dm--ultra .cov-dm-fixture-state {
+.cov-dm--compact .cov-dm-fixture-state {
   flex-wrap: wrap;
   min-width: 0;
   flex-shrink: 1;
@@ -6017,68 +6017,68 @@ html[data-cov-theme='light-blue'] .cov-match-panel-kickoff {
 }
 
 /* Ultra condensed */
-.cov-dm--ultra .cov-dm-fixture {
+.cov-dm--compact .cov-dm-fixture {
   flex-direction: row;
   align-items: center;
   gap: 0.3rem;
   padding: 0.12rem 0.4rem 0.12rem 0.55rem;
 }
 
-.cov-dm--ultra .cov-dm-fixture-hit {
+.cov-dm--compact .cov-dm-fixture-hit {
   flex: 1;
   grid-template-columns: 2.1rem minmax(0, 1fr);
   gap: 0.3rem;
 }
 
-.cov-dm--ultra .cov-dm-fixture-time {
+.cov-dm--compact .cov-dm-fixture-time {
   font-size: 0.68rem;
 }
 
-.cov-dm--ultra .cov-dm-fixture-title {
+.cov-dm--compact .cov-dm-fixture-title {
   -webkit-line-clamp: 1;
   font-size: 0.7rem;
   line-height: 1.15;
 }
 
-.cov-dm--ultra .cov-dm-fixture-open {
+.cov-dm--compact .cov-dm-fixture-open {
   display: none;
 }
 
-.cov-dm--ultra .cov-dm-fixture-state {
+.cov-dm--compact .cov-dm-fixture-state {
   flex-wrap: wrap;
   min-width: 0;
   flex-shrink: 1;
   gap: 0.2rem;
 }
 
-.cov-dm--ultra .cov-dm-action--compact {
+.cov-dm--compact .cov-dm-action--compact {
   padding: 0 0.3rem;
   font-size: 0.6rem;
 }
 
-.cov-dm--ultra .cov-dm-owner {
+.cov-dm--compact .cov-dm-owner {
   padding: 0 0.3rem;
   font-size: 0.6rem;
 }
 
-.cov-dm--ultra .cov-dm-cell {
+.cov-dm--compact .cov-dm-cell {
   padding: 1px;
 }
 
-.cov-dm--ultra .cov-dm-cell-assigned {
+.cov-dm--compact .cov-dm-cell-assigned {
   font-size: 0.7rem;
 }
 
-.cov-dm--ultra .cov-dm-group-head {
+.cov-dm--compact .cov-dm-group-head {
   padding: 0.2rem 0.4rem 0.2rem 0.55rem;
 }
 
-.cov-dm--ultra .cov-dm-group-action,
-.cov-dm--ultra .cov-dm-corner-sub {
+.cov-dm--compact .cov-dm-group-action,
+.cov-dm--compact .cov-dm-corner-sub {
   display: none;
 }
 
-.cov-dm--ultra .cov-dm-colhead-load {
+.cov-dm--compact .cov-dm-colhead-load {
   font-size: 0.64rem;
 }
 
@@ -6126,7 +6126,7 @@ html[data-cov-theme='light-blue'] .cov-dm-cell--pool:focus-visible .cov-dm-cell-
     --dm-fixture-w: 13rem;
   }
 
-  .cov-dm--ultra {
+  .cov-dm--compact {
     --dm-fixture-w: 12.5rem;
   }
 
@@ -6600,8 +6600,17 @@ html[data-cov-theme='default'] .cov-schedule-shell {
 /* Theme toggle */
 .cov-theme-toggle { gap: 0.375rem; font-weight: 700; }
 .cov-theme-toggle-icon { font-size: 0.9rem; line-height: 1; }
+.cov-density-toggle { gap: 0.375rem; font-weight: 700; }
+.cov-density-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
 html[data-cov-theme='light-blue'] .cov-theme-toggle-label,
 html[data-cov-theme='default'] .cov-theme-toggle-label { font-size: 0.76rem; }
+html[data-cov-theme='light-blue'] .cov-density-toggle-label,
+html[data-cov-theme='default'] .cov-density-toggle-label { font-size: 0.76rem; }
 
 /* --- Buttons (standardised) --- */
 .cov-schedule-shell .cov-btn {
@@ -7094,6 +7103,5 @@ html[data-cov-theme='light-blue'] .cov-schedule-shell .cov-tournament-table-head
 html[data-cov-theme='default'] .cov-schedule-shell .cov-tournament-table-header { color: #94a3b8; }
 .cov-schedule-shell .cov-tournament-table-body { align-items: start; }
 .cov-schedule-shell .cov-tournament-card-name { font-weight: 600; line-height: 1.35; }
-
 
 

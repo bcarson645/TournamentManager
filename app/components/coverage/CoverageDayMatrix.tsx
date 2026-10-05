@@ -115,8 +115,7 @@ function FixtureHeaderCell({
   canAssign: boolean
 }) {
   const { fixture, tournament } = row.ctx
-  const ultra = density === 'ultra-condensed'
-  const comfortable = density === 'comfortable'
+  const compact = density === 'compact'
   const label = formatFixtureMatchLabel(fixture)
   const coverageKind = resolveFixtureCoverageTagKind(fixture, tournament.code)
   const dayLabel = row.ctx.day.label
@@ -144,7 +143,7 @@ function FixtureHeaderCell({
         <time className="cov-dm-fixture-time">{fixture.time}</time>
         <span className="cov-dm-fixture-main">
           <span className="cov-dm-fixture-title">{label}</span>
-          {!ultra ? (
+          {!compact ? (
             <span className="cov-dm-fixture-meta">
               <span className="cov-chip cov-chip--neutral cov-dm-comp">{tournament.code}</span>
               <span className={`cov-chip cov-chip--${row.tier === 1 ? 'warn' : 'neutral'}`}>T{row.tier}</span>
@@ -161,11 +160,11 @@ function FixtureHeaderCell({
         </span>
       </button>
       <div className="cov-dm-fixture-state">
-        <ActionChip row={row} compact={ultra} />
+        <ActionChip row={row} compact={compact} />
         {showMarkets && row.markets ? (
-          <MarketsProgressBar progress={row.markets} compact={!comfortable} />
+          <MarketsProgressBar progress={row.markets} compact />
         ) : null}
-        <OwnerTag row={row} compact={ultra} />
+        <OwnerTag row={row} compact={compact} />
         {canAssign && row.task && row.needsAction && !row.owner ? (
           <button
             type="button"
@@ -181,7 +180,7 @@ function FixtureHeaderCell({
               onToggleOpen()
             }}
           >
-            {ultra
+            {compact
               ? row.taskOpen
                 ? 'Pin'
                 : '!'
@@ -206,7 +205,7 @@ function ColumnHeader({
   focused: boolean
   onToggleFocus: () => void
 }) {
-  const ultra = density === 'ultra-condensed'
+  const compact = density === 'compact'
   const breakdown = DAY_MATRIX_TASKS.filter((task) => column.counts[task] > 0)
     .map((task) => `${DAY_MATRIX_TASK_META[task].label} ${column.counts[task]}`)
     .join(' · ')
@@ -223,15 +222,15 @@ function ColumnHeader({
       aria-pressed={focused}
       onClick={onToggleFocus}
     >
-      <span className={'cov-dm-colhead-name' + (ultra ? ' cov-dm-colhead-name--vertical' : '')}>{column.trader}</span>
+      <span className={'cov-dm-colhead-name' + (compact ? ' cov-dm-colhead-name--vertical' : '')}>{column.trader}</span>
       {column.isDailyLead ? (
         <span className="cov-dm-colhead-lead" title="Daily lead">
-          {ultra ? '★' : '★ Lead'}
+          {compact ? '★' : '★ Lead'}
         </span>
       ) : null}
       <span className="cov-dm-colhead-load">
         {column.total > 0 ? (
-          ultra ? (
+          compact ? (
             column.total
           ) : (
             DAY_MATRIX_TASKS.filter((task) => column.counts[task] > 0).map((task) => (
@@ -327,8 +326,7 @@ function MatrixCell({
   const task = row.task
   const meta = DAY_MATRIX_TASK_META[task]
   const owned = row.owner === column.trader
-  const comfortable = density === 'comfortable'
-  const ultra = density === 'ultra-condensed'
+  const compact = density === 'compact'
 
   if (owned) {
     return (
@@ -342,14 +340,14 @@ function MatrixCell({
           if (event.altKey || event.shiftKey) onUnassign()
         }}
       >
-        {ultra ? (
+        {compact ? (
           <span className="cov-dm-cell-assigned cov-dm-cell-assigned--initials" aria-hidden="true">
             {traderInitials(column.trader)}
           </span>
         ) : (
           <span className="cov-dm-cell-assigned">
             <span className="cov-dm-cell-assigned-dot" aria-hidden="true" />
-            {comfortable ? <span className="cov-dm-cell-assigned-label">{meta.short}</span> : meta.short}
+            {meta.short}
           </span>
         )}
       </button>
@@ -383,9 +381,6 @@ function MatrixCell({
           <span className="cov-dm-cell-plus" aria-hidden="true">
             {row.owner ? '⇄' : '+'}
           </span>
-          {comfortable ? (
-            <span className="cov-dm-cell-open-label">{row.owner ? 'Reassign' : meta.short}</span>
-          ) : null}
         </>
       )}
     </button>
@@ -528,8 +523,7 @@ export default function CoverageDayMatrix({
   }
 
   const focusedColumn = focusTrader && matrix.columns.some((column) => column.trader === focusTrader) ? focusTrader : null
-  const densityClass =
-    layoutDensity === 'ultra-condensed' ? ' cov-dm--ultra' : layoutDensity === 'condensed' ? ' cov-dm--condensed' : ''
+  const densityClass = layoutDensity === 'compact' ? ' cov-dm--compact' : ' cov-dm--condensed'
   const { stats } = matrix
   const visibleRowCount = groups.reduce((sum, group) => sum + group.rows.length, 0)
 

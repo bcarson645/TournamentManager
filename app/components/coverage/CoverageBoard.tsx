@@ -24,6 +24,7 @@ import {
   type ScheduleContentFilters,
   type ScheduleDay,
   type SelectedMatchContext,
+  type ScheduleLayoutDensity,
   type StatusFilter,
 } from '../../data/coverageScheduleStore'
 import { getAssignableTraders, getDefaultPreviewTraderName } from '../../data/traders'
@@ -124,6 +125,7 @@ function BoardCard({
   selected,
   admin,
   mineTrader,
+  compactBoard,
   onSelect,
   onAssign,
   onMove,
@@ -135,6 +137,7 @@ function BoardCard({
   selected: boolean
   admin: boolean
   mineTrader: string
+  compactBoard: boolean
   onSelect: () => void
   onAssign: (trader: string | null, openPool: boolean) => void
   onMove: (target: DayMatrixGroupId) => void
@@ -156,7 +159,8 @@ function BoardCard({
         ` cov-board-card--${row.tone}` +
         (selected ? ' cov-board-card--selected' : '') +
         (dragging ? ' cov-board-card--dragging' : '') +
-        (overdue ? ' cov-board-card--overdue' : '')
+        (overdue ? ' cov-board-card--overdue' : '') +
+        (compactBoard ? ' cov-board-card--minimal' : '')
       }
       data-fixture-id={fixture.id}
       draggable
@@ -165,6 +169,10 @@ function BoardCard({
       title={`${fixture.time} ${formatFixtureMatchLabel(fixture)} · ${tournament.name} · ${day.label}. Drag to a highlighted column for the next step, or open for details.`}
     >
       <button type="button" className="cov-board-card-hit" onClick={onSelect} aria-label={`Open ${fixture.match} details`}>
+        {compactBoard ? (
+          <span className="cov-board-card-match">{formatFixtureMatchLabel(fixture)}</span>
+        ) : (
+          <>
         <span className="cov-board-card-top">
           <time className="cov-board-card-time">{fixture.time}</time>
           {overdue ? (
@@ -192,7 +200,10 @@ function BoardCard({
           {row.actionLabel}
           {row.actionDetail ? <span className="cov-board-card-action-detail">{row.actionDetail}</span> : null}
         </span>
+          </>
+        )}
       </button>
+      {!compactBoard ? (
       <span className="cov-board-card-foot">
         {owner ? (
           <span
@@ -243,6 +254,7 @@ function BoardCard({
           </div>
         </details>
       </span>
+      ) : null}
     </article>
   )
 }
@@ -252,6 +264,7 @@ export default function CoverageBoard({
   persona,
   statusFilter,
   contentFilters,
+  layoutDensity = 'condensed',
   selectedFixtureId,
   onSelect,
   onUpdateAssignment,
@@ -261,6 +274,7 @@ export default function CoverageBoard({
   persona: Persona
   statusFilter: StatusFilter
   contentFilters: ScheduleContentFilters
+  layoutDensity?: ScheduleLayoutDensity
   selectedFixtureId: string | null
   onSelect: (ctx: SelectedMatchContext) => void
   onUpdateAssignment?: (fixtureId: string, patch: FixtureAssignmentPatch) => void
@@ -279,6 +293,7 @@ export default function CoverageBoard({
 
   const admin = persona === 'admin'
   const revision = getScheduleRevision()
+  const compactBoard = layoutDensity === 'compact'
 
   const activeDay = scope === 'day' ? (days.find((day) => day.date === dayDate) ?? pickDefaultDay(days)) : null
   const activeIndex = activeDay ? days.findIndex((day) => day.date === activeDay.date) : -1
@@ -353,7 +368,7 @@ export default function CoverageBoard({
   const scopeLabel = scope === 'day' ? (activeDay?.label ?? 'Pick a day') : `Week · ${days.length} days · ${filtered.length} cards`
 
   return (
-    <div className="cov-board cov-board--p2">
+    <div className={'cov-board cov-board--p2' + (compactBoard ? ' cov-board--compact' : '')}>
       <div className="cov-board-top">
         <div className="cov-board-scope" role="toolbar" aria-label="Board scope">
           <div className="cov-tabs cov-tabs--chrome">
@@ -474,6 +489,7 @@ export default function CoverageBoard({
                               selected={selectedFixtureId === row.ctx.fixture.id}
                               admin={admin}
                               mineTrader={mineTrader}
+                              compactBoard={compactBoard}
                               onSelect={() => onSelect(row.ctx)}
                               onAssign={(trader, openPool) => assignOwner(row, trader, openPool)}
                               onMove={(target) => moveCard(row, target)}

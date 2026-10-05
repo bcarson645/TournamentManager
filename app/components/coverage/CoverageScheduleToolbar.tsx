@@ -13,7 +13,8 @@ import {
   type ScheduleDay,
   type ScheduleDayRange,
   type ScheduleDayRangePreset,
-  SCHEDULE_LAYOUT_DENSITY_OPTIONS,
+  toggleScheduleLayoutDensity,
+  scheduleLayoutDensityUiLabel,
   type ScheduleListMode,
   type ScheduleLayoutDensity,
   type ScheduleView,
@@ -129,7 +130,7 @@ export default function CoverageScheduleToolbar({
   onDayRangeChange,
   listMode = 'by-day',
   onListModeChange,
-  layoutDensity = 'comfortable',
+  layoutDensity = 'condensed',
   onLayoutDensityChange,
   totalGames = 0,
   statusFilter = 'all',
@@ -700,22 +701,44 @@ export default function CoverageScheduleToolbar({
                 </div>
               ) : null}
               {onLayoutDensityChange ? (
-                <div className="cov-chrome-group">
+                <div className="cov-chrome-group cov-chrome-group--density">
                   <span className="cov-chrome-label">Density</span>
-                  <div className="cov-filter-group" role="toolbar" aria-label="Schedule row density">
-                    {SCHEDULE_LAYOUT_DENSITY_OPTIONS.map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className={
-                          'cov-tab cov-tab--sm' + (layoutDensity === option.id ? ' cov-tab-active' : '')
-                        }
-                        onClick={() => onLayoutDensityChange(option.id)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    className="cov-btn cov-btn--sm cov-btn--icon cov-density-toggle"
+                    aria-pressed={layoutDensity === 'compact'}
+                    aria-label={
+                      layoutDensity === 'compact'
+                        ? 'Switch to condensed row layout'
+                        : 'Switch to compact row layout'
+                    }
+                    title={
+                      layoutDensity === 'compact'
+                        ? 'Condensed — more detail per row'
+                        : 'Compact — fit more fixtures on screen'
+                    }
+                    onClick={() => onLayoutDensityChange(toggleScheduleLayoutDensity(layoutDensity))}
+                  >
+                    <span aria-hidden="true" className="cov-density-toggle-icon">
+                      {layoutDensity === 'compact' ? (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M3 5.5h10" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+                          <path d="M3 8.5h10" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+                          <path d="M3 11.5h10" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M3 6.25h10" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+                          <path d="M3 9.75h10" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="cov-density-toggle-label">
+                      {layoutDensity === 'compact'
+                        ? scheduleLayoutDensityUiLabel('condensed')
+                        : scheduleLayoutDensityUiLabel('compact')}
+                    </span>
+                  </button>
                 </div>
               ) : null}
             </>

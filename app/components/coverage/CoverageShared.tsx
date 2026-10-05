@@ -346,7 +346,7 @@ export function PrepDueFilterBar({
 function PrepDueColumn({
   fixture,
   dayDate,
-  layoutDensity = 'comfortable',
+  layoutDensity = 'condensed',
 }: {
   fixture: ScheduleFixture
   dayDate?: string
@@ -360,10 +360,10 @@ function PrepDueColumn({
   const dueLabel = dayDate ? formatPrepDueLabel(fixture, dayDate) : null
   const shortDueLabel = dayDate ? formatPrepDueShortLabel(fixture, dayDate) : null
   const completedLabel = formatPrepCompletedLabel(fixture)
-  const ultra = layoutDensity === 'ultra-condensed'
+  const compact = layoutDensity === 'compact'
 
   if (completedLabel) {
-    const display = ultra ? '✓' : completedLabel
+    const display = compact ? '✓' : completedLabel
     return (
       <span className="cov-fixture-prep-due cov-fixture-prep-due--done" title={completedLabel}>
         {display}
@@ -378,8 +378,8 @@ function PrepDueColumn({
 
   return (
     <span className={className} title={dueLabel}>
-      {ultra ? shortDueLabel : dueLabel}
-      {!ultra && overdue ? <span className="cov-fixture-prep-overdue-badge">Overdue</span> : null}
+      {compact ? shortDueLabel : dueLabel}
+      {!compact && overdue ? <span className="cov-fixture-prep-overdue-badge">Overdue</span> : null}
     </span>
   )
 }
@@ -392,59 +392,32 @@ function renderPrepColumn(fixture: ScheduleFixture) {
   )
 }
 
-function ScoutBinocularsIcon() {
-  return (
-    <span className="cov-fixture-scout-icon" title="Scout">
-      <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false">
-        <circle cx="4.5" cy="9" r="2.75" fill="none" stroke="currentColor" strokeWidth="1.25" />
-        <circle cx="11.5" cy="9" r="2.75" fill="none" stroke="currentColor" strokeWidth="1.25" />
-        <path d="M7.25 9h1.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-        <path d="M4.5 6.25V4.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-        <path d="M11.5 6.25V4.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-        <path d="M4.5 4.5h7" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
-      </svg>
-    </span>
-  )
-}
-
 function renderFixtureMatchTitle(
   fixture: ScheduleFixture,
   matchDisplay: { display: string; full: string },
   layoutDensity: ScheduleLayoutDensity,
 ) {
-  const ultra = layoutDensity === 'ultra-condensed'
-  const comfortable = layoutDensity === 'comfortable'
-  const title = (
+  const compact = layoutDensity === 'compact'
+  return (
     <span className="cov-fixture-title cov-fixture-match" title={matchDisplay.full}>
       {matchDisplay.display}
-      {!ultra && fixture.fcDay ? ` · ${fixture.fcDay}` : ''}
+      {!compact && fixture.fcDay ? ` · ${fixture.fcDay}` : ''}
     </span>
-  )
-
-  if (!comfortable) return title
-
-  return (
-    <div className="cov-fixture-title-row">
-      {title}
-      {fixture.scout ? <ScoutBinocularsIcon /> : null}
-    </div>
   )
 }
 
 function matchMaxCharsForDensity(layoutDensity: ScheduleLayoutDensity): number {
-  if (layoutDensity === 'ultra-condensed') return 0
-  if (layoutDensity === 'condensed') return 36
-  return 48
+  if (layoutDensity === 'compact') return 0
+  return 36
 }
 
 function pipelineVariantForDensity(layoutDensity: ScheduleLayoutDensity): 'default' | 'dots' {
-  return layoutDensity === 'ultra-condensed' ? 'dots' : 'default'
+  return layoutDensity === 'compact' ? 'dots' : 'default'
 }
 
 export function scheduleLayoutDensityClass(layoutDensity: ScheduleLayoutDensity): string {
-  if (layoutDensity === 'ultra-condensed') return ' cov-schedule-layout--ultra'
-  if (layoutDensity === 'condensed') return ' cov-schedule-layout--condensed'
-  return ''
+  if (layoutDensity === 'compact') return ' cov-schedule-layout--compact'
+  return ' cov-schedule-layout--condensed'
 }
 
 export function FixtureCard({
@@ -453,7 +426,7 @@ export function FixtureCard({
   onSelect,
   tournamentCode,
   dayDate,
-  layoutDensity = 'comfortable',
+  layoutDensity = 'condensed',
 }: {
   fixture: ScheduleFixture
   selected: boolean
@@ -471,7 +444,7 @@ export function FixtureCard({
   const showGap = fixture.gap && !simulated && needsTrader
   const prepOverdue = dayDate ? isPrepOverdue(fixture, dayDate) : false
   const matchDisplay = formatFixtureMatchDisplay(fixture, matchMaxCharsForDensity(layoutDensity))
-  const ultra = layoutDensity === 'ultra-condensed'
+  const compact = layoutDensity === 'compact'
   const cardClass =
     'cov-fixture-card' +
     (selected ? ' cov-fixture-card--selected' : '') +
@@ -486,20 +459,20 @@ export function FixtureCard({
       return <span className={fixtureCoveragePillClass('simulated')}>Sim</span>
     }
     if (notCovered) {
-      return <span className={fixtureCoveragePillClass('not-covered')}>{ultra ? 'NC' : 'Not covered'}</span>
+      return <span className={fixtureCoveragePillClass('not-covered')}>{compact ? 'NC' : 'Not covered'}</span>
     }
     if (preMatchOnly) {
       return (
         <div className="cov-fixture-col-coverage">
-          <span className={fixtureCoveragePillClass('pre-match')}>{ultra ? 'PM' : 'Pre-match'}</span>
-          {!ultra ? <span className="cov-fixture-col-note">Publish only</span> : null}
+          <span className={fixtureCoveragePillClass('pre-match')}>{compact ? 'PM' : 'Pre-match'}</span>
+          {!compact ? <span className="cov-fixture-col-note">Publish only</span> : null}
         </div>
       )
     }
     if (fixture.trading) {
       return <span className="cov-fixture-trader-pill">{fixture.trading}</span>
     }
-    return <span className="cov-chip cov-chip--danger">{ultra ? '!' : 'Unassigned'}</span>
+    return <span className="cov-chip cov-chip--danger">{compact ? '!' : 'Unassigned'}</span>
   }
 
   return (
@@ -513,7 +486,7 @@ export function FixtureCard({
       <time className="cov-fixture-col-time">{fixture.time}</time>
       <div className="cov-fixture-col-match">
         {renderFixtureMatchTitle(fixture, matchDisplay, layoutDensity)}
-        {!ultra ? (
+        {!compact ? (
           <div className="cov-fixture-chips">
             {tier ? (
               <span className={`cov-chip cov-chip--${tier === 1 ? 'warn' : 'neutral'}`}>T{tier}</span>
@@ -528,15 +501,15 @@ export function FixtureCard({
         ) : null}
       </div>
       <div className="cov-fixture-col-trader">
-        {!ultra && !simulated && needsTrader ? <span className="cov-fixture-trader-label">Trading</span> : null}
+        {!compact && !simulated && needsTrader ? <span className="cov-fixture-trader-label">Trading</span> : null}
         {renderTraderColumn()}
       </div>
       <div className="cov-fixture-col-prep">
-        {!ultra ? <span className="cov-fixture-trader-label">Prep</span> : null}
+        {!compact ? <span className="cov-fixture-trader-label">Prep</span> : null}
         {renderPrepColumn(fixture)}
       </div>
       <div className="cov-fixture-col-prep-by">
-        {!ultra ? <span className="cov-fixture-trader-label">Prep by</span> : null}
+        {!compact ? <span className="cov-fixture-trader-label">Prep by</span> : null}
         <PrepDueColumn fixture={fixture} dayDate={dayDate} layoutDensity={layoutDensity} />
       </div>
       <div className="cov-fixture-col-pipeline">
@@ -546,7 +519,7 @@ export function FixtureCard({
         {simulated || notCovered ? (
           <span className="cov-muted">—</span>
         ) : (
-          <FixtureMarketsBar fixture={fixture} compact={ultra} />
+          <FixtureMarketsBar fixture={fixture} compact={compact} />
         )}
       </div>
     </button>
@@ -559,7 +532,7 @@ function FixtureTableGameRow({
   day,
   selected,
   onSelect,
-  layoutDensity = 'comfortable',
+  layoutDensity = 'condensed',
 }: {
   fixture: ScheduleFixture
   tournament: ScheduleTournamentGroup
@@ -577,7 +550,7 @@ function FixtureTableGameRow({
   const showGap = fixture.gap && !simulated && needsTrader
   const prepOverdue = isPrepOverdue(fixture, day.date)
   const matchDisplay = formatFixtureMatchDisplay(fixture, matchMaxCharsForDensity(layoutDensity))
-  const ultra = layoutDensity === 'ultra-condensed'
+  const compact = layoutDensity === 'compact'
   const rowClass =
     'cov-tournament-table-game' +
     (selected ? ' cov-tournament-table-game--selected' : '') +
@@ -591,20 +564,20 @@ function FixtureTableGameRow({
       return <span className={fixtureCoveragePillClass('simulated')}>Sim</span>
     }
     if (notCovered) {
-      return <span className={fixtureCoveragePillClass('not-covered')}>{ultra ? 'NC' : 'Not covered'}</span>
+      return <span className={fixtureCoveragePillClass('not-covered')}>{compact ? 'NC' : 'Not covered'}</span>
     }
     if (preMatchOnly) {
       return (
         <div className="cov-fixture-col-coverage">
-          <span className={fixtureCoveragePillClass('pre-match')}>{ultra ? 'PM' : 'Pre-match'}</span>
-          {!ultra ? <span className="cov-fixture-col-note">Publish only</span> : null}
+          <span className={fixtureCoveragePillClass('pre-match')}>{compact ? 'PM' : 'Pre-match'}</span>
+          {!compact ? <span className="cov-fixture-col-note">Publish only</span> : null}
         </div>
       )
     }
     if (fixture.trading) {
       return <span className="cov-fixture-trader-pill">{fixture.trading}</span>
     }
-    return <span className="cov-chip cov-chip--danger">{ultra ? '!' : 'Unassigned'}</span>
+    return <span className="cov-chip cov-chip--danger">{compact ? '!' : 'Unassigned'}</span>
   }
 
   return (
@@ -618,7 +591,7 @@ function FixtureTableGameRow({
       <time className="cov-fixture-col-time">{fixture.time}</time>
       <div className="cov-fixture-col-match">
         {renderFixtureMatchTitle(fixture, matchDisplay, layoutDensity)}
-        {!ultra ? (
+        {!compact ? (
           <div className="cov-fixture-chips">
             {tier ? (
               <span className={`cov-chip cov-chip--${tier === 1 ? 'warn' : 'neutral'}`}>T{tier}</span>
@@ -632,15 +605,15 @@ function FixtureTableGameRow({
         ) : null}
       </div>
       <div className="cov-fixture-col-trader">
-        {!ultra && !simulated && needsTrader ? <span className="cov-fixture-trader-label">Trading</span> : null}
+        {!compact && !simulated && needsTrader ? <span className="cov-fixture-trader-label">Trading</span> : null}
         {renderTraderColumn()}
       </div>
       <div className="cov-fixture-col-prep">
-        {!ultra ? <span className="cov-fixture-trader-label">Prep</span> : null}
+        {!compact ? <span className="cov-fixture-trader-label">Prep</span> : null}
         {renderPrepColumn(fixture)}
       </div>
       <div className="cov-fixture-col-prep-by">
-        {!ultra ? <span className="cov-fixture-trader-label">Prep by</span> : null}
+        {!compact ? <span className="cov-fixture-trader-label">Prep by</span> : null}
         <PrepDueColumn fixture={fixture} dayDate={day.date} layoutDensity={layoutDensity} />
       </div>
       <div className="cov-fixture-col-pipeline">
@@ -650,7 +623,7 @@ function FixtureTableGameRow({
         {simulated || notCovered ? (
           <span className="cov-muted">—</span>
         ) : (
-          <FixtureMarketsBar fixture={fixture} compact={ultra} />
+          <FixtureMarketsBar fixture={fixture} compact={compact} />
         )}
       </div>
     </button>
@@ -663,7 +636,7 @@ function DayTournamentTable({
   selectedFixtureId,
   onSelect,
   onOpenTournament,
-  layoutDensity = 'comfortable',
+  layoutDensity = 'condensed',
 }: {
   day: ScheduleDay
   visibleGroups: { group: ScheduleTournamentGroup; matches: ScheduleFixture[] }[]
@@ -689,8 +662,8 @@ function DayTournamentTable({
           const singleGame = matches.length === 1
           const displayLabel = formatScheduleTournamentCellLabel(group)
           const metaLabel = formatScheduleTournamentCellMeta(group, matches.length)
-          const ultra = layoutDensity === 'ultra-condensed'
-          const cellLabel = ultra && !singleGame ? group.code : displayLabel
+          const compact = layoutDensity === 'compact'
+          const cellLabel = compact && !singleGame ? group.code : displayLabel
           const cellTitle = `Open ${getScheduleTournamentDisplayName(group)}`
           const cellTier = matches.reduce<number | null>(
             (best, fixture) => {
@@ -712,7 +685,7 @@ function DayTournamentTable({
             title={cellTitle}
             {...(cellTier != null ? { 'data-tier': `t${cellTier}` } : {})}
           >
-            {cellTier != null && !ultra ? (
+            {cellTier != null && !compact ? (
               <span className="cov-tournament-cell-pills" aria-hidden="true">
                 <span className="cov-tournament-tier-pill" data-tier={`t${cellTier}`}>
                   T{cellTier}
@@ -722,7 +695,7 @@ function DayTournamentTable({
             <span className="cov-tournament-table-name" title={displayLabel}>
               {cellLabel}
             </span>
-            {!ultra && metaLabel ? <span className="cov-tournament-table-meta">{metaLabel}</span> : null}
+            {!compact && metaLabel ? <span className="cov-tournament-table-meta">{metaLabel}</span> : null}
           </button>,
           ...matches.map((fixture) => (
             <FixtureTableGameRow
@@ -750,7 +723,7 @@ function DayFixtureList({
   selectedFixtureId,
   onSelect,
   onOpenTournament,
-  layoutDensity = 'comfortable',
+  layoutDensity = 'condensed',
 }: {
   day: ScheduleDay
   groups: ScheduleTournamentGroup[]
@@ -798,7 +771,7 @@ export function DayBlockCard({
   selectedFixtureId,
   onSelect,
   onOpenTournament,
-  layoutDensity = 'comfortable',
+  layoutDensity = 'condensed',
 }: {
   day: ScheduleDay
   statusFilter: StatusFilter
@@ -870,7 +843,7 @@ function AllGamesList({
   contentFilters,
   selectedFixtureId,
   onSelect,
-  layoutDensity = 'comfortable',
+  layoutDensity = 'condensed',
 }: {
   days: ScheduleDay[]
   statusFilter: StatusFilter
@@ -985,7 +958,7 @@ export function WeekScheduleLayout({
   statusFilter,
   days,
   listMode = 'by-day',
-  layoutDensity = 'comfortable',
+  layoutDensity = 'condensed',
   contentFilters = DEFAULT_CONTENT_FILTERS,
   onOpenTournament,
   onUpdateAssignment,
@@ -1085,6 +1058,7 @@ export function WeekScheduleLayout({
           persona={persona}
           statusFilter={statusFilter}
           contentFilters={contentFilters}
+          layoutDensity={layoutDensity}
           selectedFixtureId={selected?.fixture.id ?? null}
           onSelect={setSelected}
           onUpdateAssignment={onUpdateAssignment}

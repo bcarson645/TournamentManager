@@ -127,7 +127,7 @@ export default function CoverageScheduleSection({
 
   const [listMode, setListMode] = useState<ScheduleListMode>('by-day')
 
-  const [layoutDensity, setLayoutDensity] = useState<ScheduleLayoutDensity>('comfortable')
+  const [layoutDensity, setLayoutDensity] = useState<ScheduleLayoutDensity>('condensed')
 
   const [contentFilters, setContentFilters] = useState<ScheduleContentFilters>(DEFAULT_CONTENT_FILTERS)
 

@@ -47,14 +47,16 @@ export type ScheduleView =
 
 export type ScheduleListMode = 'by-day' | 'day-matrix' | 'board' | 'all-games' | 'by-tournament'
 
-/** Row density for schedule fixture tables and lists. */
-export type ScheduleLayoutDensity = 'comfortable' | 'condensed' | 'ultra-condensed'
+/** Row density for schedule fixture tables and lists (two tiers: default condensed + tighter compact). */
+export type ScheduleLayoutDensity = 'condensed' | 'compact'
 
-export const SCHEDULE_LAYOUT_DENSITY_OPTIONS: { id: ScheduleLayoutDensity; label: string }[] = [
-  { id: 'comfortable', label: 'Comfortable' },
-  { id: 'condensed', label: 'Condensed' },
-  { id: 'ultra-condensed', label: 'Ultra condensed' },
-]
+export function toggleScheduleLayoutDensity(density: ScheduleLayoutDensity): ScheduleLayoutDensity {
+  return density === 'compact' ? 'condensed' : 'compact'
+}
+
+export function scheduleLayoutDensityUiLabel(density: ScheduleLayoutDensity): string {
+  return density === 'compact' ? 'Compact' : 'Condensed'
+}
 
 export type TierFilter = 'all' | 'tier-1' | 'tier-1-2' | 'tier-3'
 
