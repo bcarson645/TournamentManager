@@ -13,6 +13,7 @@ import {
   DEFAULT_CONTENT_FILTERS,
 
   formatScheduleDayRangeLabel,
+  getCoverageScheduleTodayIso,
 
   getDefaultMyRotaMonth,
 
@@ -30,6 +31,7 @@ import {
 
   navigateMyRotaMonth,
 
+  type CoverageTaskId,
   type MyRotaMonth,
 
   navigateScheduleDayRange,
@@ -45,6 +47,7 @@ import {
   type Persona,
 
   type ScheduleContentFilters,
+  type ScheduleDay,
 
   type ScheduleDayRange,
 
@@ -70,7 +73,7 @@ import {
   type CovTheme,
 } from './coverage/covTheme'
 
-import { StatTile } from './coverage/CoverageShared'
+import { buildDayMatrix } from '../data/coverageDayMatrix'
 
 import {
 
@@ -222,6 +225,57 @@ export default function CoverageScheduleSection({
 
 
   const totalGames = useMemo(() => allWeekFixtures(visibleDays).length, [visibleDays])
+
+  // Selected-day context for the status bar: when the Day matrix is single-day
+  // focused (dayRange.mode === 'day') use that day; when Who's on is day-stepping
+  // use the stepped day; otherwise use the anchor/selected day (today when in
+  // range, else the coverage anchor) within the visible slice.
+  const focusDay: ScheduleDay | null = useMemo(() => {
+    if (!visibleDays.length) return null
+    if (activeView === 'traders' && whosOnViewMode === 'day') {
+      const idx = Math.min(Math.max(whosOnDayIndex, 0), visibleDays.length - 1)
+      return visibleDays[idx] ?? null
+    }
+    if (dayRange.mode === 'day') return visibleDays[0] ?? null
+    const todayIso = getCoverageScheduleTodayIso()
+    return (
+      visibleDays.find((day) => day.date === todayIso) ??
+      visibleDays[findCoverageScheduleAnchorDayIndex(visibleDays)] ??
+      visibleDays[0] ??
+      null
+    )
+  }, [activeView, whosOnViewMode, whosOnDayIndex, visibleDays, dayRange])
+
+  // That day's actions needed, grouped by workflow task (operational truth:
+  // unfiltered so the status bar stays stable while filters change below).
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- scheduleTick invalidates in-place store mutations
+  const dayContext = useMemo(() => {
+    if (!focusDay) return null
+    const matrix = buildDayMatrix(focusDay, {
+      statusFilter: 'all',
+      contentFilters: DEFAULT_CONTENT_FILTERS,
+    })
+    const counts: Record<CoverageTaskId, number> = {
+      prep: 0,
+      publish: 0,
+      'price-check': 0,
+      settle: 0,
+      scout: 0,
+    }
+    for (const group of matrix.groups) {
+      if (group.meta.task) counts[group.meta.task] += group.rows.length
+    }
+    return {
+      day: focusDay,
+      counts,
+      needsAction: matrix.stats.needsAction,
+      open: matrix.stats.unowned,
+      tradersOn: focusDay.tradersOn.length,
+      fixtures: matrix.stats.fixtures,
+      isSingleDay:
+        dayRange.mode === 'day' || (activeView === 'traders' && whosOnViewMode === 'day'),
+    }
+  }, [focusDay, scheduleTick, dayRange, activeView, whosOnViewMode])
 
 
 
@@ -419,8 +473,6 @@ export default function CoverageScheduleSection({
 
   const isSecondary = SECONDARY_VIEWS.includes(activeView)
 
-  const showHeaderStats = !isSecondary && activeView === 'schedule'
-
 
 
   return (
@@ -440,45 +492,6 @@ export default function CoverageScheduleSection({
       {!isSecondary ? (
 
         <div className="cov-schedule-fixed-zone">
-
-          <header className="cov-schedule-header">
-
-            <div className="cov-schedule-header-start">
-
-              {standalone ? (
-
-                <h1 className="cov-schedule-page-title">Coverage schedule</h1>
-
-              ) : (
-
-                <h2 className="cov-schedule-page-title">Coverage schedule</h2>
-
-              )}
-
-            </div>
-
-            {showHeaderStats ? (
-
-              <div className="cov-stats cov-stats--compact cov-stats--header">
-
-                <StatTile label="Fixtures" value={stats.total} />
-
-                <StatTile label="Unassigned" value={stats.gaps} tone="warn" />
-
-                <StatTile label="Needs action" value={stats.needsAction} tone="active" />
-
-                {stats.prepOverdue > 0 ? (
-                  <StatTile label="Prep overdue" value={stats.prepOverdue} tone="warn" />
-                ) : null}
-
-                <StatTile label="Settled" value={stats.settled} tone="done" />
-
-              </div>
-
-            ) : null}
-
-          </header>
-
           <CoverageScheduleToolbar
 
           persona={persona}
@@ -496,6 +509,8 @@ export default function CoverageScheduleSection({
           onPersonaChange={setPersonaAndView}
 
           gapCount={stats.gaps}
+
+          dayContext={dayContext}
 
           periodLabel={periodLabel}
 

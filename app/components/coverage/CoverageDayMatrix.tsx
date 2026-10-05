@@ -534,7 +534,7 @@ export default function CoverageDayMatrix({
   const visibleRowCount = groups.reduce((sum, group) => sum + group.rows.length, 0)
 
   return (
-    <div className={'cov-dm' + densityClass}>
+    <div className={'cov-dm cov-dm--p2' + densityClass}>
       <div className="cov-dm-top">
         <div className="cov-dm-daynav" role="toolbar" aria-label="Select day">
           <button

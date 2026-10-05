@@ -8,6 +8,7 @@ import {
   scheduleDayRangeFromPreset,
   matchScheduleDayRangePreset,
   type Persona,
+  type CoverageTaskId,
   type ScheduleContentFilters,
   type ScheduleDay,
   type ScheduleDayRange,
@@ -19,10 +20,24 @@ import {
   type StatusFilter,
 } from '../../data/coverageScheduleStore'
 import type { Trader } from '../../data/traders'
-import { COV_THEME_OPTIONS, type CovTheme } from './covTheme'
+import { DAY_MATRIX_TASK_META } from '../../data/coverageDayMatrix'
+import { isCovDarkTheme, toggleCovTheme, type CovTheme } from './covTheme'
 import { ContentFilterBar, PrepDueFilterBar, StatusFilterBar } from './CoverageShared'
 
 export type WhosOnViewMode = 'day' | 'month'
+
+/** Selected-day context for the status bar: that day's date, staffing and actions needed by task. */
+export interface CoverageDayContext {
+  day: ScheduleDay
+  counts: Record<CoverageTaskId, number>
+  needsAction: number
+  /** Rows that still need a named owner. */
+  open: number
+  tradersOn: number
+  fixtures: number
+  /** True when the range/view is pinning a single day. */
+  isSingleDay: boolean
+}
 
 function rosterDayShortLabel(label: string): { weekday: string; rest: string } {
   const parts = label.split(' ')
@@ -47,6 +62,7 @@ interface CoverageScheduleToolbarProps {
   onOpenImport?: () => void
   onOpenReplicateSeason?: () => void
   gapCount?: number
+  dayContext?: CoverageDayContext | null
   periodLabel?: string
   canGoPrevPeriod?: boolean
   canGoNextPeriod?: boolean
@@ -101,6 +117,7 @@ export default function CoverageScheduleToolbar({
   onOpenImport,
   onOpenReplicateSeason,
   gapCount = 0,
+  dayContext = null,
   periodLabel = 'Schedule',
   canGoPrevPeriod = false,
   canGoNextPeriod = false,
@@ -214,10 +231,53 @@ export default function CoverageScheduleToolbar({
   return (
     <nav
       className={
-        'cov-chrome cov-chrome--fixed' + (filtersCollapsed ? ' cov-chrome--filters-collapsed' : '')
+        'cov-chrome cov-chrome--fixed cov-chrome--enterprise' + (filtersCollapsed ? ' cov-chrome--filters-collapsed' : '')
       }
       aria-label="Coverage schedule navigation"
     >
+      {dayContext ? (
+        <div className="cov-chrome-day-summary" aria-live="polite" aria-label="Selected day summary">
+          <span className="cov-chrome-day-summary-date">
+            <strong>{dayContext.day.label}</strong>
+            {dayContext.isSingleDay ? null : <span className="cov-chip cov-chip--neutral">Focus day</span>}
+          </span>
+          <span className="cov-chrome-day-summary-sep" aria-hidden="true">
+            ·
+          </span>
+          <span className="cov-chrome-day-summary-traders" title={`On shift: ${dayContext.day.tradersOn.join(', ') || 'none listed'}`}>
+            {dayContext.tradersOn} trader{dayContext.tradersOn === 1 ? '' : 's'} on
+          </span>
+          <span className="cov-chrome-day-summary-sep" aria-hidden="true">
+            ·
+          </span>
+          <span className="cov-chrome-day-summary-tasks">
+            {dayContext.needsAction > 0 ? (
+              <>
+                <strong>{dayContext.needsAction}</strong> need action
+                <span className="cov-chrome-day-summary-task-list">
+                  {(Object.keys(dayContext.counts) as CoverageTaskId[])
+                    .filter((task) => dayContext.counts[task] > 0)
+                    .map((task) => (
+                      <span key={task} className="cov-chrome-day-summary-task">
+                        {dayContext.counts[task]} {DAY_MATRIX_TASK_META[task].short}
+                      </span>
+                    ))}
+                  {dayContext.open > 0 ? (
+                    <span className="cov-chrome-day-summary-task cov-chrome-day-summary-task--open">
+                      {dayContext.open} need owner
+                    </span>
+                  ) : null}
+                </span>
+              </>
+            ) : (
+              <span>All clear — nothing needs action</span>
+            )}
+          </span>
+          <span className="cov-chrome-day-summary-fixtures">
+            {dayContext.fixtures} fixture{dayContext.fixtures === 1 ? '' : 's'}
+          </span>
+        </div>
+      ) : null}
       <div className="cov-chrome-primary">
         <div className="cov-chrome-primary-start">
           <div className="cov-chrome-group">
@@ -274,28 +334,26 @@ export default function CoverageScheduleToolbar({
           )}
         </div>
 
-        {!filtersCollapsed && onCovThemeChange ? (
+        {onCovThemeChange ? (
           <>
             <span className="cov-chrome-divider" aria-hidden="true" />
             <div className="cov-chrome-group cov-chrome-group--theme">
-              <span className="cov-chrome-label">Style</span>
-              <div className="cov-theme-picker" role="radiogroup" aria-label="Coverage style theme">
-                {COV_THEME_OPTIONS.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={covTheme === option.id}
-                    className={
-                      'cov-tab cov-tab--sm cov-theme-option' +
-                      (covTheme === option.id ? ' cov-tab-active' : '')
-                    }
-                    onClick={() => onCovThemeChange(option.id)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
+              <span className="cov-chrome-label">Theme</span>
+              <button
+                type="button"
+                className="cov-btn cov-btn--sm cov-btn--icon cov-theme-toggle"
+                aria-pressed={isCovDarkTheme(covTheme)}
+                aria-label={isCovDarkTheme(covTheme) ? 'Switch to light theme' : 'Switch to dark theme'}
+                title={isCovDarkTheme(covTheme) ? 'Switch to light theme' : 'Switch to dark theme'}
+                onClick={() => onCovThemeChange(toggleCovTheme(covTheme))}
+              >
+                <span aria-hidden="true" className="cov-theme-toggle-icon">
+                  {isCovDarkTheme(covTheme) ? '☀' : '☾'}
+                </span>
+                <span className="cov-theme-toggle-label">
+                  {isCovDarkTheme(covTheme) ? 'Light' : 'Dark'}
+                </span>
+              </button>
             </div>
           </>
         ) : null}
@@ -311,7 +369,7 @@ export default function CoverageScheduleToolbar({
               title={filtersCollapsed ? 'Expand filters' : 'Collapse filters'}
               onClick={() => onFiltersCollapsedChange(!filtersCollapsed)}
             >
-              {filtersCollapsed ? '▼' : '▲'}
+              {filtersCollapsed ? '▾' : '▴'}
             </button>
           ) : null}
 

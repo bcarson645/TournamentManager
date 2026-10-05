@@ -319,7 +319,7 @@ export default function CoverageMatchPanel({
 
   return (
 
-    <aside className="cov-match-panel" aria-label="Match detail">
+    <aside className="cov-match-panel cov-match-panel--p2" aria-label="Match detail">
 
       <header className="cov-match-panel-head">
 
@@ -645,7 +645,7 @@ export default function CoverageMatchPanel({
 
             <h4 className="cov-match-panel-label">Scout</h4>
 
-            <div className="cov-tabs cov-tabs--scout" role="tablist" aria-label="Scout required">
+            <div className="cov-tabs cov-tabs--scout cov-seg cov-seg--compact" role="tablist" aria-label="Scout required">
 
               {([false, true] as const).map((value) => (
 
@@ -695,7 +695,7 @@ export default function CoverageMatchPanel({
 
             <h4 className="cov-match-panel-label">Client coverage</h4>
 
-            <div className="cov-tabs cov-tabs--coverage" role="tablist" aria-label="Client coverage mode">
+            <div className="cov-tabs cov-tabs--coverage cov-seg" role="tablist" aria-label="Client coverage mode">
 
               {COVERAGE_MODES.map((mode) => (
 

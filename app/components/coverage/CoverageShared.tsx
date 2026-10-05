@@ -672,7 +672,7 @@ function DayTournamentTable({
   layoutDensity?: ScheduleLayoutDensity
 }) {
   return (
-    <div className="cov-tournament-table">
+    <div className="cov-tournament-table cov-tournament-table--p2">
       <div className="cov-tournament-table-header" aria-hidden="true">
         <span>Tournament</span>
         <span>Time</span>
@@ -691,6 +691,13 @@ function DayTournamentTable({
           const ultra = layoutDensity === 'ultra-condensed'
           const cellLabel = ultra && !singleGame ? group.code : displayLabel
           const cellTitle = `Open ${getScheduleTournamentDisplayName(group)}`
+          const cellTier = matches.reduce<number | null>(
+            (best, fixture) => {
+              const tier = getFixtureTier(fixture, group.code)
+              return best == null || tier < best ? tier : best
+            },
+            null,
+          )
           return [
           <button
             key={`${group.code}-tournament`}
@@ -702,7 +709,15 @@ function DayTournamentTable({
             style={{ gridRow: `span ${matches.length}` }}
             onClick={() => onOpenTournament?.(group.code)}
             title={cellTitle}
+            {...(cellTier != null ? { 'data-tier': `t${cellTier}` } : {})}
           >
+            {cellTier != null && !ultra ? (
+              <span className="cov-tournament-cell-pills" aria-hidden="true">
+                <span className="cov-tournament-tier-pill" data-tier={`t${cellTier}`}>
+                  T{cellTier}
+                </span>
+              </span>
+            ) : null}
             <span className="cov-tournament-table-name" title={displayLabel}>
               {cellLabel}
             </span>

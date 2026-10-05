@@ -603,18 +603,38 @@ export function CoverageNumbersView({ onBack }: { onBack: () => void }) {
   }
 
   const maxGames = Math.max(...COVERAGE_NUMBERS_BY_TRADER.map((t) => t.games))
+  const kpiFixtures = fixtureRows.reduce((sum, row) => sum + row.total, 0)
+  const kpiPeak = fixtureRows.reduce<{ label: string; total: number } | null>(
+    (peak, row) => (!peak || row.total > peak.total ? { label: row.label, total: row.total } : peak),
+    null,
+  )
+  const kpiTradersPeak = traderRows.reduce((peak, row) => Math.max(peak, row.countOn), 0)
+  const kpiTradersAvg = traderRows.length
+    ? Math.round((traderRows.reduce((sum, row) => sum + row.countOn, 0) / traderRows.length) * 10) / 10
+    : 0
+  const hasChartData = fixtureRows.length > 0 && kpiFixtures > 0
   return (
-    <div className="cov-view-stack cov-numbers-view">
+    <div className="cov-view-stack cov-numbers-view cov-numbers--p2">
       <div className="cov-view-head">
         <h3 className="cov-view-title">Coverage numbers</h3>
         <button type="button" className="cov-btn" onClick={onBack}>← Back to schedule</button>
       </div>
       <p className="cov-muted">Imported schedule analytics and year-on-year comparison.</p>
 
+      <div className="cov-numbers-kpis" role="group" aria-label="Period totals">
+        <StatTile label="Fixtures in period" value={kpiFixtures} tone="active" />
+        <StatTile label="Peak day" value={kpiPeak ? `${kpiPeak.total}` : '—'} />
+        <StatTile label="Traders on (avg)" value={kpiTradersAvg} tone="done" />
+        <StatTile label="Traders on (peak)" value={kpiTradersPeak} tone={kpiTradersPeak > 0 ? 'done' : undefined} />
+      </div>
+      {kpiPeak && hasChartData ? (
+        <p className="cov-muted cov-numbers-kpis-note">Busiest day in view: {kpiPeak.label} · {periodLabel}</p>
+      ) : null}
+
       <section className="cov-numbers-charts-section" aria-label="Coverage charts">
         <div className="cov-numbers-toolbar">
           <div className="cov-numbers-period">
-            <div className="cov-numbers-period-presets">
+            <div className="cov-numbers-period-presets cov-seg">
               {numbersPresets.map((preset) => (
                 <button
                   key={preset.id}
@@ -662,6 +682,8 @@ export function CoverageNumbersView({ onBack }: { onBack: () => void }) {
         </div>
 
         <div className="cov-numbers-charts-grid">
+          {hasChartData ? (
+          <>
           <PanelCard title="Fixtures per day by coverage">
             <FixturesPerDayChart rows={fixtureRows} series={series} showTotal={showTotal} />
           </PanelCard>
@@ -672,6 +694,10 @@ export function CoverageNumbersView({ onBack }: { onBack: () => void }) {
             </p>
             <FixturesVsTradersChart fixtureRows={fixtureRows} traderRows={traderRows} series={series} />
           </PanelCard>
+          </>
+          ) : (
+            <p className="cov-numbers-empty">No fixtures in this period — try a wider range.</p>
+          )}
         </div>
       </section>
 
