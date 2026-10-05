@@ -9,7 +9,7 @@
 :root {
   --bg-primary: #0b1120;
   --bg-secondary: #131b2e;
-  /* Layered shell: sidebar (darkest) â†’ ribbon (darker) â†’ main workspace + tables (lighter) */
+  /* Layered shell: sidebar (darkest) Ã¢â€ â€™ ribbon (darker) Ã¢â€ â€™ main workspace + tables (lighter) */
   --bg-sidebar: #050910;
   /* Fixed top ribbon: darker band (swapped with workspace for contrast) */
   --bg-ribbon: #0b1120;
@@ -215,7 +215,7 @@ body {
   margin-bottom: 2rem;
 }
 
-/* Format step: select format (main) | upcoming | in progress â€” left to right */
+/* Format step: select format (main) | upcoming | in progress Ã¢â‚¬â€ left to right */
 /* --format-step-panel-h: room below header / steps / padding for sticky tournament columns */
 .format-step-grid {
   display: grid;
@@ -1969,7 +1969,7 @@ body {
   z-index: 20;
 }
 
-/* Distinct ribbon panels (identity / meta vs league tables vs ladders) â€” light cards on dark ribbon */
+/* Distinct ribbon panels (identity / meta vs league tables vs ladders) Ã¢â‚¬â€ light cards on dark ribbon */
 .tm-ribbon-surface {
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.13);
@@ -3090,7 +3090,7 @@ body {
   );
 }
 
-/* Bulk lock control under âœ“ header */
+/* Bulk lock control under Ã¢Å“â€œ header */
 .th-lock-inner {
   display: flex;
   flex-direction: column;
@@ -3140,11 +3140,11 @@ body {
   cursor: not-allowed;
 }
 
-/* Chips carry their own border-radius inside each spanning cell â€” no thead row corner rounding hack */
+/* Chips carry their own border-radius inside each spanning cell Ã¢â‚¬â€ no thead row corner rounding hack */
 
-/* â”€â”€â”€ Sub-header tiers: zoning under chips (identity | batting | bowling | actions tail) â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Sub-header tiers: zoning under chips (identity | batting | bowling | actions tail) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
-/* Identity columns (swap â€¦ name) â€” cool neutral strip */
+/* Identity columns (swap Ã¢â‚¬Â¦ name) Ã¢â‚¬â€ cool neutral strip */
 .squad-table thead tr.squad-head-subrow th.th-core:nth-child(-n + 5) {
   font-size: 0.7rem;
   font-weight: 600;
@@ -3159,7 +3159,7 @@ body {
   border-bottom: 1px solid rgba(51, 65, 85, 0.75);
 }
 
-/* Tail (lock only) â€” 20-col layout (Raw + RAW ADJ visible) */
+/* Tail (lock only) Ã¢â‚¬â€ 20-col layout (Raw + RAW ADJ visible) */
 .squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th.th-core:nth-child(n + 20) {
   font-size: 0.68rem;
   font-weight: 600;
@@ -3174,7 +3174,7 @@ body {
   color: rgba(248, 250, 252, 0.92);
 }
 
-/* Batting stats band â€” lines up under batting chip (20-col with Raw / RAW ADJ) */
+/* Batting stats band Ã¢â‚¬â€ lines up under batting chip (20-col with Raw / RAW ADJ) */
 .squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th:nth-child(n + 6):nth-child(-n + 12),
 .squad-table:not(.squad-table--hide-bat-raw) thead tr.squad-head-subrow th:nth-child(n + 13):nth-child(-n + 19) {
   font-size: 0.615rem;
@@ -3249,7 +3249,7 @@ body {
   text-align: left !important;
 }
 
-/* â”€â”€â”€ Body/footer: tinted columns under each heading block â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Body/footer: tinted columns under each heading block Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .squad-table tbody tr.squad-row td.sq-core,
 .squad-table tfoot td.sq-core {
   background: linear-gradient(
@@ -3397,7 +3397,7 @@ body {
   object-fit: contain;
   vertical-align: middle;
   display: block;
-  /* Muted frost (not full white) â€” still reads on dark rows */
+  /* Muted frost (not full white) Ã¢â‚¬â€ still reads on dark rows */
   filter: brightness(0) invert(58%) sepia(0.12) saturate(0.85) hue-rotate(168deg);
 }
 
@@ -3581,7 +3581,7 @@ body {
   vertical-align: middle;
 }
 
-/* Input unchanged width (3.2rem); column wide for gutter; â–²â–¼ only on hover / focus-within */
+/* Input unchanged width (3.2rem); column wide for gutter; Ã¢â€“Â²Ã¢â€“Â¼ only on hover / focus-within */
 .squad-table--value-steppers {
   --sq-stepper-spin: 1.45rem;
   --sq-stepper-gap: 0.2rem;
@@ -3675,7 +3675,7 @@ body {
   box-sizing: border-box;
 }
 
-/* Hide Raw / RAW ADJ â€” shift stepped column indices (âˆ’2 after BT CAZ). */
+/* Hide Raw / RAW ADJ Ã¢â‚¬â€ shift stepped column indices (Ã¢Ë†â€™2 after BT CAZ). */
 .squad-table.squad-table--hide-bat-raw.squad-table--value-steppers thead tr.squad-head-subrow > th:nth-child(6),
 .squad-table.squad-table--hide-bat-raw.squad-table--value-steppers thead tr.squad-head-subrow > th:nth-child(7),
 .squad-table.squad-table--hide-bat-raw.squad-table--value-steppers thead tr.squad-head-subrow > th:nth-child(13),
@@ -3787,7 +3787,7 @@ body {
   opacity: 0.35;
 }
 
-/* Narrow slot + .cell-input base styles â€” width locked under .squad-table--value-steppers */
+/* Narrow slot + .cell-input base styles Ã¢â‚¬â€ width locked under .squad-table--value-steppers */
 
 /* Drag handle */
 .drag-handle {
@@ -3862,7 +3862,7 @@ body {
   font-weight: 500;
   letter-spacing: 0.02em;
   color: var(--text-primary);
-  /* Opaque chip â€” reads clearly on workspace stripes */
+  /* Opaque chip Ã¢â‚¬â€ reads clearly on workspace stripes */
   background: var(--input-cell-bg);
   border: 1px solid rgba(148, 163, 184, 0.45);
   border-radius: 0.22rem;
@@ -4109,7 +4109,7 @@ body {
   margin: 0.5rem 0 0.25rem;
 }
 
-/* Scrollable stats â€” mid-tone workspace (not washed out) */
+/* Scrollable stats Ã¢â‚¬â€ mid-tone workspace (not washed out) */
 .pp-panel-scroll--body {
   flex: 1;
   min-height: 0;
@@ -5189,7 +5189,7 @@ body {
   color: var(--text-secondary) !important;
 }
 
-/* â”€â”€â”€ Team analytics slide-over â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Team analytics slide-over Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 /* Name + optional chart button; row click still opens squad. */
 .td-name-with-actions {
@@ -5296,7 +5296,7 @@ body {
   flex-direction: column;
 }
 
-/* Squad workspace: same rail as PlayerDetailPanel â€” rest of dashboard stays usable */
+/* Squad workspace: same rail as PlayerDetailPanel Ã¢â‚¬â€ rest of dashboard stays usable */
 .tap-panel--docked {
   position: relative;
   top: auto;
@@ -5392,7 +5392,7 @@ body {
 
 
 
-/* Team panel — stats */
+/* Team panel â€” stats */
 .tap-stats-panel {
   display: flex;
   flex-direction: column;
@@ -5633,7 +5633,7 @@ body {
 }
 
 
-/* Team panel — pricing market dropdowns */
+/* Team panel â€” pricing market dropdowns */
 
 .tap-pricing-markets {
   display: flex;
@@ -6328,7 +6328,7 @@ body {
   background: rgba(37, 99, 235, 0.12);
 }
 
-/* â”€â”€â”€ Player stats panel: H2H tab & deep analytics â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Player stats panel: H2H tab & deep analytics Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .pp-tab-stat.pp-tab-active--h2h {
   color: rgba(237, 233, 254, 0.96);
@@ -6795,7 +6795,7 @@ body {
   background: linear-gradient(90deg, rgba(254, 202, 202, 0.25), rgba(248, 113, 113, 0.5));
 }
 
-/* Compressed hero ladder + recent Î” + mini pentagon */
+/* Compressed hero ladder + recent ÃŽâ€ + mini pentagon */
 .pp-lead-shell {
   margin-bottom: 0.72rem;
   padding: 0.65rem 0.72rem;
@@ -8708,7 +8708,7 @@ body {
 }
 
 
-/* Outrights UI revamp — TM-aligned panels & metrics (dark-theme contrast) */
+/* Outrights UI revamp â€” TM-aligned panels & metrics (dark-theme contrast) */
 .outrights-root .dashboard-breadcrumb,
 .outrights-root .outrights-welcome-sub,
 .outrights-root .outrights-sidebar-tournament-meta,
@@ -12114,1592 +12114,3389 @@ body {
   margin-bottom: 0.75rem;
 }
 
-/* ==========================================================================
-   Outrights — enterprise redesign (2026)
-   Token-driven layer over legacy outrights styles. All rules are scoped to
-   .outrights-root so nothing outside the Outrights module is affected.
-   Dark is the default (matches app shell). Light theme activates via
-   html[data-theme="light"], .outrights-root[data-theme="light"], or the
-   OS preference when the host does not force dark.
-   ========================================================================== */
-
-.outrights-root {
-  color-scheme: dark;
-  /* Typography scale */
-  --or-font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
-  --or-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --or-text-xs: 0.72rem;
-  --or-text-sm: 0.82rem;
-  --or-text-base: 0.9rem;
-  --or-text-lg: 1.1rem;
-  --or-text-xl: 1.35rem;
-  /* 8px spacing scale */
-  --or-space-1: 0.25rem;
-  --or-space-2: 0.5rem;
-  --or-space-3: 0.75rem;
-  --or-space-4: 1rem;
-  --or-space-5: 1.25rem;
-  --or-space-6: 1.5rem;
-  --or-space-8: 2rem;
-  /* Surfaces (dark default) */
-  --or-page: transparent;
-  --or-surface: #141f33;
-  --or-surface-2: #1a2740;
-  --or-inset: #101a2e;
-  --or-header: rgba(255, 255, 255, 0.045);
-  --or-hover: rgba(255, 255, 255, 0.05);
-  --or-border: rgba(255, 255, 255, 0.1);
-  --or-border-strong: rgba(255, 255, 255, 0.16);
-  --or-divider: rgba(255, 255, 255, 0.08);
-  /* Text (dark, WCAG AA on surfaces) */
-  --or-text: #eef2f8;
-  --or-muted: #aab6c8;
-  --or-faint: #8593a8;
-  --or-heading: #f4f7fb;
-  /* Semantic tokens */
-  --or-primary: #2563eb;
-  --or-primary-hover: #1d4ed8;
-  --or-primary-active: #1e40af;
-  --or-primary-soft: rgba(59, 130, 246, 0.14);
-  --or-primary-text: #bcd3fb;
-  --or-success: #16a34a;
-  --or-success-soft: rgba(34, 197, 94, 0.13);
-  --or-success-text: #a7e8bd;
-  --or-success-border: rgba(34, 197, 94, 0.4);
-  --or-warning: #b45309;
-  --or-warning-soft: rgba(251, 191, 36, 0.13);
-  --or-warning-text: #fcd34d;
-  --or-warning-border: rgba(251, 191, 36, 0.42);
-  --or-danger: #dc2626;
-  --or-danger-hover: #b91c1c;
-  --or-danger-soft: rgba(239, 68, 68, 0.13);
-  --or-danger-text: #fca5a5;
-  --or-danger-border: rgba(239, 68, 68, 0.45);
-  --or-info-soft: rgba(56, 189, 248, 0.12);
-  --or-info-text: #9adcfa;
-  --or-info-border: rgba(56, 189, 248, 0.4);
-  --or-neutral-soft: rgba(148, 163, 184, 0.16);
-  --or-neutral-text: #c3cedd;
-  /* Trading emphasis */
-  --or-own-soft: rgba(34, 197, 94, 0.1);
-  --or-own-border: rgba(34, 197, 94, 0.42);
-  --or-own-text: #a7e8bd;
-  /* Shape + elevation */
-  --or-radius-sm: 6px;
-  --or-radius: 10px;
-  --or-radius-lg: 14px;
-  --or-shadow-sm: 0 1px 2px rgba(2, 6, 16, 0.35);
-  --or-shadow: 0 1px 2px rgba(2, 6, 16, 0.4), 0 4px 14px rgba(2, 6, 16, 0.3);
-  --or-shadow-pop: 0 8px 28px rgba(2, 6, 16, 0.5);
-  --or-ring: 0 0 0 3px rgba(59, 130, 246, 0.35);
-  --or-sidebar-bg: #101a2e;
-}
-
-/* Light theme — opt in via data-theme or OS preference */
-html[data-theme="light"] .outrights-root,
-.outrights-root[data-theme="light"] {
-  color-scheme: light;
-  --or-page: transparent;
-  --or-surface: #ffffff;
-  --or-surface-2: #f6f8fb;
-  --or-inset: #f1f5f9;
-  --or-header: #f1f5f9;
-  --or-hover: #f1f5f9;
-  --or-border: #dbe2ec;
-  --or-border-strong: #c3cedd;
-  --or-divider: #e6ebf2;
-  --or-text: #0f1e33;
-  --or-muted: #475569;
-  --or-faint: #64748b;
-  --or-heading: #0b1526;
-  --or-primary: #1d4ed8;
-  --or-primary-hover: #1e40af;
-  --or-primary-active: #1e3a8a;
-  --or-primary-soft: rgba(37, 99, 235, 0.09);
-  --or-primary-text: #1d4ed8;
-  --or-success: #15803d;
-  --or-success-soft: rgba(22, 163, 74, 0.1);
-  --or-success-text: #15803d;
-  --or-success-border: rgba(22, 163, 74, 0.4);
-  --or-warning-text: #92400e;
-  --or-warning-soft: rgba(180, 83, 9, 0.09);
-  --or-warning-border: rgba(180, 83, 9, 0.4);
-  --or-danger: #b91c1c;
-  --or-danger-hover: #991b1b;
-  --or-danger-soft: rgba(220, 38, 38, 0.08);
-  --or-danger-text: #b91c1c;
-  --or-danger-border: rgba(220, 38, 38, 0.42);
-  --or-info-text: #0369a1;
-  --or-info-soft: rgba(2, 132, 199, 0.09);
-  --or-info-border: rgba(2, 132, 199, 0.38);
-  --or-neutral-text: #475569;
-  --or-neutral-soft: rgba(100, 116, 139, 0.14);
-  --or-own-soft: rgba(22, 163, 74, 0.09);
-  --or-own-border: rgba(22, 163, 74, 0.45);
-  --or-own-text: #15803d;
-  --or-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-  --or-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 14px rgba(16, 24, 40, 0.07);
-  --or-shadow-pop: 0 12px 32px rgba(16, 24, 40, 0.16);
-  --or-ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
-  --or-sidebar-bg: #f6f8fb;
-}
-
-@media (prefers-color-scheme: light) {
-  html:not([data-theme="dark"]) .outrights-root:not([data-theme="dark"]) {
-    color-scheme: light;
-    --or-page: transparent;
-    --or-surface: #ffffff;
-    --or-surface-2: #f6f8fb;
-    --or-inset: #f1f5f9;
-    --or-header: #f1f5f9;
-    --or-hover: #eef3f9;
-    --or-border: #dbe2ec;
-    --or-border-strong: #c3cedd;
-    --or-divider: #e6ebf2;
-    --or-text: #0f1e33;
-    --or-muted: #475569;
-    --or-faint: #64748b;
-    --or-heading: #0b1526;
-    --or-primary-soft: rgba(37, 99, 235, 0.09);
-    --or-primary-text: #1d4ed8;
-    --or-success-soft: rgba(22, 163, 74, 0.1);
-    --or-success-text: #15803d;
-    --or-success-border: rgba(22, 163, 74, 0.4);
-    --or-warning-text: #92400e;
-    --or-warning-soft: rgba(180, 83, 9, 0.09);
-    --or-warning-border: rgba(180, 83, 9, 0.4);
-    --or-danger-soft: rgba(220, 38, 38, 0.08);
-    --or-danger-text: #b91c1c;
-    --or-danger-border: rgba(220, 38, 38, 0.42);
-    --or-info-text: #0369a1;
-    --or-info-soft: rgba(2, 132, 199, 0.09);
-    --or-info-border: rgba(2, 132, 199, 0.38);
-    --or-neutral-text: #475569;
-    --or-neutral-soft: rgba(100, 116, 139, 0.14);
-    --or-own-soft: rgba(22, 163, 74, 0.09);
-    --or-own-border: rgba(22, 163, 74, 0.45);
-    --or-own-text: #15803d;
-    --or-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
-    --or-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 14px rgba(16, 24, 40, 0.07);
-    --or-shadow-pop: 0 12px 32px rgba(16, 24, 40, 0.16);
-    --or-ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
-    --or-sidebar-bg: #eef2f7;
-  }
-}
-
-/* ---------- Layout rhythm ---------- */
-
-.outrights-root {
-  font-family: var(--or-font);
-  color: var(--or-text);
-}
-
-.outrights-root .outrights-overview {
-  gap: var(--or-space-5);
-  max-width: 120rem;
-  margin-inline: auto;
-  padding: var(--or-space-6) var(--or-space-6) var(--or-space-8);
-}
-
-.outrights-root .outrights-main {
-  scrollbar-gutter: stable;
-}
-
-.outrights-root .dashboard-header {
-  margin-bottom: 0;
-}
-
-.outrights-root .dashboard-header-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--or-space-3) var(--or-space-4);
-}
-
-.outrights-root .dashboard-title {
-  font-size: var(--or-text-xl);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.25;
-  color: var(--or-heading);
-}
-
-.outrights-root .dashboard-breadcrumb {
-  margin-top: var(--or-space-1);
-  font-size: var(--or-text-sm);
-  color: var(--or-muted);
-}
-
-/* ---------- Cards / panels ---------- */
-
-.outrights-root .tournament-section-panel,
-.outrights-root .outrights-simulator-page-panel {
-  background: var(--or-surface);
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius-lg);
-  box-shadow: var(--or-shadow);
-  overflow: hidden;
-}
-
-.outrights-root .tournament-section-head {
-  display: flex;
-  align-items: center;
-  gap: var(--or-space-2);
-  margin: 0;
-  padding: var(--or-space-3) var(--or-space-4);
-  font-size: var(--or-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--or-muted);
-  border-bottom: 1px solid var(--or-divider);
-  background: var(--or-header);
-}
-
-.outrights-root .tournament-section-body {
-  padding: var(--or-space-4);
-}
-
-.outrights-root .outrights-settlement-section,
-.outrights-root .outrights-history-panel {
-  margin-bottom: 0;
-}
-
-/* ---------- Metric cards ---------- */
-
-.outrights-root .outrights-metric-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
-  gap: var(--or-space-3);
-}
-
-.outrights-root .outrights-metric-pill {
-  min-width: 0;
-  padding: var(--or-space-3) var(--or-space-4);
-  border-radius: var(--or-radius);
-  background: var(--or-surface);
-  border: 1px solid var(--or-border);
-  box-shadow: var(--or-shadow-sm);
-  border-top: 3px solid var(--or-border-strong);
-}
-
-.outrights-root .outrights-metric-value {
-  font-size: var(--or-text-xl);
-  font-weight: 750;
-  line-height: 1.15;
-  font-variant-numeric: tabular-nums;
-  color: var(--or-heading);
-}
-
-.outrights-root .outrights-metric-label {
-  font-size: var(--or-text-xs);
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-metric-pill--active {
-  background: var(--or-surface);
-  border-color: var(--or-success-border);
-  border-top-color: var(--or-success);
-}
-
-.outrights-root .outrights-metric-pill--active .outrights-metric-value,
-.outrights-root .outrights-metric-pill--active .outrights-metric-label {
-  color: var(--or-success-text);
-}
-
-.outrights-root .outrights-metric-pill--suspended {
-  background: var(--or-surface);
-  border-color: var(--or-danger-border);
-  border-top-color: var(--or-danger);
-}
-
-.outrights-root .outrights-metric-pill--suspended .outrights-metric-value,
-.outrights-root .outrights-metric-pill--suspended .outrights-metric-label {
-  color: var(--or-danger-text);
-}
-
-.outrights-root .outrights-metric-pill--settled {
-  background: var(--or-surface);
-  border-color: var(--or-info-border);
-  border-top-color: var(--or-primary);
-}
-
-.outrights-root .outrights-metric-pill--settled .outrights-metric-value,
-.outrights-root .outrights-metric-pill--settled .outrights-metric-label {
-  color: var(--or-info-text);
-}
-
-/* ---------- Buttons (standardised) ---------- */
-
-.outrights-root .outrights-action-btn,
-.outrights-root .outrights-create-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--or-space-2);
-  padding: var(--or-space-2) var(--or-space-4);
-  border-radius: 8px;
-  border: 1px solid var(--or-border-strong);
-  background: var(--or-surface-2);
-  color: var(--or-text);
-  font: inherit;
-  font-size: var(--or-text-sm);
-  font-weight: 600;
-  line-height: 1.4;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 60ms ease;
-}
-
-.outrights-root .outrights-action-btn:hover:not(:disabled),
-.outrights-root .outrights-create-btn:hover:not(:disabled) {
-  background: var(--or-hover);
-  border-color: var(--or-border-strong);
-}
-
-.outrights-root .outrights-action-btn:active:not(:disabled),
-.outrights-root .outrights-create-btn:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.outrights-root .outrights-action-btn:disabled,
-.outrights-root .outrights-create-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.outrights-root .outrights-action-btn:focus-visible,
-.outrights-root .outrights-create-btn:focus-visible,
-.outrights-root .outrights-create-option:focus-visible,
-.outrights-root .outrights-overview-market-link:focus-visible,
-.outrights-root .outrights-all-tournament-link:focus-visible,
-.outrights-root input:focus-visible,
-.outrights-root select:focus-visible,
-.outrights-root button:focus-visible {
-  outline: none;
-  box-shadow: var(--or-ring);
-}
-
-.outrights-root .outrights-action-btn-primary {
-  background: var(--or-primary);
-  border-color: var(--or-primary);
-  color: #fff;
-}
-
-.outrights-root .outrights-action-btn-primary:hover:not(:disabled) {
-  background: var(--or-primary-hover);
-  border-color: var(--or-primary-hover);
-}
-
-.outrights-root .outrights-action-btn-primary:active:not(:disabled) {
-  background: var(--or-primary-active);
-}
-
-.outrights-root .outrights-action-btn-warn,
-.outrights-root .outrights-action-btn-settle {
-  border-color: var(--or-danger-border);
-  background: var(--or-danger-soft);
-  color: var(--or-danger-text);
-}
-
-.outrights-root .outrights-action-btn-warn:hover:not(:disabled),
-.outrights-root .outrights-action-btn-settle:hover:not(:disabled) {
-  background: var(--or-danger-soft);
-  border-color: var(--or-danger);
-}
-
-.outrights-root .outrights-action-btn-settle-active {
-  background: var(--or-danger);
-  border-color: var(--or-danger);
-  color: #fff;
-}
-
-.outrights-root .outrights-action-btn-sm {
-  padding: var(--or-space-1) var(--or-space-3);
-  font-size: var(--or-text-xs);
-  border-radius: var(--or-radius-sm);
-}
-
-.outrights-root .outrights-settlement-actions .outrights-action-btn-settle {
-  background: var(--or-danger);
-  border-color: var(--or-danger);
-  color: #fff;
-}
-
-.outrights-root .outrights-settlement-actions .outrights-action-btn-settle:hover:not(:disabled) {
-  background: var(--or-danger-hover);
-  border-color: var(--or-danger-hover);
-}
-
-.outrights-root .outrights-detail-actions {
-  gap: var(--or-space-3);
-  margin-top: var(--or-space-4);
-  padding-top: var(--or-space-4);
-  border-top: 1px solid var(--or-divider);
-}
-
-.outrights-root .outrights-action-hint {
-  flex-basis: 100%;
-  margin: 0;
-  font-size: var(--or-text-sm);
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-detail-sub {
-  margin: 0 0 var(--or-space-4);
-  font-size: var(--or-text-base);
-  line-height: 1.55;
-  color: var(--or-muted);
-  max-width: 90ch;
-}
-
-/* ---------- Status badges ---------- */
-
-.outrights-root .outrights-status-badge {
-  gap: var(--or-space-1);
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  font-size: var(--or-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  border: 1px solid transparent;
-  line-height: 1.5;
-}
-
-.outrights-root .outrights-status-badge::before {
-  content: "";
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 999px;
-  background: currentColor;
-  flex-shrink: 0;
-}
-
-.outrights-root .outrights-status-inactive {
-  background: var(--or-neutral-soft);
-  color: var(--or-neutral-text);
-  border-color: var(--or-border-strong);
-}
-
-.outrights-root .outrights-status-published {
-  background: var(--or-success-soft);
-  color: var(--or-success-text);
-  border-color: var(--or-success-border);
-}
-
-.outrights-root .outrights-status-suspended {
-  background: var(--or-danger-soft);
-  color: var(--or-danger-text);
-  border-color: var(--or-danger-border);
-}
-
-.outrights-root .outrights-status-settled {
-  background: var(--or-info-soft);
-  color: var(--or-info-text);
-  border-color: var(--or-info-border);
-}
-
-.outrights-root .outrights-status-actions {
-  gap: var(--or-space-2);
-}
-
-.outrights-root .outrights-market-header-actions {
-  gap: var(--or-space-2);
-}
-
-/* ---------- Market identity ---------- */
-
-.outrights-root .outrights-market-name {
-  font-weight: 650;
-  line-height: 1.3;
-  color: var(--or-heading);
-  font-size: var(--or-text-base);
-}
-
-.outrights-root .outrights-market-id,
-.outrights-root .outrights-td-id {
-  font-family: var(--or-mono);
-  font-size: var(--or-text-xs);
-  color: var(--or-faint);
-}
-
-.outrights-root .outrights-overview-market-link {
-  color: var(--or-primary-text);
-  border-radius: var(--or-radius-sm);
-}
-
-.outrights-root .outrights-overview-market-link .outrights-market-name {
-  color: inherit;
-}
-
-.outrights-root .outrights-overview-market-link:hover .outrights-market-name {
-  color: var(--or-heading);
-}
-
-/* ---------- Trading grid tables ---------- */
-
-.outrights-root .outrights-grid-table-wrap,
-.outrights-root .teams-table-wrap {
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface);
-  box-shadow: var(--or-shadow-sm);
-  overflow: auto;
-  max-width: 100%;
-}
-
-.outrights-root .outrights-grid-table,
-.outrights-root .outrights-overview-table,
-.outrights-root .outrights-selections-table,
-.outrights-root .outrights-history-table,
-.outrights-root .outrights-settlement-table,
-.outrights-root .outrights-simulator-table,
-.outrights-root .outrights-all-tournaments-table {
-  font-size: var(--or-text-sm);
-}
-
-.outrights-root .outrights-grid-table thead th,
-.outrights-root .teams-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--or-header);
-  color: var(--or-muted);
-  font-weight: 700;
-  font-size: var(--or-text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--or-border-strong);
-  border-right: 1px solid var(--or-divider);
-  padding: var(--or-space-3) var(--or-space-3);
-  white-space: nowrap;
-}
-
-.outrights-root .outrights-grid-table tbody td,
-.outrights-root .outrights-grid-table tfoot td,
-.outrights-root .teams-table tbody td {
-  border-bottom: 1px solid var(--or-divider);
-  border-right: 1px solid var(--or-divider);
-  padding: var(--or-space-2) var(--or-space-3);
-  vertical-align: middle;
-  background: transparent;
-  color: var(--or-text);
-}
-
-.outrights-root .outrights-grid-table tbody tr:hover td {
-  background: var(--or-hover);
-}
-
-.outrights-root .outrights-grid-table tbody tr:last-child td,
-.outrights-root .outrights-grid-table tfoot tr:last-child td {
-  border-bottom: none;
-}
-
-.outrights-root .outrights-grid-table .outrights-th-label,
-.outrights-root .outrights-grid-table .outrights-td-label {
-  text-align: left;
-  min-width: 8rem;
-}
-
-.outrights-root .outrights-grid-table .outrights-th-odds,
-.outrights-root .outrights-grid-table .outrights-td-odds {
-  text-align: right;
-  width: 5.75rem;
-  min-width: 5.75rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.outrights-root .outrights-grid-table .outrights-col-divider {
-  border-left: 2px solid var(--or-border-strong) !important;
-}
-
-.outrights-root .outrights-grid-table thead .outrights-th-own,
-.outrights-root .outrights-grid-table .outrights-td-own {
-  background: var(--or-own-soft);
-}
-
-.outrights-root .outrights-grid-table tbody tr:hover .outrights-td-own {
-  background: var(--or-own-soft);
-  filter: brightness(1.12);
-}
-
-.outrights-root .outrights-grid-table tfoot .outrights-selections-total-row td {
-  background: var(--or-inset);
-  border-top: 2px solid var(--or-border-strong);
-  font-weight: 700;
-}
-
-.outrights-root .outrights-td-total-label {
-  font-size: var(--or-text-xs);
-  color: var(--or-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.outrights-root .outrights-td-total {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--or-heading);
-}
-
-.outrights-root .outrights-td-muted {
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-th-id,
-.outrights-root .outrights-td-id {
-  width: 6.5rem;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Winner highlight (settled) */
-
-.outrights-root .outrights-selection-row-winner td {
-  background: var(--or-success-soft);
-}
-
-.outrights-root .outrights-selection-row-winner:hover td {
-  background: var(--or-success-soft);
-  filter: brightness(1.08);
-}
-
-.outrights-root .outrights-winner-badge {
-  margin-left: var(--or-space-2);
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: var(--or-text-xs);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: var(--or-success);
-  border: 1px solid var(--or-success-border);
-  color: #fff;
-}
-
-/* ---------- Odds chips + inputs ---------- */
-
-.outrights-root .outrights-odds-cell {
-  min-width: 3.4rem;
-  min-height: 1.7rem;
-  padding: 0.15rem 0.45rem;
-  border-radius: var(--or-radius-sm);
-  border: 1px solid var(--or-border);
-  background: var(--or-surface-2);
-  color: var(--or-text);
-  font-variant-numeric: tabular-nums;
-  font-size: var(--or-text-sm);
-  font-weight: 650;
-  line-height: 1.35;
-}
-
-.outrights-root .outrights-odds-cell--book {
-  background: var(--or-surface-2);
-  border-color: var(--or-border);
-}
-
-.outrights-root .outrights-odds-cell--computed {
-  background: var(--or-inset);
-  border-color: var(--or-border);
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-odds-cell--own {
-  background: var(--or-own-soft);
-  border-color: var(--or-own-border);
-  color: var(--or-own-text);
-}
-
-.outrights-root .outrights-odds-cell--empty {
-  background: transparent;
-  border-style: dashed;
-  color: var(--or-faint);
-  font-weight: 500;
-}
-
-.outrights-root .outrights-price-input {
-  font: inherit;
-  border-radius: var(--or-radius-sm);
-  border: 1px solid var(--or-border-strong);
-  background: var(--or-surface-2);
-  color: var(--or-text);
-  font-variant-numeric: tabular-nums;
-}
-
-.outrights-root .outrights-price-input-own {
-  min-width: 3.4rem;
-  max-width: 5rem;
-  min-height: 1.7rem;
-  padding: 0.15rem 0.4rem;
-  border-radius: var(--or-radius-sm);
-  border: 1px solid var(--or-own-border) !important;
-  background: var(--or-own-soft) !important;
-  color: var(--or-own-text) !important;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-size: var(--or-text-sm);
-  font-weight: 650;
-}
-
-.outrights-root .outrights-price-input-own:focus {
-  outline: none;
-  box-shadow: var(--or-ring);
-}
-
-.outrights-root .outrights-price-input-own::placeholder {
-  color: var(--or-faint);
-  opacity: 0.8;
-}
-
-/* ---------- Sidebar ---------- */
-
-.outrights-root .outrights-sidebar.sidebar {
-  background: var(--or-sidebar-bg);
-  border-right: 1px solid var(--or-border);
-}
-
-.outrights-root .outrights-sidebar .sidebar-section-label {
-  font-size: var(--or-text-xs);
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-sidebar .sidebar-tree-item {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: var(--or-space-2) var(--or-space-3);
-  color: var(--or-muted);
-  font-size: var(--or-text-sm);
-}
-
-.outrights-root .outrights-sidebar .sidebar-tree-item:hover {
-  background: var(--or-hover);
-  color: var(--or-heading);
-}
-
-.outrights-root .outrights-sidebar .sidebar-tree-item.active {
-  background: var(--or-primary-soft);
-  border-color: var(--or-info-border);
-  color: var(--or-heading);
-  box-shadow: inset 3px 0 0 var(--or-primary);
-}
-
-.outrights-root .outrights-sidebar-market {
-  gap: var(--or-space-1) !important;
-}
-
-.outrights-root .outrights-sidebar .outrights-status-badge {
-  font-size: 0.65rem;
-  padding: 0.1rem 0.5rem;
-}
-
-.outrights-root .outrights-sidebar-empty {
-  color: var(--or-faint);
-}
-
-.outrights-root .outrights-create-menu {
-  z-index: 20;
-  min-width: 12rem;
-  padding: var(--or-space-1);
-  border-radius: var(--or-radius);
-  border: 1px solid var(--or-border-strong);
-  background: var(--or-surface-2);
-  box-shadow: var(--or-shadow-pop);
-  list-style: none;
-}
-
-.outrights-root .outrights-create-option {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: var(--or-space-2) var(--or-space-3);
-  border: none;
-  border-radius: var(--or-radius-sm);
-  background: transparent;
-  color: var(--or-text);
-  font: inherit;
-  font-size: var(--or-text-sm);
-  font-weight: 550;
-  cursor: pointer;
-}
-
-.outrights-root .outrights-create-option:hover {
-  background: var(--or-hover);
-  color: var(--or-heading);
-}
-
-/* ---------- Overview tables ---------- */
-
-.outrights-root .outrights-overview-table.outrights-grid-table {
-  table-layout: auto;
-}
-
-.outrights-root .outrights-overview-th-status,
-.outrights-root .outrights-overview-status-cell {
-  min-width: 12rem;
-}
-
-.outrights-root .outrights-overview-actions {
-  gap: var(--or-space-1);
-}
-
-.outrights-root .outrights-all-tournament-link {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-  border-radius: var(--or-radius-sm);
-}
-
-.outrights-root .outrights-all-tournament-name {
-  display: block;
-  font-weight: 650;
-  color: var(--or-primary-text);
-  line-height: 1.3;
-}
-
-.outrights-root .outrights-all-tournament-link:hover .outrights-all-tournament-name {
-  text-decoration: underline;
-  color: var(--or-heading);
-}
-
-.outrights-root .outrights-all-tournament-meta,
-.outrights-root .outrights-all-format-cell {
-  color: var(--or-muted);
-  font-size: var(--or-text-sm);
-}
-
-.outrights-root .outrights-all-count {
-  font-variant-numeric: tabular-nums;
-}
-
-.outrights-root .outrights-all-count--active { color: var(--or-success-text); }
-.outrights-root .outrights-all-count--suspended { color: var(--or-danger-text); }
-.outrights-root .outrights-all-count--settled { color: var(--or-info-text); }
-
-.outrights-root .outrights-all-count-muted {
-  color: var(--or-faint);
-}
-
-.outrights-root .outrights-content-empty,
-.outrights-root .outrights-empty-hint {
-  color: var(--or-muted);
-}
-
-.outrights-root .empty-state {
-  background: var(--or-surface);
-  border: 1px dashed var(--or-border-strong);
-  border-radius: var(--or-radius-lg);
-  padding: var(--or-space-8) var(--or-space-6);
-  text-align: center;
-  color: var(--or-muted);
-  box-shadow: none;
-}
-
-/* ---------- Price history ---------- */
-
-.outrights-root .outrights-history-panel {
-  margin-bottom: 0;
-}
-
-.outrights-root .outrights-price-history {
-  gap: var(--or-space-4);
-}
-
-.outrights-root .outrights-history-columns {
-  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
-  gap: var(--or-space-4);
-}
-
-.outrights-root .outrights-history-column {
-  min-width: 0;
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface-2);
-  padding: var(--or-space-4);
-}
-
-.outrights-root .outrights-history-heading {
-  margin: 0 0 var(--or-space-3);
-  font-size: var(--or-text-xs);
-  font-weight: 750;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--or-heading);
-  padding-bottom: var(--or-space-2);
-  border-bottom: 1px solid var(--or-divider);
-}
-
-.outrights-root .outrights-history-empty {
-  color: var(--or-muted);
-  line-height: 1.55;
-}
-
-.outrights-root .outrights-history-list {
-  gap: var(--or-space-3);
-}
-
-.outrights-root .outrights-history-item {
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface);
-  padding: var(--or-space-3);
-  box-shadow: var(--or-shadow-sm);
-}
-
-.outrights-root .outrights-history-item-head {
-  margin-bottom: var(--or-space-1);
-}
-
-.outrights-root .outrights-history-source--sent {
-  background: var(--or-info-soft);
-  border: 1px solid var(--or-info-border);
-  color: var(--or-info-text);
-}
-
-.outrights-root .outrights-history-source--competitor {
-  background: var(--or-warning-soft);
-  border: 1px solid var(--or-warning-border);
-  color: var(--or-warning-text);
-}
-
-.outrights-root .outrights-history-time {
-  font-size: var(--or-text-xs);
-  color: var(--or-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.outrights-root .outrights-history-note {
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-history-table-wrap {
-  margin-top: var(--or-space-2);
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius-sm);
-}
-
-/* ---------- Per-selection price charts ---------- */
-
-.outrights-root .outrights-chart-grid-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: var(--or-space-3);
-}
-
-.outrights-root .outrights-chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--or-space-2) var(--or-space-4);
-  font-size: var(--or-text-xs);
-  font-weight: 600;
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-chart-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--or-space-1);
-}
-
-.outrights-root .outrights-chart-legend-item::before {
-  content: "";
-  width: 1.25rem;
-  height: 3px;
-  border-radius: 2px;
-  background: currentColor;
-}
-
-.outrights-root .outrights-chart-legend-item--sent { color: var(--or-own-text); }
-.outrights-root .outrights-chart-legend-item--competitor { color: var(--or-warning-text); }
-
-.outrights-root .outrights-chart-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
-  gap: var(--or-space-3);
-}
-
-.outrights-root .outrights-chart-card {
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface-2);
-  padding: var(--or-space-3);
-  min-width: 0;
-}
-
-.outrights-root .outrights-chart-card-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--or-space-2);
-  margin-bottom: var(--or-space-2);
-  min-width: 0;
-}
-
-.outrights-root .outrights-chart-selection-id {
-  font-family: var(--or-mono);
-  font-size: var(--or-text-xs);
-  color: var(--or-faint);
-  flex-shrink: 0;
-}
-
-.outrights-root .outrights-chart-selection-label {
-  font-size: var(--or-text-sm);
-  font-weight: 650;
-  color: var(--or-heading);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.outrights-root .outrights-chart-svg {
-  display: block;
-  width: 100%;
-  height: 56px;
-}
-
-.outrights-root .outrights-chart-baseline {
-  stroke: var(--or-border-strong);
-  stroke-width: 1;
-}
-
-.outrights-root .outrights-chart-line {
-  stroke-width: 2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-
-.outrights-root .outrights-chart-line--sent { stroke: var(--or-success); }
-.outrights-root .outrights-chart-line--competitor {
-  stroke: var(--or-warning-text);
-  stroke-dasharray: 5 3;
-}
-
-.outrights-root .outrights-chart-dot--sent { fill: var(--or-success); }
-
-.outrights-root .outrights-chart-values {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--or-space-2);
-  margin-top: var(--or-space-2);
-  font-size: var(--or-text-xs);
-  font-variant-numeric: tabular-nums;
-}
-
-.outrights-root .outrights-chart-value--sent {
-  font-weight: 700;
-  color: var(--or-own-text);
-}
-
-.outrights-root .outrights-chart-value--competitor {
-  font-weight: 600;
-  color: var(--or-warning-text);
-}
-
-/* ---------- Settlement ---------- */
-
-.outrights-root .outrights-settlement-panel {
-  gap: var(--or-space-4);
-}
-
-.outrights-root .outrights-settlement-lead {
-  margin: 0;
-  color: var(--or-muted);
-  font-size: var(--or-text-base);
-  line-height: 1.55;
-}
-
-.outrights-root .outrights-settlement-table-wrap {
-  max-height: 26rem;
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  overflow: auto;
-  background: var(--or-surface);
-}
-
-.outrights-root .outrights-settlement-row--selected td {
-  background: var(--or-danger-soft);
-}
-
-.outrights-root .outrights-settlement-error {
-  margin: 0;
-  padding: var(--or-space-3);
-  border-radius: var(--or-radius-sm);
-  border: 1px solid var(--or-danger-border);
-  background: var(--or-danger-soft);
-  color: var(--or-danger-text);
-  font-size: var(--or-text-sm);
-  font-weight: 600;
-}
-
-.outrights-root .outrights-settlement-actions {
-  gap: var(--or-space-3);
-}
-
-/* ---------- Simulator ---------- */
-
-.outrights-root .outrights-simulator {
-  display: flex;
-  flex-direction: column;
-  gap: var(--or-space-4);
-}
-
-.outrights-root .outrights-simulator-controls {
-  gap: var(--or-space-3);
-  margin: 0;
-  padding: var(--or-space-4);
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface-2);
-}
-
-.outrights-root .outrights-simulator-field {
-  gap: var(--or-space-1);
-  font-size: var(--or-text-xs);
-  font-weight: 600;
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-simulator-field select,
-.outrights-root .outrights-simulator-field input,
-.outrights-root .outrights-simulator-num,
-.outrights-root .outrights-simulator-group-name,
-.outrights-root .outrights-simulator-group-select {
-  padding: var(--or-space-2) var(--or-space-2);
-  border-radius: 8px;
-  border: 1px solid var(--or-border-strong);
-  background: var(--or-surface);
-  color: var(--or-text);
-  font: inherit;
-  font-size: var(--or-text-sm);
-  font-weight: 500;
-  min-height: 2.25rem;
-}
-
-.outrights-root .outrights-simulator-sanity-block {
-  margin: 0;
-  padding: var(--or-space-3) var(--or-space-4);
-  border-left: 3px solid var(--or-info-border);
-  border-radius: 0 var(--or-radius-sm) var(--or-radius-sm) 0;
-  background: var(--or-info-soft);
-}
-
-.outrights-root .outrights-simulator-sanity {
-  font-size: var(--or-text-sm);
-  color: var(--or-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.outrights-root .outrights-simulator-groups {
-  margin-bottom: 0;
-  padding: var(--or-space-4);
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface-2);
-}
-
-.outrights-root .outrights-simulator-group-card {
-  padding: var(--or-space-3);
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface);
-  box-shadow: var(--or-shadow-sm);
-}
-
-.outrights-root .outrights-simulator-toolbar {
-  margin-bottom: 0;
-}
-
-.outrights-root .outrights-simulator-table-wrap {
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  margin-bottom: 0;
-  background: var(--or-surface);
-  box-shadow: var(--or-shadow-sm);
-  overflow-x: auto;
-}
-
-.outrights-root .outrights-simulator-run {
-  margin-bottom: 0;
-  align-self: flex-start;
-  padding: var(--or-space-3) var(--or-space-5);
-  font-size: var(--or-text-base);
-}
-
-.outrights-root .outrights-simulator-import-msg,
-.outrights-root .outrights-simulator-unassigned {
-  font-size: var(--or-text-sm);
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-simulator-results-title {
-  font-size: var(--or-text-base);
-  font-weight: 700;
-  color: var(--or-heading);
-  margin: 0 0 var(--or-space-2);
-}
-
-.outrights-root .outrights-simulator-results-head {
-  margin-bottom: var(--or-space-3);
-}
-
-/* ---------- Suspension / alerts / settings ---------- */
-
-.outrights-root .settings-panel {
-  background: transparent;
-}
-
-.outrights-root .settings-heading {
-  font-size: var(--or-text-xs);
-  font-weight: 750;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--or-muted);
-  margin: 0 0 var(--or-space-3);
-}
-
-.outrights-root .settings-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--or-space-2);
-  width: 100%;
-  padding: var(--or-space-3) var(--or-space-4);
-  border-radius: var(--or-radius);
-  border: 1px solid var(--or-border);
-  background: var(--or-surface-2);
-  color: var(--or-text);
-  font: inherit;
-  font-size: var(--or-text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
-}
-
-.outrights-root .settings-btn:hover {
-  border-color: var(--or-border-strong);
-  background: var(--or-hover);
-}
-
-.outrights-root .settings-lead {
-  font-size: var(--or-text-base);
-  font-weight: 650;
-  color: var(--or-heading);
-  margin: 0 0 var(--or-space-1);
-}
-
-.outrights-root .settings-par-score-hint,
-.outrights-root .settings-placeholder-text,
-.outrights-root .settings-par-score-meta {
-  color: var(--or-muted);
-  font-size: var(--or-text-sm);
-  line-height: 1.55;
-}
-
-.outrights-root .settings-toggle-row {
-  display: flex;
-  gap: var(--or-space-3);
-  align-items: flex-start;
-  padding: var(--or-space-3);
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface-2);
-  font-size: var(--or-text-sm);
-  cursor: pointer;
-}
-
-.outrights-root .settings-toggle-row input[type="checkbox"],
-.outrights-root input[type="checkbox"],
-.outrights-root input[type="radio"] {
-  accent-color: var(--or-primary);
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  margin-top: 0.15rem;
-}
-
-.outrights-root .outrights-suspension-form .outrights-suspension-mode {
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  padding: var(--or-space-3) var(--or-space-4);
-  background: var(--or-surface-2);
-}
-
-.outrights-root .outrights-suspension-legend {
-  font-size: var(--or-text-xs);
-  font-weight: 750;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--or-muted);
-}
-
-.outrights-root .outrights-suspension-mode-option {
-  font-size: var(--or-text-sm);
-  padding: var(--or-space-1) 0;
-}
-
-.outrights-root .outrights-suspension-daily-row {
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface-2);
-}
-
-.outrights-root .outrights-settings-actions {
-  margin: var(--or-space-4) 0 0;
-  gap: var(--or-space-2);
-}
-
-.outrights-root .outrights-settings-actions .outrights-action-btn {
-  width: 100%;
-}
-
-.outrights-root .outrights-alerts-rules {
-  display: flex;
-  flex-direction: column;
-  gap: var(--or-space-2);
-}
-
-.outrights-root .outrights-alerts-threshold {
-  margin-left: 2rem;
-  max-width: 13rem;
-}
-
-.outrights-root .outrights-alerts-live {
-  border-top: 1px solid var(--or-divider);
-}
-
-.outrights-root .outrights-alerts-live-title {
-  color: var(--or-heading);
-}
-
-.outrights-root .outrights-alert-item {
-  border: 1px solid var(--or-border);
-  border-radius: var(--or-radius);
-  background: var(--or-surface-2);
-  font-size: var(--or-text-sm);
-  box-shadow: var(--or-shadow-sm);
-}
-
-.outrights-root .outrights-alert-item--warning {
-  border-color: var(--or-warning-border);
-  background: var(--or-warning-soft);
-}
-
-.outrights-root .outrights-alert-item--warning .outrights-alert-market {
-  color: var(--or-warning-text);
-}
-
-.outrights-root .outrights-alert-item--warning .outrights-alert-message {
-  color: var(--or-text);
-}
-
-.outrights-root .outrights-alert-item--info {
-  border-color: var(--or-info-border);
-  background: var(--or-info-soft);
-}
-
-.outrights-root .outrights-alert-item--info .outrights-alert-market {
-  color: var(--or-info-text);
-}
-
-.outrights-root .outrights-alert-item--info .outrights-alert-message {
-  color: var(--or-text);
-}
-
-.outrights-root .outrights-alert-market {
-  color: var(--or-heading);
-}
-
-.outrights-root .outrights-alert-message {
-  line-height: 1.5;
-  color: var(--or-muted);
-}
-
-/* ---------- Right-rail + live rows ---------- */
-
-.outrights-root .outrights-overview .dashboard-content {
-  gap: var(--or-space-4);
-}
-
-.outrights-root .outrights-live-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-  gap: var(--or-space-4);
-}
-
-/* ---------- Responsive ---------- */
-
-@media (max-width: 1100px) {
-  .outrights-root .outrights-overview {
-    padding: var(--or-space-4) var(--or-space-4) var(--or-space-6);
-  }
-
-  .outrights-root .outrights-overview .dashboard-content {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .outrights-root .dashboard-header-top {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .outrights-root .outrights-market-header-actions {
-    width: 100%;
-  }
-
-  .outrights-root .outrights-metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .outrights-root .tournament-section-body {
-    padding: var(--or-space-3);
-  }
-
-  .outrights-root .outrights-live-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .outrights-root .outrights-overview {
-    padding: var(--or-space-3) var(--or-space-3) var(--or-space-5);
-  }
-
-  .outrights-root .outrights-metric-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--or-space-2);
-  }
-
-  .outrights-root .outrights-metric-pill {
-    padding: var(--or-space-2) var(--or-space-3);
-  }
-
-  .outrights-root .outrights-detail-actions .outrights-action-btn {
-    flex: 1 1 auto;
-  }
-
-  .outrights-root .outrights-chart-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .outrights-root .outrights-history-column {
-    padding: var(--or-space-3);
-  }
-}
-
-/* ---------- Motion + accessibility ---------- */
-
-@media (prefers-reduced-motion: reduce) {
-  .outrights-root .outrights-action-btn,
-  .outrights-root .outrights-create-btn,
-  .outrights-root .settings-btn {
-    transition: none;
-  }
-
-  .outrights-root .outrights-action-btn:active:not(:disabled),
-  .outrights-root .outrights-create-btn:active:not(:disabled) {
-    transform: none;
-  }
-}
-
-/* ==========================================================================
-   Outrights — visibility strengthening (2026-10-02)
-   Purely visual, CSS-only: no markup or workflow changes. These rules sit
-   last so they win ties against the legacy + token layers above, and every
-   value resolves through --or-* tokens so light/dark stay in sync.
-   ========================================================================== */
-
-/* Header rhythm: title rule separates Outrights headers from TM headers */
-.outrights-root .dashboard-header {
-  padding-bottom: var(--or-space-4);
-  border-bottom: 1px solid var(--or-border);
-  margin-bottom: var(--or-space-5);
-}
-
-.outrights-root .dashboard-title {
-  font-size: 1.5rem;
-}
-
-/* Cards: accent bar on section heads distinguishes Outrights panels */
-.outrights-root .tournament-section-head {
-  box-shadow: inset 3px 0 0 var(--or-primary);
-}
-
-/* Metric cards: tinted variant backgrounds (was plain surface for all) */
-.outrights-root .outrights-metric-pill {
-  border-top-width: 4px;
-}
-
-.outrights-root .outrights-metric-pill--active {
-  background: var(--or-success-soft);
-  box-shadow: var(--or-shadow-sm), 0 0 12px rgba(34, 197, 94, 0.08);
-}
-
-.outrights-root .outrights-metric-pill--suspended {
-  background: var(--or-danger-soft);
-  box-shadow: var(--or-shadow-sm), 0 0 12px rgba(239, 68, 68, 0.08);
-}
-
-.outrights-root .outrights-metric-pill--settled {
-  background: var(--or-info-soft);
-  box-shadow: var(--or-shadow-sm), 0 0 12px rgba(56, 189, 248, 0.08);
-}
-
-/* Buttons: depth on default, gradient on primary, accent hover */
-.outrights-root .outrights-action-btn,
-.outrights-root .outrights-create-btn {
-  box-shadow: var(--or-shadow-sm);
-}
-
-.outrights-root .outrights-action-btn:hover:not(:disabled),
-.outrights-root .outrights-create-btn:hover:not(:disabled) {
-  border-color: var(--or-primary);
-  color: var(--or-heading);
-}
-
-.outrights-root .outrights-action-btn-primary {
-  background: linear-gradient(180deg, var(--or-primary-hover), var(--or-primary));
-  box-shadow: var(--or-shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.14);
-}
-
-/* Status pills: depth so state reads at a glance */
-.outrights-root .outrights-status-badge {
-  box-shadow: var(--or-shadow-sm);
-}
-
-/* Trading grid: stronger header separation + Own-column emphasis */
-.outrights-root .outrights-grid-table thead th,
-.outrights-root .teams-table thead th {
-  border-bottom: 2px solid var(--or-border-strong);
-}
-
-.outrights-root .outrights-grid-table thead .outrights-th-own {
-  box-shadow: inset 0 3px 0 var(--or-success);
-}
-
-/* Settled winners: green edge on the row's first cell */
-.outrights-root .outrights-selection-row-winner td:first-child {
-  box-shadow: inset 3px 0 0 var(--or-success);
-}
-
-/* Sidebar: tournament names pop against muted tree items */
-.outrights-root .outrights-sidebar-tournament-name {
-  color: var(--or-heading);
-}
-
-/* Sidebar section labels: accent tick matching panel heads */
-.app-home-shell:has(.outrights-root) .outrights-sidebar .sidebar-section-label {
-  border-left: 3px solid var(--or-primary, #2563eb);
-  padding-left: var(--or-space-2, 0.5rem);
+/* ==========================================================================
+
+   Outrights â€” enterprise redesign (2026)
+
+   Token-driven layer over legacy outrights styles. All rules are scoped to
+
+   .outrights-root so nothing outside the Outrights module is affected.
+
+   Dark is the default (matches app shell). Light theme activates via
+
+   html[data-theme="light"], .outrights-root[data-theme="light"], or the
+
+   OS preference when the host does not force dark.
+
+   ========================================================================== */
+
+
+
+.outrights-root {
+
+  color-scheme: dark;
+
+  /* Typography scale */
+
+  --or-font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+
+  --or-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --or-text-xs: 0.72rem;
+
+  --or-text-sm: 0.82rem;
+
+  --or-text-base: 0.9rem;
+
+  --or-text-lg: 1.1rem;
+
+  --or-text-xl: 1.35rem;
+
+  /* 8px spacing scale */
+
+  --or-space-1: 0.25rem;
+
+  --or-space-2: 0.5rem;
+
+  --or-space-3: 0.75rem;
+
+  --or-space-4: 1rem;
+
+  --or-space-5: 1.25rem;
+
+  --or-space-6: 1.5rem;
+
+  --or-space-8: 2rem;
+
+  /* Surfaces (dark default) */
+
+  --or-page: transparent;
+
+  --or-surface: #141f33;
+
+  --or-surface-2: #1a2740;
+
+  --or-inset: #101a2e;
+
+  --or-header: rgba(255, 255, 255, 0.045);
+
+  --or-hover: rgba(255, 255, 255, 0.05);
+
+  --or-border: rgba(255, 255, 255, 0.1);
+
+  --or-border-strong: rgba(255, 255, 255, 0.16);
+
+  --or-divider: rgba(255, 255, 255, 0.08);
+
+  /* Text (dark, WCAG AA on surfaces) */
+
+  --or-text: #eef2f8;
+
+  --or-muted: #aab6c8;
+
+  --or-faint: #8593a8;
+
+  --or-heading: #f4f7fb;
+
+  /* Semantic tokens */
+
+  --or-primary: #2563eb;
+
+  --or-primary-hover: #1d4ed8;
+
+  --or-primary-active: #1e40af;
+
+  --or-primary-soft: rgba(59, 130, 246, 0.14);
+
+  --or-primary-text: #bcd3fb;
+
+  --or-success: #16a34a;
+
+  --or-success-soft: rgba(34, 197, 94, 0.13);
+
+  --or-success-text: #a7e8bd;
+
+  --or-success-border: rgba(34, 197, 94, 0.4);
+
+  --or-warning: #b45309;
+
+  --or-warning-soft: rgba(251, 191, 36, 0.13);
+
+  --or-warning-text: #fcd34d;
+
+  --or-warning-border: rgba(251, 191, 36, 0.42);
+
+  --or-danger: #dc2626;
+
+  --or-danger-hover: #b91c1c;
+
+  --or-danger-soft: rgba(239, 68, 68, 0.13);
+
+  --or-danger-text: #fca5a5;
+
+  --or-danger-border: rgba(239, 68, 68, 0.45);
+
+  --or-info-soft: rgba(56, 189, 248, 0.12);
+
+  --or-info-text: #9adcfa;
+
+  --or-info-border: rgba(56, 189, 248, 0.4);
+
+  --or-neutral-soft: rgba(148, 163, 184, 0.16);
+
+  --or-neutral-text: #c3cedd;
+
+  /* Trading emphasis */
+
+  --or-own-soft: rgba(34, 197, 94, 0.1);
+
+  --or-own-border: rgba(34, 197, 94, 0.42);
+
+  --or-own-text: #a7e8bd;
+
+  /* Shape + elevation */
+
+  --or-radius-sm: 6px;
+
+  --or-radius: 10px;
+
+  --or-radius-lg: 14px;
+
+  --or-shadow-sm: 0 1px 2px rgba(2, 6, 16, 0.35);
+
+  --or-shadow: 0 1px 2px rgba(2, 6, 16, 0.4), 0 4px 14px rgba(2, 6, 16, 0.3);
+
+  --or-shadow-pop: 0 8px 28px rgba(2, 6, 16, 0.5);
+
+  --or-ring: 0 0 0 3px rgba(59, 130, 246, 0.35);
+
+  --or-sidebar-bg: #101a2e;
+
+}
+
+
+
+/* Light theme â€” opt in via data-theme or OS preference */
+
+html[data-theme="light"] .outrights-root,
+
+.outrights-root[data-theme="light"] {
+
+  color-scheme: light;
+
+  --or-page: transparent;
+
+  --or-surface: #ffffff;
+
+  --or-surface-2: #f6f8fb;
+
+  --or-inset: #f1f5f9;
+
+  --or-header: #f1f5f9;
+
+  --or-hover: #f1f5f9;
+
+  --or-border: #dbe2ec;
+
+  --or-border-strong: #c3cedd;
+
+  --or-divider: #e6ebf2;
+
+  --or-text: #0f1e33;
+
+  --or-muted: #475569;
+
+  --or-faint: #64748b;
+
+  --or-heading: #0b1526;
+
+  --or-primary: #1d4ed8;
+
+  --or-primary-hover: #1e40af;
+
+  --or-primary-active: #1e3a8a;
+
+  --or-primary-soft: rgba(37, 99, 235, 0.09);
+
+  --or-primary-text: #1d4ed8;
+
+  --or-success: #15803d;
+
+  --or-success-soft: rgba(22, 163, 74, 0.1);
+
+  --or-success-text: #15803d;
+
+  --or-success-border: rgba(22, 163, 74, 0.4);
+
+  --or-warning-text: #92400e;
+
+  --or-warning-soft: rgba(180, 83, 9, 0.09);
+
+  --or-warning-border: rgba(180, 83, 9, 0.4);
+
+  --or-danger: #b91c1c;
+
+  --or-danger-hover: #991b1b;
+
+  --or-danger-soft: rgba(220, 38, 38, 0.08);
+
+  --or-danger-text: #b91c1c;
+
+  --or-danger-border: rgba(220, 38, 38, 0.42);
+
+  --or-info-text: #0369a1;
+
+  --or-info-soft: rgba(2, 132, 199, 0.09);
+
+  --or-info-border: rgba(2, 132, 199, 0.38);
+
+  --or-neutral-text: #475569;
+
+  --or-neutral-soft: rgba(100, 116, 139, 0.14);
+
+  --or-own-soft: rgba(22, 163, 74, 0.09);
+
+  --or-own-border: rgba(22, 163, 74, 0.45);
+
+  --or-own-text: #15803d;
+
+  --or-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+
+  --or-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 14px rgba(16, 24, 40, 0.07);
+
+  --or-shadow-pop: 0 12px 32px rgba(16, 24, 40, 0.16);
+
+  --or-ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
+
+  --or-sidebar-bg: #f6f8fb;
+
+}
+
+
+
+@media (prefers-color-scheme: light) {
+
+  html:not([data-theme="dark"]) .outrights-root:not([data-theme="dark"]) {
+
+    color-scheme: light;
+
+    --or-page: transparent;
+
+    --or-surface: #ffffff;
+
+    --or-surface-2: #f6f8fb;
+
+    --or-inset: #f1f5f9;
+
+    --or-header: #f1f5f9;
+
+    --or-hover: #eef3f9;
+
+    --or-border: #dbe2ec;
+
+    --or-border-strong: #c3cedd;
+
+    --or-divider: #e6ebf2;
+
+    --or-text: #0f1e33;
+
+    --or-muted: #475569;
+
+    --or-faint: #64748b;
+
+    --or-heading: #0b1526;
+
+    --or-primary-soft: rgba(37, 99, 235, 0.09);
+
+    --or-primary-text: #1d4ed8;
+
+    --or-success-soft: rgba(22, 163, 74, 0.1);
+
+    --or-success-text: #15803d;
+
+    --or-success-border: rgba(22, 163, 74, 0.4);
+
+    --or-warning-text: #92400e;
+
+    --or-warning-soft: rgba(180, 83, 9, 0.09);
+
+    --or-warning-border: rgba(180, 83, 9, 0.4);
+
+    --or-danger-soft: rgba(220, 38, 38, 0.08);
+
+    --or-danger-text: #b91c1c;
+
+    --or-danger-border: rgba(220, 38, 38, 0.42);
+
+    --or-info-text: #0369a1;
+
+    --or-info-soft: rgba(2, 132, 199, 0.09);
+
+    --or-info-border: rgba(2, 132, 199, 0.38);
+
+    --or-neutral-text: #475569;
+
+    --or-neutral-soft: rgba(100, 116, 139, 0.14);
+
+    --or-own-soft: rgba(22, 163, 74, 0.09);
+
+    --or-own-border: rgba(22, 163, 74, 0.45);
+
+    --or-own-text: #15803d;
+
+    --or-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+
+    --or-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 14px rgba(16, 24, 40, 0.07);
+
+    --or-shadow-pop: 0 12px 32px rgba(16, 24, 40, 0.16);
+
+    --or-ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
+
+    --or-sidebar-bg: #eef2f7;
+
+  }
+
+}
+
+
+
+/* ---------- Layout rhythm ---------- */
+
+
+
+.outrights-root {
+
+  font-family: var(--or-font);
+
+  color: var(--or-text);
+
+}
+
+
+
+.outrights-root .outrights-overview {
+
+  gap: var(--or-space-5);
+
+  max-width: 120rem;
+
+  margin-inline: auto;
+
+  padding: var(--or-space-6) var(--or-space-6) var(--or-space-8);
+
+}
+
+
+
+.outrights-root .outrights-main {
+
+  scrollbar-gutter: stable;
+
+}
+
+
+
+.outrights-root .dashboard-header {
+
+  margin-bottom: 0;
+
+}
+
+
+
+.outrights-root .dashboard-header-top {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  align-items: flex-start;
+
+  justify-content: space-between;
+
+  gap: var(--or-space-3) var(--or-space-4);
+
+}
+
+
+
+.outrights-root .dashboard-title {
+
+  font-size: var(--or-text-xl);
+
+  font-weight: 700;
+
+  letter-spacing: -0.01em;
+
+  line-height: 1.25;
+
+  color: var(--or-heading);
+
+}
+
+
+
+.outrights-root .dashboard-breadcrumb {
+
+  margin-top: var(--or-space-1);
+
+  font-size: var(--or-text-sm);
+
+  color: var(--or-muted);
+
+}
+
+
+
+/* ---------- Cards / panels ---------- */
+
+
+
+.outrights-root .tournament-section-panel,
+
+.outrights-root .outrights-simulator-page-panel {
+
+  background: var(--or-surface);
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius-lg);
+
+  box-shadow: var(--or-shadow);
+
+  overflow: hidden;
+
+}
+
+
+
+.outrights-root .tournament-section-head {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: var(--or-space-2);
+
+  margin: 0;
+
+  padding: var(--or-space-3) var(--or-space-4);
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 700;
+
+  letter-spacing: 0.06em;
+
+  text-transform: uppercase;
+
+  color: var(--or-muted);
+
+  border-bottom: 1px solid var(--or-divider);
+
+  background: var(--or-header);
+
+}
+
+
+
+.outrights-root .tournament-section-body {
+
+  padding: var(--or-space-4);
+
+}
+
+
+
+.outrights-root .outrights-settlement-section,
+
+.outrights-root .outrights-history-panel {
+
+  margin-bottom: 0;
+
+}
+
+
+
+/* ---------- Metric cards ---------- */
+
+
+
+.outrights-root .outrights-metric-strip {
+
+  display: grid;
+
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+
+  gap: var(--or-space-3);
+
+}
+
+
+
+.outrights-root .outrights-metric-pill {
+
+  min-width: 0;
+
+  padding: var(--or-space-3) var(--or-space-4);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface);
+
+  border: 1px solid var(--or-border);
+
+  box-shadow: var(--or-shadow-sm);
+
+  border-top: 3px solid var(--or-border-strong);
+
+}
+
+
+
+.outrights-root .outrights-metric-value {
+
+  font-size: var(--or-text-xl);
+
+  font-weight: 750;
+
+  line-height: 1.15;
+
+  font-variant-numeric: tabular-nums;
+
+  color: var(--or-heading);
+
+}
+
+
+
+.outrights-root .outrights-metric-label {
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 650;
+
+  letter-spacing: 0.06em;
+
+  text-transform: uppercase;
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-metric-pill--active {
+
+  background: var(--or-surface);
+
+  border-color: var(--or-success-border);
+
+  border-top-color: var(--or-success);
+
+}
+
+
+
+.outrights-root .outrights-metric-pill--active .outrights-metric-value,
+
+.outrights-root .outrights-metric-pill--active .outrights-metric-label {
+
+  color: var(--or-success-text);
+
+}
+
+
+
+.outrights-root .outrights-metric-pill--suspended {
+
+  background: var(--or-surface);
+
+  border-color: var(--or-danger-border);
+
+  border-top-color: var(--or-danger);
+
+}
+
+
+
+.outrights-root .outrights-metric-pill--suspended .outrights-metric-value,
+
+.outrights-root .outrights-metric-pill--suspended .outrights-metric-label {
+
+  color: var(--or-danger-text);
+
+}
+
+
+
+.outrights-root .outrights-metric-pill--settled {
+
+  background: var(--or-surface);
+
+  border-color: var(--or-info-border);
+
+  border-top-color: var(--or-primary);
+
+}
+
+
+
+.outrights-root .outrights-metric-pill--settled .outrights-metric-value,
+
+.outrights-root .outrights-metric-pill--settled .outrights-metric-label {
+
+  color: var(--or-info-text);
+
+}
+
+
+
+/* ---------- Buttons (standardised) ---------- */
+
+
+
+.outrights-root .outrights-action-btn,
+
+.outrights-root .outrights-create-btn {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: var(--or-space-2);
+
+  padding: var(--or-space-2) var(--or-space-4);
+
+  border-radius: 8px;
+
+  border: 1px solid var(--or-border-strong);
+
+  background: var(--or-surface-2);
+
+  color: var(--or-text);
+
+  font: inherit;
+
+  font-size: var(--or-text-sm);
+
+  font-weight: 600;
+
+  line-height: 1.4;
+
+  cursor: pointer;
+
+  white-space: nowrap;
+
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 60ms ease;
+
+}
+
+
+
+.outrights-root .outrights-action-btn:hover:not(:disabled),
+
+.outrights-root .outrights-create-btn:hover:not(:disabled) {
+
+  background: var(--or-hover);
+
+  border-color: var(--or-border-strong);
+
+}
+
+
+
+.outrights-root .outrights-action-btn:active:not(:disabled),
+
+.outrights-root .outrights-create-btn:active:not(:disabled) {
+
+  transform: translateY(1px);
+
+}
+
+
+
+.outrights-root .outrights-action-btn:disabled,
+
+.outrights-root .outrights-create-btn:disabled {
+
+  opacity: 0.5;
+
+  cursor: not-allowed;
+
+}
+
+
+
+.outrights-root .outrights-action-btn:focus-visible,
+
+.outrights-root .outrights-create-btn:focus-visible,
+
+.outrights-root .outrights-create-option:focus-visible,
+
+.outrights-root .outrights-overview-market-link:focus-visible,
+
+.outrights-root .outrights-all-tournament-link:focus-visible,
+
+.outrights-root input:focus-visible,
+
+.outrights-root select:focus-visible,
+
+.outrights-root button:focus-visible {
+
+  outline: none;
+
+  box-shadow: var(--or-ring);
+
+}
+
+
+
+.outrights-root .outrights-action-btn-primary {
+
+  background: var(--or-primary);
+
+  border-color: var(--or-primary);
+
+  color: #fff;
+
+}
+
+
+
+.outrights-root .outrights-action-btn-primary:hover:not(:disabled) {
+
+  background: var(--or-primary-hover);
+
+  border-color: var(--or-primary-hover);
+
+}
+
+
+
+.outrights-root .outrights-action-btn-primary:active:not(:disabled) {
+
+  background: var(--or-primary-active);
+
+}
+
+
+
+.outrights-root .outrights-action-btn-warn,
+
+.outrights-root .outrights-action-btn-settle {
+
+  border-color: var(--or-danger-border);
+
+  background: var(--or-danger-soft);
+
+  color: var(--or-danger-text);
+
+}
+
+
+
+.outrights-root .outrights-action-btn-warn:hover:not(:disabled),
+
+.outrights-root .outrights-action-btn-settle:hover:not(:disabled) {
+
+  background: var(--or-danger-soft);
+
+  border-color: var(--or-danger);
+
+}
+
+
+
+.outrights-root .outrights-action-btn-settle-active {
+
+  background: var(--or-danger);
+
+  border-color: var(--or-danger);
+
+  color: #fff;
+
+}
+
+
+
+.outrights-root .outrights-action-btn-sm {
+
+  padding: var(--or-space-1) var(--or-space-3);
+
+  font-size: var(--or-text-xs);
+
+  border-radius: var(--or-radius-sm);
+
+}
+
+
+
+.outrights-root .outrights-settlement-actions .outrights-action-btn-settle {
+
+  background: var(--or-danger);
+
+  border-color: var(--or-danger);
+
+  color: #fff;
+
+}
+
+
+
+.outrights-root .outrights-settlement-actions .outrights-action-btn-settle:hover:not(:disabled) {
+
+  background: var(--or-danger-hover);
+
+  border-color: var(--or-danger-hover);
+
+}
+
+
+
+.outrights-root .outrights-detail-actions {
+
+  gap: var(--or-space-3);
+
+  margin-top: var(--or-space-4);
+
+  padding-top: var(--or-space-4);
+
+  border-top: 1px solid var(--or-divider);
+
+}
+
+
+
+.outrights-root .outrights-action-hint {
+
+  flex-basis: 100%;
+
+  margin: 0;
+
+  font-size: var(--or-text-sm);
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-detail-sub {
+
+  margin: 0 0 var(--or-space-4);
+
+  font-size: var(--or-text-base);
+
+  line-height: 1.55;
+
+  color: var(--or-muted);
+
+  max-width: 90ch;
+
+}
+
+
+
+/* ---------- Status badges ---------- */
+
+
+
+.outrights-root .outrights-status-badge {
+
+  gap: var(--or-space-1);
+
+  padding: 0.2rem 0.6rem;
+
+  border-radius: 999px;
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 700;
+
+  letter-spacing: 0.04em;
+
+  text-transform: uppercase;
+
+  border: 1px solid transparent;
+
+  line-height: 1.5;
+
+}
+
+
+
+.outrights-root .outrights-status-badge::before {
+
+  content: "";
+
+  width: 0.45rem;
+
+  height: 0.45rem;
+
+  border-radius: 999px;
+
+  background: currentColor;
+
+  flex-shrink: 0;
+
+}
+
+
+
+.outrights-root .outrights-status-inactive {
+
+  background: var(--or-neutral-soft);
+
+  color: var(--or-neutral-text);
+
+  border-color: var(--or-border-strong);
+
+}
+
+
+
+.outrights-root .outrights-status-published {
+
+  background: var(--or-success-soft);
+
+  color: var(--or-success-text);
+
+  border-color: var(--or-success-border);
+
+}
+
+
+
+.outrights-root .outrights-status-suspended {
+
+  background: var(--or-danger-soft);
+
+  color: var(--or-danger-text);
+
+  border-color: var(--or-danger-border);
+
+}
+
+
+
+.outrights-root .outrights-status-settled {
+
+  background: var(--or-info-soft);
+
+  color: var(--or-info-text);
+
+  border-color: var(--or-info-border);
+
+}
+
+
+
+.outrights-root .outrights-status-actions {
+
+  gap: var(--or-space-2);
+
+}
+
+
+
+.outrights-root .outrights-market-header-actions {
+
+  gap: var(--or-space-2);
+
+}
+
+
+
+/* ---------- Market identity ---------- */
+
+
+
+.outrights-root .outrights-market-name {
+
+  font-weight: 650;
+
+  line-height: 1.3;
+
+  color: var(--or-heading);
+
+  font-size: var(--or-text-base);
+
+}
+
+
+
+.outrights-root .outrights-market-id,
+
+.outrights-root .outrights-td-id {
+
+  font-family: var(--or-mono);
+
+  font-size: var(--or-text-xs);
+
+  color: var(--or-faint);
+
+}
+
+
+
+.outrights-root .outrights-overview-market-link {
+
+  color: var(--or-primary-text);
+
+  border-radius: var(--or-radius-sm);
+
+}
+
+
+
+.outrights-root .outrights-overview-market-link .outrights-market-name {
+
+  color: inherit;
+
+}
+
+
+
+.outrights-root .outrights-overview-market-link:hover .outrights-market-name {
+
+  color: var(--or-heading);
+
+}
+
+
+
+/* ---------- Trading grid tables ---------- */
+
+
+
+.outrights-root .outrights-grid-table-wrap,
+
+.outrights-root .teams-table-wrap {
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface);
+
+  box-shadow: var(--or-shadow-sm);
+
+  overflow: auto;
+
+  max-width: 100%;
+
+}
+
+
+
+.outrights-root .outrights-grid-table,
+
+.outrights-root .outrights-overview-table,
+
+.outrights-root .outrights-selections-table,
+
+.outrights-root .outrights-history-table,
+
+.outrights-root .outrights-settlement-table,
+
+.outrights-root .outrights-simulator-table,
+
+.outrights-root .outrights-all-tournaments-table {
+
+  font-size: var(--or-text-sm);
+
+}
+
+
+
+.outrights-root .outrights-grid-table thead th,
+
+.outrights-root .teams-table thead th {
+
+  position: sticky;
+
+  top: 0;
+
+  z-index: 1;
+
+  background: var(--or-header);
+
+  color: var(--or-muted);
+
+  font-weight: 700;
+
+  font-size: var(--or-text-xs);
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.05em;
+
+  border-bottom: 1px solid var(--or-border-strong);
+
+  border-right: 1px solid var(--or-divider);
+
+  padding: var(--or-space-3) var(--or-space-3);
+
+  white-space: nowrap;
+
+}
+
+
+
+.outrights-root .outrights-grid-table tbody td,
+
+.outrights-root .outrights-grid-table tfoot td,
+
+.outrights-root .teams-table tbody td {
+
+  border-bottom: 1px solid var(--or-divider);
+
+  border-right: 1px solid var(--or-divider);
+
+  padding: var(--or-space-2) var(--or-space-3);
+
+  vertical-align: middle;
+
+  background: transparent;
+
+  color: var(--or-text);
+
+}
+
+
+
+.outrights-root .outrights-grid-table tbody tr:hover td {
+
+  background: var(--or-hover);
+
+}
+
+
+
+.outrights-root .outrights-grid-table tbody tr:last-child td,
+
+.outrights-root .outrights-grid-table tfoot tr:last-child td {
+
+  border-bottom: none;
+
+}
+
+
+
+.outrights-root .outrights-grid-table .outrights-th-label,
+
+.outrights-root .outrights-grid-table .outrights-td-label {
+
+  text-align: left;
+
+  min-width: 8rem;
+
+}
+
+
+
+.outrights-root .outrights-grid-table .outrights-th-odds,
+
+.outrights-root .outrights-grid-table .outrights-td-odds {
+
+  text-align: right;
+
+  width: 5.75rem;
+
+  min-width: 5.75rem;
+
+  font-variant-numeric: tabular-nums;
+
+}
+
+
+
+.outrights-root .outrights-grid-table .outrights-col-divider {
+
+  border-left: 2px solid var(--or-border-strong) !important;
+
+}
+
+
+
+.outrights-root .outrights-grid-table thead .outrights-th-own,
+
+.outrights-root .outrights-grid-table .outrights-td-own {
+
+  background: var(--or-own-soft);
+
+}
+
+
+
+.outrights-root .outrights-grid-table tbody tr:hover .outrights-td-own {
+
+  background: var(--or-own-soft);
+
+  filter: brightness(1.12);
+
+}
+
+
+
+.outrights-root .outrights-grid-table tfoot .outrights-selections-total-row td {
+
+  background: var(--or-inset);
+
+  border-top: 2px solid var(--or-border-strong);
+
+  font-weight: 700;
+
+}
+
+
+
+.outrights-root .outrights-td-total-label {
+
+  font-size: var(--or-text-xs);
+
+  color: var(--or-muted);
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.04em;
+
+}
+
+
+
+.outrights-root .outrights-td-total {
+
+  font-weight: 700;
+
+  font-variant-numeric: tabular-nums;
+
+  color: var(--or-heading);
+
+}
+
+
+
+.outrights-root .outrights-td-muted {
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-th-id,
+
+.outrights-root .outrights-td-id {
+
+  width: 6.5rem;
+
+  font-variant-numeric: tabular-nums;
+
+}
+
+
+
+/* Winner highlight (settled) */
+
+
+
+.outrights-root .outrights-selection-row-winner td {
+
+  background: var(--or-success-soft);
+
+}
+
+
+
+.outrights-root .outrights-selection-row-winner:hover td {
+
+  background: var(--or-success-soft);
+
+  filter: brightness(1.08);
+
+}
+
+
+
+.outrights-root .outrights-winner-badge {
+
+  margin-left: var(--or-space-2);
+
+  padding: 0.1rem 0.5rem;
+
+  border-radius: 999px;
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 700;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.04em;
+
+  background: var(--or-success);
+
+  border: 1px solid var(--or-success-border);
+
+  color: #fff;
+
+}
+
+
+
+/* ---------- Odds chips + inputs ---------- */
+
+
+
+.outrights-root .outrights-odds-cell {
+
+  min-width: 3.4rem;
+
+  min-height: 1.7rem;
+
+  padding: 0.15rem 0.45rem;
+
+  border-radius: var(--or-radius-sm);
+
+  border: 1px solid var(--or-border);
+
+  background: var(--or-surface-2);
+
+  color: var(--or-text);
+
+  font-variant-numeric: tabular-nums;
+
+  font-size: var(--or-text-sm);
+
+  font-weight: 650;
+
+  line-height: 1.35;
+
+}
+
+
+
+.outrights-root .outrights-odds-cell--book {
+
+  background: var(--or-surface-2);
+
+  border-color: var(--or-border);
+
+}
+
+
+
+.outrights-root .outrights-odds-cell--computed {
+
+  background: var(--or-inset);
+
+  border-color: var(--or-border);
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-odds-cell--own {
+
+  background: var(--or-own-soft);
+
+  border-color: var(--or-own-border);
+
+  color: var(--or-own-text);
+
+}
+
+
+
+.outrights-root .outrights-odds-cell--empty {
+
+  background: transparent;
+
+  border-style: dashed;
+
+  color: var(--or-faint);
+
+  font-weight: 500;
+
+}
+
+
+
+.outrights-root .outrights-price-input {
+
+  font: inherit;
+
+  border-radius: var(--or-radius-sm);
+
+  border: 1px solid var(--or-border-strong);
+
+  background: var(--or-surface-2);
+
+  color: var(--or-text);
+
+  font-variant-numeric: tabular-nums;
+
+}
+
+
+
+.outrights-root .outrights-price-input-own {
+
+  min-width: 3.4rem;
+
+  max-width: 5rem;
+
+  min-height: 1.7rem;
+
+  padding: 0.15rem 0.4rem;
+
+  border-radius: var(--or-radius-sm);
+
+  border: 1px solid var(--or-own-border) !important;
+
+  background: var(--or-own-soft) !important;
+
+  color: var(--or-own-text) !important;
+
+  text-align: right;
+
+  font-variant-numeric: tabular-nums;
+
+  font-size: var(--or-text-sm);
+
+  font-weight: 650;
+
+}
+
+
+
+.outrights-root .outrights-price-input-own:focus {
+
+  outline: none;
+
+  box-shadow: var(--or-ring);
+
+}
+
+
+
+.outrights-root .outrights-price-input-own::placeholder {
+
+  color: var(--or-faint);
+
+  opacity: 0.8;
+
+}
+
+
+
+/* ---------- Sidebar ---------- */
+
+
+
+.outrights-root .outrights-sidebar.sidebar {
+
+  background: var(--or-sidebar-bg);
+
+  border-right: 1px solid var(--or-border);
+
+}
+
+
+
+.outrights-root .outrights-sidebar .sidebar-section-label {
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 700;
+
+  letter-spacing: 0.07em;
+
+  text-transform: uppercase;
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-sidebar .sidebar-tree-item {
+
+  border-radius: 8px;
+
+  border: 1px solid transparent;
+
+  padding: var(--or-space-2) var(--or-space-3);
+
+  color: var(--or-muted);
+
+  font-size: var(--or-text-sm);
+
+}
+
+
+
+.outrights-root .outrights-sidebar .sidebar-tree-item:hover {
+
+  background: var(--or-hover);
+
+  color: var(--or-heading);
+
+}
+
+
+
+.outrights-root .outrights-sidebar .sidebar-tree-item.active {
+
+  background: var(--or-primary-soft);
+
+  border-color: var(--or-info-border);
+
+  color: var(--or-heading);
+
+  box-shadow: inset 3px 0 0 var(--or-primary);
+
+}
+
+
+
+.outrights-root .outrights-sidebar-market {
+
+  gap: var(--or-space-1) !important;
+
+}
+
+
+
+.outrights-root .outrights-sidebar .outrights-status-badge {
+
+  font-size: 0.65rem;
+
+  padding: 0.1rem 0.5rem;
+
+}
+
+
+
+.outrights-root .outrights-sidebar-empty {
+
+  color: var(--or-faint);
+
+}
+
+
+
+.outrights-root .outrights-create-menu {
+
+  z-index: 20;
+
+  min-width: 12rem;
+
+  padding: var(--or-space-1);
+
+  border-radius: var(--or-radius);
+
+  border: 1px solid var(--or-border-strong);
+
+  background: var(--or-surface-2);
+
+  box-shadow: var(--or-shadow-pop);
+
+  list-style: none;
+
+}
+
+
+
+.outrights-root .outrights-create-option {
+
+  display: block;
+
+  width: 100%;
+
+  text-align: left;
+
+  padding: var(--or-space-2) var(--or-space-3);
+
+  border: none;
+
+  border-radius: var(--or-radius-sm);
+
+  background: transparent;
+
+  color: var(--or-text);
+
+  font: inherit;
+
+  font-size: var(--or-text-sm);
+
+  font-weight: 550;
+
+  cursor: pointer;
+
+}
+
+
+
+.outrights-root .outrights-create-option:hover {
+
+  background: var(--or-hover);
+
+  color: var(--or-heading);
+
+}
+
+
+
+/* ---------- Overview tables ---------- */
+
+
+
+.outrights-root .outrights-overview-table.outrights-grid-table {
+
+  table-layout: auto;
+
+}
+
+
+
+.outrights-root .outrights-overview-th-status,
+
+.outrights-root .outrights-overview-status-cell {
+
+  min-width: 12rem;
+
+}
+
+
+
+.outrights-root .outrights-overview-actions {
+
+  gap: var(--or-space-1);
+
+}
+
+
+
+.outrights-root .outrights-all-tournament-link {
+
+  background: none;
+
+  border: none;
+
+  padding: 0;
+
+  cursor: pointer;
+
+  text-align: left;
+
+  font: inherit;
+
+  border-radius: var(--or-radius-sm);
+
+}
+
+
+
+.outrights-root .outrights-all-tournament-name {
+
+  display: block;
+
+  font-weight: 650;
+
+  color: var(--or-primary-text);
+
+  line-height: 1.3;
+
+}
+
+
+
+.outrights-root .outrights-all-tournament-link:hover .outrights-all-tournament-name {
+
+  text-decoration: underline;
+
+  color: var(--or-heading);
+
+}
+
+
+
+.outrights-root .outrights-all-tournament-meta,
+
+.outrights-root .outrights-all-format-cell {
+
+  color: var(--or-muted);
+
+  font-size: var(--or-text-sm);
+
+}
+
+
+
+.outrights-root .outrights-all-count {
+
+  font-variant-numeric: tabular-nums;
+
+}
+
+
+
+.outrights-root .outrights-all-count--active { color: var(--or-success-text); }
+
+.outrights-root .outrights-all-count--suspended { color: var(--or-danger-text); }
+
+.outrights-root .outrights-all-count--settled { color: var(--or-info-text); }
+
+
+
+.outrights-root .outrights-all-count-muted {
+
+  color: var(--or-faint);
+
+}
+
+
+
+.outrights-root .outrights-content-empty,
+
+.outrights-root .outrights-empty-hint {
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .empty-state {
+
+  background: var(--or-surface);
+
+  border: 1px dashed var(--or-border-strong);
+
+  border-radius: var(--or-radius-lg);
+
+  padding: var(--or-space-8) var(--or-space-6);
+
+  text-align: center;
+
+  color: var(--or-muted);
+
+  box-shadow: none;
+
+}
+
+
+
+/* ---------- Price history ---------- */
+
+
+
+.outrights-root .outrights-history-panel {
+
+  margin-bottom: 0;
+
+}
+
+
+
+.outrights-root .outrights-price-history {
+
+  gap: var(--or-space-4);
+
+}
+
+
+
+.outrights-root .outrights-history-columns {
+
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+
+  gap: var(--or-space-4);
+
+}
+
+
+
+.outrights-root .outrights-history-column {
+
+  min-width: 0;
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface-2);
+
+  padding: var(--or-space-4);
+
+}
+
+
+
+.outrights-root .outrights-history-heading {
+
+  margin: 0 0 var(--or-space-3);
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 750;
+
+  letter-spacing: 0.06em;
+
+  text-transform: uppercase;
+
+  color: var(--or-heading);
+
+  padding-bottom: var(--or-space-2);
+
+  border-bottom: 1px solid var(--or-divider);
+
+}
+
+
+
+.outrights-root .outrights-history-empty {
+
+  color: var(--or-muted);
+
+  line-height: 1.55;
+
+}
+
+
+
+.outrights-root .outrights-history-list {
+
+  gap: var(--or-space-3);
+
+}
+
+
+
+.outrights-root .outrights-history-item {
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface);
+
+  padding: var(--or-space-3);
+
+  box-shadow: var(--or-shadow-sm);
+
+}
+
+
+
+.outrights-root .outrights-history-item-head {
+
+  margin-bottom: var(--or-space-1);
+
+}
+
+
+
+.outrights-root .outrights-history-source--sent {
+
+  background: var(--or-info-soft);
+
+  border: 1px solid var(--or-info-border);
+
+  color: var(--or-info-text);
+
+}
+
+
+
+.outrights-root .outrights-history-source--competitor {
+
+  background: var(--or-warning-soft);
+
+  border: 1px solid var(--or-warning-border);
+
+  color: var(--or-warning-text);
+
+}
+
+
+
+.outrights-root .outrights-history-time {
+
+  font-size: var(--or-text-xs);
+
+  color: var(--or-faint);
+
+  font-variant-numeric: tabular-nums;
+
+}
+
+
+
+.outrights-root .outrights-history-note {
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-history-table-wrap {
+
+  margin-top: var(--or-space-2);
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius-sm);
+
+}
+
+
+
+/* ---------- Per-selection price charts ---------- */
+
+
+
+.outrights-root .outrights-chart-grid-wrap {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: var(--or-space-3);
+
+}
+
+
+
+.outrights-root .outrights-chart-legend {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: var(--or-space-2) var(--or-space-4);
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 600;
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-chart-legend-item {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: var(--or-space-1);
+
+}
+
+
+
+.outrights-root .outrights-chart-legend-item::before {
+
+  content: "";
+
+  width: 1.25rem;
+
+  height: 3px;
+
+  border-radius: 2px;
+
+  background: currentColor;
+
+}
+
+
+
+.outrights-root .outrights-chart-legend-item--sent { color: var(--or-own-text); }
+
+.outrights-root .outrights-chart-legend-item--competitor { color: var(--or-warning-text); }
+
+
+
+.outrights-root .outrights-chart-grid {
+
+  display: grid;
+
+  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+
+  gap: var(--or-space-3);
+
+}
+
+
+
+.outrights-root .outrights-chart-card {
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface-2);
+
+  padding: var(--or-space-3);
+
+  min-width: 0;
+
+}
+
+
+
+.outrights-root .outrights-chart-card-head {
+
+  display: flex;
+
+  align-items: baseline;
+
+  gap: var(--or-space-2);
+
+  margin-bottom: var(--or-space-2);
+
+  min-width: 0;
+
+}
+
+
+
+.outrights-root .outrights-chart-selection-id {
+
+  font-family: var(--or-mono);
+
+  font-size: var(--or-text-xs);
+
+  color: var(--or-faint);
+
+  flex-shrink: 0;
+
+}
+
+
+
+.outrights-root .outrights-chart-selection-label {
+
+  font-size: var(--or-text-sm);
+
+  font-weight: 650;
+
+  color: var(--or-heading);
+
+  white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+}
+
+
+
+.outrights-root .outrights-chart-svg {
+
+  display: block;
+
+  width: 100%;
+
+  height: 56px;
+
+}
+
+
+
+.outrights-root .outrights-chart-baseline {
+
+  stroke: var(--or-border-strong);
+
+  stroke-width: 1;
+
+}
+
+
+
+.outrights-root .outrights-chart-line {
+
+  stroke-width: 2;
+
+  stroke-linejoin: round;
+
+  stroke-linecap: round;
+
+}
+
+
+
+.outrights-root .outrights-chart-line--sent { stroke: var(--or-success); }
+
+.outrights-root .outrights-chart-line--competitor {
+
+  stroke: var(--or-warning-text);
+
+  stroke-dasharray: 5 3;
+
+}
+
+
+
+.outrights-root .outrights-chart-dot--sent { fill: var(--or-success); }
+
+
+
+.outrights-root .outrights-chart-values {
+
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: var(--or-space-2);
+
+  margin-top: var(--or-space-2);
+
+  font-size: var(--or-text-xs);
+
+  font-variant-numeric: tabular-nums;
+
+}
+
+
+
+.outrights-root .outrights-chart-value--sent {
+
+  font-weight: 700;
+
+  color: var(--or-own-text);
+
+}
+
+
+
+.outrights-root .outrights-chart-value--competitor {
+
+  font-weight: 600;
+
+  color: var(--or-warning-text);
+
+}
+
+
+
+/* ---------- Settlement ---------- */
+
+
+
+.outrights-root .outrights-settlement-panel {
+
+  gap: var(--or-space-4);
+
+}
+
+
+
+.outrights-root .outrights-settlement-lead {
+
+  margin: 0;
+
+  color: var(--or-muted);
+
+  font-size: var(--or-text-base);
+
+  line-height: 1.55;
+
+}
+
+
+
+.outrights-root .outrights-settlement-table-wrap {
+
+  max-height: 26rem;
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  overflow: auto;
+
+  background: var(--or-surface);
+
+}
+
+
+
+.outrights-root .outrights-settlement-row--selected td {
+
+  background: var(--or-danger-soft);
+
+}
+
+
+
+.outrights-root .outrights-settlement-error {
+
+  margin: 0;
+
+  padding: var(--or-space-3);
+
+  border-radius: var(--or-radius-sm);
+
+  border: 1px solid var(--or-danger-border);
+
+  background: var(--or-danger-soft);
+
+  color: var(--or-danger-text);
+
+  font-size: var(--or-text-sm);
+
+  font-weight: 600;
+
+}
+
+
+
+.outrights-root .outrights-settlement-actions {
+
+  gap: var(--or-space-3);
+
+}
+
+
+
+/* ---------- Simulator ---------- */
+
+
+
+.outrights-root .outrights-simulator {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: var(--or-space-4);
+
+}
+
+
+
+.outrights-root .outrights-simulator-controls {
+
+  gap: var(--or-space-3);
+
+  margin: 0;
+
+  padding: var(--or-space-4);
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface-2);
+
+}
+
+
+
+.outrights-root .outrights-simulator-field {
+
+  gap: var(--or-space-1);
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 600;
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-simulator-field select,
+
+.outrights-root .outrights-simulator-field input,
+
+.outrights-root .outrights-simulator-num,
+
+.outrights-root .outrights-simulator-group-name,
+
+.outrights-root .outrights-simulator-group-select {
+
+  padding: var(--or-space-2) var(--or-space-2);
+
+  border-radius: 8px;
+
+  border: 1px solid var(--or-border-strong);
+
+  background: var(--or-surface);
+
+  color: var(--or-text);
+
+  font: inherit;
+
+  font-size: var(--or-text-sm);
+
+  font-weight: 500;
+
+  min-height: 2.25rem;
+
+}
+
+
+
+.outrights-root .outrights-simulator-sanity-block {
+
+  margin: 0;
+
+  padding: var(--or-space-3) var(--or-space-4);
+
+  border-left: 3px solid var(--or-info-border);
+
+  border-radius: 0 var(--or-radius-sm) var(--or-radius-sm) 0;
+
+  background: var(--or-info-soft);
+
+}
+
+
+
+.outrights-root .outrights-simulator-sanity {
+
+  font-size: var(--or-text-sm);
+
+  color: var(--or-muted);
+
+  font-variant-numeric: tabular-nums;
+
+}
+
+
+
+.outrights-root .outrights-simulator-groups {
+
+  margin-bottom: 0;
+
+  padding: var(--or-space-4);
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface-2);
+
+}
+
+
+
+.outrights-root .outrights-simulator-group-card {
+
+  padding: var(--or-space-3);
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface);
+
+  box-shadow: var(--or-shadow-sm);
+
+}
+
+
+
+.outrights-root .outrights-simulator-toolbar {
+
+  margin-bottom: 0;
+
+}
+
+
+
+.outrights-root .outrights-simulator-table-wrap {
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  margin-bottom: 0;
+
+  background: var(--or-surface);
+
+  box-shadow: var(--or-shadow-sm);
+
+  overflow-x: auto;
+
+}
+
+
+
+.outrights-root .outrights-simulator-run {
+
+  margin-bottom: 0;
+
+  align-self: flex-start;
+
+  padding: var(--or-space-3) var(--or-space-5);
+
+  font-size: var(--or-text-base);
+
+}
+
+
+
+.outrights-root .outrights-simulator-import-msg,
+
+.outrights-root .outrights-simulator-unassigned {
+
+  font-size: var(--or-text-sm);
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-simulator-results-title {
+
+  font-size: var(--or-text-base);
+
+  font-weight: 700;
+
+  color: var(--or-heading);
+
+  margin: 0 0 var(--or-space-2);
+
+}
+
+
+
+.outrights-root .outrights-simulator-results-head {
+
+  margin-bottom: var(--or-space-3);
+
+}
+
+
+
+/* ---------- Suspension / alerts / settings ---------- */
+
+
+
+.outrights-root .settings-panel {
+
+  background: transparent;
+
+}
+
+
+
+.outrights-root .settings-heading {
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 750;
+
+  letter-spacing: 0.06em;
+
+  text-transform: uppercase;
+
+  color: var(--or-muted);
+
+  margin: 0 0 var(--or-space-3);
+
+}
+
+
+
+.outrights-root .settings-btn {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: var(--or-space-2);
+
+  width: 100%;
+
+  padding: var(--or-space-3) var(--or-space-4);
+
+  border-radius: var(--or-radius);
+
+  border: 1px solid var(--or-border);
+
+  background: var(--or-surface-2);
+
+  color: var(--or-text);
+
+  font: inherit;
+
+  font-size: var(--or-text-sm);
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: border-color 120ms ease, background 120ms ease;
+
+}
+
+
+
+.outrights-root .settings-btn:hover {
+
+  border-color: var(--or-border-strong);
+
+  background: var(--or-hover);
+
+}
+
+
+
+.outrights-root .settings-lead {
+
+  font-size: var(--or-text-base);
+
+  font-weight: 650;
+
+  color: var(--or-heading);
+
+  margin: 0 0 var(--or-space-1);
+
+}
+
+
+
+.outrights-root .settings-par-score-hint,
+
+.outrights-root .settings-placeholder-text,
+
+.outrights-root .settings-par-score-meta {
+
+  color: var(--or-muted);
+
+  font-size: var(--or-text-sm);
+
+  line-height: 1.55;
+
+}
+
+
+
+.outrights-root .settings-toggle-row {
+
+  display: flex;
+
+  gap: var(--or-space-3);
+
+  align-items: flex-start;
+
+  padding: var(--or-space-3);
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface-2);
+
+  font-size: var(--or-text-sm);
+
+  cursor: pointer;
+
+}
+
+
+
+.outrights-root .settings-toggle-row input[type="checkbox"],
+
+.outrights-root input[type="checkbox"],
+
+.outrights-root input[type="radio"] {
+
+  accent-color: var(--or-primary);
+
+  width: 1rem;
+
+  height: 1rem;
+
+  flex-shrink: 0;
+
+  margin-top: 0.15rem;
+
+}
+
+
+
+.outrights-root .outrights-suspension-form .outrights-suspension-mode {
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  padding: var(--or-space-3) var(--or-space-4);
+
+  background: var(--or-surface-2);
+
+}
+
+
+
+.outrights-root .outrights-suspension-legend {
+
+  font-size: var(--or-text-xs);
+
+  font-weight: 750;
+
+  letter-spacing: 0.05em;
+
+  text-transform: uppercase;
+
+  color: var(--or-muted);
+
+}
+
+
+
+.outrights-root .outrights-suspension-mode-option {
+
+  font-size: var(--or-text-sm);
+
+  padding: var(--or-space-1) 0;
+
+}
+
+
+
+.outrights-root .outrights-suspension-daily-row {
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface-2);
+
+}
+
+
+
+.outrights-root .outrights-settings-actions {
+
+  margin: var(--or-space-4) 0 0;
+
+  gap: var(--or-space-2);
+
+}
+
+
+
+.outrights-root .outrights-settings-actions .outrights-action-btn {
+
+  width: 100%;
+
+}
+
+
+
+.outrights-root .outrights-alerts-rules {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: var(--or-space-2);
+
+}
+
+
+
+.outrights-root .outrights-alerts-threshold {
+
+  margin-left: 2rem;
+
+  max-width: 13rem;
+
+}
+
+
+
+.outrights-root .outrights-alerts-live {
+
+  border-top: 1px solid var(--or-divider);
+
+}
+
+
+
+.outrights-root .outrights-alerts-live-title {
+
+  color: var(--or-heading);
+
+}
+
+
+/* --- Outrights alerts summary + hub (ported from coverage-schedule; --or-* tokens, light/dark aware) --- */
+.outrights-root {
+  --outrights-alerts-surface: var(--or-surface);
+  --outrights-alerts-elevated: var(--or-surface-2);
+  --outrights-alerts-border: var(--or-border);
+  --outrights-alerts-border-strong: var(--or-border-strong);
+  --outrights-alerts-text: var(--or-text);
+  --outrights-alerts-text-sub: var(--or-muted);
+  --outrights-alerts-text-muted: var(--or-faint);
+  --outrights-alerts-accent: var(--or-info-text);
+  --outrights-alerts-warn: var(--or-warning-text);
+  --outrights-alerts-danger: var(--or-danger-text);
+  --outrights-alerts-ok: var(--or-success-text);
+}
+
+
+
+
+
+
+
+
+
+
+
+.outrights-root .outrights-alerts-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+}
+
+.outrights-root .outrights-alert-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5625rem;
+  font-size: 0.75rem;
+  font-weight: 550;
+  line-height: 1.5;
+  white-space: nowrap;
+  border: 1px solid var(--outrights-alerts-border, var(--border-subtle, rgba(255, 255, 255, 0.08)));
+  border-radius: 999px;
+  color: var(--outrights-alerts-text-sub, var(--text-secondary, #8b95a8));
+  background: transparent;
+}
+
+.outrights-root .outrights-alert-chip--missing { color: var(--outrights-alerts-accent, var(--accent, #38bdf8)); }
+.outrights-root .outrights-alert-chip--overround { color: var(--outrights-alerts-warn, var(--amber, #fcd34d)); }
+.outrights-root .outrights-alert-chip--modelled { color: var(--outrights-alerts-danger, var(--red, #fca5a5)); }
+.outrights-root .outrights-alert-chip--bet365 { color: #c4b5fd; }
+
+
+
+
+
+
+
+/* Alerts hub view */
+.outrights-root .outrights-alerts-hub-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.outrights-root .outrights-alerts-hub-item {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: var(--outrights-alerts-surface, var(--bg-surface, #121a2a));
+  border: 1px solid var(--outrights-alerts-border, var(--border-subtle, rgba(255, 255, 255, 0.08)));
+  border-left: 3px solid var(--outrights-alerts-warn, var(--amber, #fcd34d));
+  border-radius: var(--radius-md, 0.625rem);
+}
+
+.outrights-root .outrights-alerts-hub-item--healthy {
+  border-left-color: var(--outrights-alerts-ok, var(--green, #86efac));
+}
+
+.outrights-root .outrights-alerts-hub-item-main { flex: 1 1 auto; min-width: 0; }
+
+.outrights-root .outrights-alerts-hub-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+
+.outrights-root .outrights-alerts-hub-tournament {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  color: var(--outrights-alerts-text, var(--text-primary, #e8ecf4));
+}
+
+.outrights-root .outrights-alerts-hub-meta {
+  font-size: 0.75rem;
+  color: var(--outrights-alerts-text-muted, var(--text-muted, #6b7280));
+}
+
+.outrights-root .outrights-alerts-hub-chips { margin-top: 0.5rem; }
+
+.outrights-root .outrights-alerts-hub-healthy {
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--outrights-alerts-ok, var(--green, #86efac));
+}
+
+.outrights-root .outrights-alerts-hub-preview {
+  list-style: none;
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.outrights-root .outrights-alerts-hub-preview-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  padding-left: 0.625rem;
+  border-left: 2px solid var(--outrights-alerts-border-strong, var(--border-hover, rgba(255, 255, 255, 0.18)));
+}
+
+.outrights-root .outrights-alerts-hub-preview-item--warning { border-left-color: var(--outrights-alerts-warn, var(--amber, #fcd34d)); }
+.outrights-root .outrights-alerts-hub-preview-item--info { border-left-color: var(--outrights-alerts-accent, var(--accent, #38bdf8)); }
+
+.outrights-root .outrights-alerts-hub-preview-item .outrights-alert-market { font-weight: 600; }
+
+.outrights-root .outrights-alerts-hub-preview-item .outrights-alert-message {
+  color: var(--outrights-alerts-text-sub, var(--text-secondary, #8b95a8));
+}
+
+.outrights-root .outrights-alerts-hub-more {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--outrights-alerts-text-muted, var(--text-muted, #6b7280));
+}
+
+.outrights-root .outrights-alerts-hub-item-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex: none;
+}
+
+.outrights-root .outrights-alerts-hub-count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.outrights-root .outrights-alerts-hub-count--healthy {
+  color: var(--outrights-alerts-ok, var(--green, #86efac));
+}
+
+.outrights-root .outrights-sidebar-alerts .outrights-sidebar-tournament-meta {
+  color: var(--outrights-alerts-warn, var(--amber, #fcd34d));
+}
+
+:is(html[data-theme="light"] .outrights-root, .outrights-root[data-theme="light"]) .outrights-alerts-hub-item {
+  box-shadow: var(--or-shadow-sm);
+}
+
+:is(html[data-theme="light"] .outrights-root, .outrights-root[data-theme="light"]) .outrights-alert-chip--bet365 {
+  color: #6d28d9;
+}
+
+/* Compact alerts metric pill (hub + tournament overview strips) */
+.outrights-root button.outrights-metric-pill--alerts {
+  font: inherit;
+  color: var(--or-text);
+  background: var(--or-warning-soft);
+  border-color: var(--or-warning-border);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.outrights-root button.outrights-metric-pill--alerts:hover {
+  border-color: var(--or-warning-text);
+  background: var(--or-hover);
+}
+
+.outrights-root button.outrights-metric-pill--alerts:focus-visible {
+  outline: none;
+  box-shadow: var(--or-ring);
+}
+
+.outrights-root .outrights-metric-pill--alerts-active .outrights-metric-value {
+  color: var(--or-warning-text);
+}
+
+.outrights-root button.outrights-metric-pill--alerts-healthy {
+  background: var(--or-success-soft);
+  border-color: var(--or-success-border);
+}
+
+.outrights-root button.outrights-metric-pill--alerts-healthy:hover {
+  border-color: var(--or-success-text);
+}
+
+.outrights-root .outrights-metric-pill--alerts-healthy .outrights-metric-value {
+  color: var(--or-success-text);
+}
+
+
+.outrights-root .outrights-alert-item {
+
+  border: 1px solid var(--or-border);
+
+  border-radius: var(--or-radius);
+
+  background: var(--or-surface-2);
+
+  font-size: var(--or-text-sm);
+
+  box-shadow: var(--or-shadow-sm);
+
+}
+
+
+
+.outrights-root .outrights-alert-item--warning {
+
+  border-color: var(--or-warning-border);
+
+  background: var(--or-warning-soft);
+
+}
+
+
+
+.outrights-root .outrights-alert-item--warning .outrights-alert-market {
+
+  color: var(--or-warning-text);
+
+}
+
+
+
+.outrights-root .outrights-alert-item--warning .outrights-alert-message {
+
+  color: var(--or-text);
+
+}
+
+
+
+.outrights-root .outrights-alert-item--info {
+
+  border-color: var(--or-info-border);
+
+  background: var(--or-info-soft);
+
+}
+
+
+
+.outrights-root .outrights-alert-item--info .outrights-alert-market {
+
+  color: var(--or-info-text);
+
+}
+
+
+
+.outrights-root .outrights-alert-item--info .outrights-alert-message {
+
+  color: var(--or-text);
+
+}
+
+
+
+.outrights-root .outrights-alert-market {
+
+  color: var(--or-heading);
+
+}
+
+
+
+.outrights-root .outrights-alert-message {
+
+  line-height: 1.5;
+
+  color: var(--or-muted);
+
+}
+
+
+
+/* ---------- Right-rail + live rows ---------- */
+
+
+
+.outrights-root .outrights-overview .dashboard-content {
+
+  gap: var(--or-space-4);
+
+}
+
+
+
+.outrights-root .outrights-live-row {
+
+  display: grid;
+
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+
+  gap: var(--or-space-4);
+
+}
+
+
+
+/* ---------- Responsive ---------- */
+
+
+
+@media (max-width: 1100px) {
+
+  .outrights-root .outrights-overview {
+
+    padding: var(--or-space-4) var(--or-space-4) var(--or-space-6);
+
+  }
+
+
+
+  .outrights-root .outrights-overview .dashboard-content {
+
+    grid-template-columns: 1fr;
+
+  }
+
+}
+
+
+
+@media (max-width: 900px) {
+
+  .outrights-root .dashboard-header-top {
+
+    flex-direction: column;
+
+    align-items: stretch;
+
+  }
+
+
+
+  .outrights-root .outrights-market-header-actions {
+
+    width: 100%;
+
+  }
+
+
+
+  .outrights-root .outrights-metric-strip {
+
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  }
+
+
+
+  .outrights-root .tournament-section-body {
+
+    padding: var(--or-space-3);
+
+  }
+
+
+
+  .outrights-root .outrights-live-row {
+
+    grid-template-columns: 1fr;
+
+  }
+
+}
+
+
+
+@media (max-width: 640px) {
+
+  .outrights-root .outrights-overview {
+
+    padding: var(--or-space-3) var(--or-space-3) var(--or-space-5);
+
+  }
+
+
+
+  .outrights-root .outrights-metric-strip {
+
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: var(--or-space-2);
+
+  }
+
+
+
+  .outrights-root .outrights-metric-pill {
+
+    padding: var(--or-space-2) var(--or-space-3);
+
+  }
+
+
+
+  .outrights-root .outrights-detail-actions .outrights-action-btn {
+
+    flex: 1 1 auto;
+
+  }
+
+
+
+  .outrights-root .outrights-chart-grid {
+
+    grid-template-columns: 1fr;
+
+  }
+
+
+
+  .outrights-root .outrights-history-column {
+
+    padding: var(--or-space-3);
+
+  }
+
+}
+
+
+
+/* ---------- Motion + accessibility ---------- */
+
+
+
+@media (prefers-reduced-motion: reduce) {
+
+  .outrights-root .outrights-action-btn,
+
+  .outrights-root .outrights-create-btn,
+
+  .outrights-root .settings-btn {
+
+    transition: none;
+
+  }
+
+
+
+  .outrights-root .outrights-action-btn:active:not(:disabled),
+
+  .outrights-root .outrights-create-btn:active:not(:disabled) {
+
+    transform: none;
+
+  }
+
+}
+
+
+
+/* ==========================================================================
+
+   Outrights â€” visibility strengthening (2026-10-02)
+
+   Purely visual, CSS-only: no markup or workflow changes. These rules sit
+
+   last so they win ties against the legacy + token layers above, and every
+
+   value resolves through --or-* tokens so light/dark stay in sync.
+
+   ========================================================================== */
+
+
+
+/* Header rhythm: title rule separates Outrights headers from TM headers */
+
+.outrights-root .dashboard-header {
+
+  padding-bottom: var(--or-space-4);
+
+  border-bottom: 1px solid var(--or-border);
+
+  margin-bottom: var(--or-space-5);
+
+}
+
+
+
+.outrights-root .dashboard-title {
+
+  font-size: 1.5rem;
+
+}
+
+
+
+/* Cards: accent bar on section heads distinguishes Outrights panels */
+
+.outrights-root .tournament-section-head {
+
+  box-shadow: inset 3px 0 0 var(--or-primary);
+
+}
+
+
+
+/* Metric cards: tinted variant backgrounds (was plain surface for all) */
+
+.outrights-root .outrights-metric-pill {
+
+  border-top-width: 4px;
+
+}
+
+
+
+.outrights-root .outrights-metric-pill--active {
+
+  background: var(--or-success-soft);
+
+  box-shadow: var(--or-shadow-sm), 0 0 12px rgba(34, 197, 94, 0.08);
+
+}
+
+
+
+.outrights-root .outrights-metric-pill--suspended {
+
+  background: var(--or-danger-soft);
+
+  box-shadow: var(--or-shadow-sm), 0 0 12px rgba(239, 68, 68, 0.08);
+
+}
+
+
+
+.outrights-root .outrights-metric-pill--settled {
+
+  background: var(--or-info-soft);
+
+  box-shadow: var(--or-shadow-sm), 0 0 12px rgba(56, 189, 248, 0.08);
+
+}
+
+
+
+/* Buttons: depth on default, gradient on primary, accent hover */
+
+.outrights-root .outrights-action-btn,
+
+.outrights-root .outrights-create-btn {
+
+  box-shadow: var(--or-shadow-sm);
+
+}
+
+
+
+.outrights-root .outrights-action-btn:hover:not(:disabled),
+
+.outrights-root .outrights-create-btn:hover:not(:disabled) {
+
+  border-color: var(--or-primary);
+
+  color: var(--or-heading);
+
+}
+
+
+
+.outrights-root .outrights-action-btn-primary {
+
+  background: linear-gradient(180deg, var(--or-primary-hover), var(--or-primary));
+
+  box-shadow: var(--or-shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+
+}
+
+
+
+/* Status pills: depth so state reads at a glance */
+
+.outrights-root .outrights-status-badge {
+
+  box-shadow: var(--or-shadow-sm);
+
+}
+
+
+
+/* Trading grid: stronger header separation + Own-column emphasis */
+
+.outrights-root .outrights-grid-table thead th,
+
+.outrights-root .teams-table thead th {
+
+  border-bottom: 2px solid var(--or-border-strong);
+
+}
+
+
+
+.outrights-root .outrights-grid-table thead .outrights-th-own {
+
+  box-shadow: inset 0 3px 0 var(--or-success);
+
+}
+
+
+
+/* Settled winners: green edge on the row's first cell */
+
+.outrights-root .outrights-selection-row-winner td:first-child {
+
+  box-shadow: inset 3px 0 0 var(--or-success);
+
+}
+
+
+
+/* Sidebar: tournament names pop against muted tree items */
+
+.outrights-root .outrights-sidebar-tournament-name {
+
+  color: var(--or-heading);
+
+}
+
+
+
+/* Sidebar section labels: accent tick matching panel heads */
+
+.app-home-shell:has(.outrights-root) .outrights-sidebar .sidebar-section-label {
+
+  border-left: 3px solid var(--or-primary, #2563eb);
+
+  padding-left: var(--or-space-2, 0.5rem);
+
 }
 /* ==========================================================================
    Outrights light/dark contrast repair (scoped, 2026-10-02).
@@ -14031,4 +15828,428 @@ html[data-theme="light"] .outrights-root .outrights-theme-toggle:hover,
 
 .outrights-sidebar.sidebar--collapsed .outrights-theme-toggle-label {
   display: none;
+}
+
+
+/* ==========================================================================
+   Outrights tournament overview Ã¢â‚¬â€ light contrast (specificity lift)
+   When light surfaces activate, legacy .outrights-root .home-* and hardcoded
+   panel inks must not win over table/list text inside live + performance panels.
+   ========================================================================== */
+
+html[data-theme='light'] .outrights-root,
+.outrights-root[data-theme='light'] {
+  --outrights-text-muted: #475569;
+  --outrights-text-subtle: #64748b;
+}
+
+html[data-theme='light'] .outrights-root .outrights-live-card,
+html[data-theme='light'] .outrights-root .outrights-performance-card,
+.outrights-root[data-theme='light'] .outrights-live-card,
+.outrights-root[data-theme='light'] .outrights-performance-card {
+  color: #0f1e33;
+}
+
+html[data-theme='light'] .outrights-root .outrights-live-card-title,
+html[data-theme='light'] .outrights-root .outrights-performances-heading,
+html[data-theme='light'] .outrights-root .outrights-performance-card-title,
+.outrights-root[data-theme='light'] .outrights-live-card-title,
+.outrights-root[data-theme='light'] .outrights-performances-heading,
+.outrights-root[data-theme='light'] .outrights-performance-card-title {
+  color: #0b1526;
+}
+
+html[data-theme='light'] .outrights-root .outrights-points-table th,
+html[data-theme='light'] .outrights-root .outrights-points-table td,
+html[data-theme='light'] .outrights-root .outrights-performance-table th,
+html[data-theme='light'] .outrights-root .outrights-performance-table td,
+.outrights-root[data-theme='light'] .outrights-points-table th,
+.outrights-root[data-theme='light'] .outrights-points-table td,
+.outrights-root[data-theme='light'] .outrights-performance-table th,
+.outrights-root[data-theme='light'] .outrights-performance-table td {
+  color: #0f1e33;
+}
+
+html[data-theme='light'] .outrights-root .outrights-points-table thead th,
+html[data-theme='light'] .outrights-root .outrights-performance-table thead th,
+.outrights-root[data-theme='light'] .outrights-points-table thead th,
+.outrights-root[data-theme='light'] .outrights-performance-table thead th {
+  background: #f1f5f9;
+  color: #475569;
+  border-bottom-color: #dbe2ec;
+}
+
+html[data-theme='light'] .outrights-root .outrights-performance-table tbody tr:nth-child(even) td,
+.outrights-root[data-theme='light'] .outrights-performance-table tbody tr:nth-child(even) td {
+  background: #f6f8fb;
+}
+
+html[data-theme='light'] .outrights-root .outrights-points-team-name,
+html[data-theme='light'] .outrights-root .outrights-points-pts,
+html[data-theme='light'] .outrights-root .outrights-performance-name,
+html[data-theme='light'] .outrights-root .outrights-performance-team-code,
+html[data-theme='light'] .outrights-root .outrights-performance-market-rank,
+html[data-theme='light'] .outrights-root .outrights-fixtures-team,
+html[data-theme='light'] .outrights-root .outrights-fixtures-date,
+.outrights-root[data-theme='light'] .outrights-points-team-name,
+.outrights-root[data-theme='light'] .outrights-points-pts,
+.outrights-root[data-theme='light'] .outrights-performance-name,
+.outrights-root[data-theme='light'] .outrights-performance-team-code,
+.outrights-root[data-theme='light'] .outrights-performance-market-rank,
+.outrights-root[data-theme='light'] .outrights-fixtures-team,
+.outrights-root[data-theme='light'] .outrights-fixtures-date {
+  color: #0f1e33;
+}
+
+html[data-theme='light'] .outrights-root .outrights-points-rank,
+html[data-theme='light'] .outrights-root .outrights-performance-rank,
+html[data-theme='light'] .outrights-root .outrights-performance-rating,
+html[data-theme='light'] .outrights-root .outrights-performance-num,
+html[data-theme='light'] .outrights-root .outrights-fixtures-time,
+html[data-theme='light'] .outrights-root .outrights-fixtures-venue,
+html[data-theme='light'] .outrights-root .outrights-fixtures-vs,
+html[data-theme='light'] .outrights-root .outrights-fixtures-codes,
+html[data-theme='light'] .outrights-root .outrights-results-score,
+html[data-theme='light'] .outrights-root .outrights-results-summary,
+html[data-theme='light'] .outrights-root .outrights-fixtures-page-status,
+.outrights-root[data-theme='light'] .outrights-points-rank,
+.outrights-root[data-theme='light'] .outrights-performance-rank,
+.outrights-root[data-theme='light'] .outrights-performance-rating,
+.outrights-root[data-theme='light'] .outrights-performance-num,
+.outrights-root[data-theme='light'] .outrights-fixtures-time,
+.outrights-root[data-theme='light'] .outrights-fixtures-venue,
+.outrights-root[data-theme='light'] .outrights-fixtures-vs,
+.outrights-root[data-theme='light'] .outrights-fixtures-codes,
+.outrights-root[data-theme='light'] .outrights-results-score,
+.outrights-root[data-theme='light'] .outrights-results-summary,
+.outrights-root[data-theme='light'] .outrights-fixtures-page-status {
+  color: #475569;
+}
+
+html[data-theme='light'] .outrights-root .outrights-performance-primary,
+html[data-theme='light'] .outrights-root .outrights-results-team-row--winner .outrights-fixtures-team,
+html[data-theme='light'] .outrights-root .outrights-results-team-row--winner .outrights-results-score,
+.outrights-root[data-theme='light'] .outrights-performance-primary,
+.outrights-root[data-theme='light'] .outrights-results-team-row--winner .outrights-fixtures-team,
+.outrights-root[data-theme='light'] .outrights-results-team-row--winner .outrights-results-score {
+  color: #0369a1;
+}
+
+html[data-theme='light'] .outrights-root .outrights-live-card .home-points-table th,
+html[data-theme='light'] .outrights-root .outrights-live-card .home-points-table td,
+html[data-theme='light'] .outrights-root .outrights-live-card .home-points-team-name,
+html[data-theme='light'] .outrights-root .outrights-live-card .home-points-pts,
+html[data-theme='light'] .outrights-root .outrights-live-card .home-points-rank,
+html[data-theme='light'] .outrights-root .outrights-live-card .home-fixtures-date,
+html[data-theme='light'] .outrights-root .outrights-live-card .home-fixtures-match,
+html[data-theme='light'] .outrights-root .outrights-live-card .home-fixtures-meta,
+html[data-theme='light'] .outrights-root .outrights-live-card .home-fixtures-codes,
+.outrights-root[data-theme='light'] .outrights-live-card .home-points-table th,
+.outrights-root[data-theme='light'] .outrights-live-card .home-points-table td,
+.outrights-root[data-theme='light'] .outrights-live-card .home-points-team-name,
+.outrights-root[data-theme='light'] .outrights-live-card .home-points-pts,
+.outrights-root[data-theme='light'] .outrights-live-card .home-points-rank,
+.outrights-root[data-theme='light'] .outrights-live-card .home-fixtures-date,
+.outrights-root[data-theme='light'] .outrights-live-card .home-fixtures-match,
+.outrights-root[data-theme='light'] .outrights-live-card .home-fixtures-meta,
+.outrights-root[data-theme='light'] .outrights-live-card .home-fixtures-codes {
+  color: #0f1e33;
+}
+
+html[data-theme='light'] .outrights-root .outrights-live-card .home-next-fixtures,
+.outrights-root[data-theme='light'] .outrights-live-card .home-next-fixtures {
+  color: #475569;
+}
+
+html[data-theme='light'] .outrights-root .outrights-live-card .home-next-code,
+.outrights-root[data-theme='light'] .outrights-live-card .home-next-code {
+  color: #1d4ed8;
+}
+
+@media (prefers-color-scheme: light) {
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) {
+    --outrights-text-muted: #475569;
+    --outrights-text-subtle: #64748b;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-card {
+    color: #0f1e33;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card-title,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performances-heading,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-card-title {
+    color: #0b1526;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-points-table th,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-points-table td,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-table th,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-table td {
+    color: #0f1e33;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-points-table thead th,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-table thead th {
+    background: #f1f5f9;
+    color: #475569;
+    border-bottom-color: #dbe2ec;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-table tbody tr:nth-child(even) td {
+    background: #f6f8fb;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-points-team-name,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-points-pts,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-name,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-team-code,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-market-rank,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-fixtures-team,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-fixtures-date {
+    color: #0f1e33;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-points-rank,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-rank,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-rating,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-num,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-fixtures-time,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-fixtures-venue,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-fixtures-vs,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-fixtures-codes,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-results-score,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-results-summary,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-fixtures-page-status {
+    color: #475569;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-performance-primary,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-results-team-row--winner .outrights-fixtures-team,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-results-team-row--winner .outrights-results-score {
+    color: #0369a1;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-points-table th,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-points-table td,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-points-team-name,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-points-pts,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-points-rank,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-fixtures-date,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-fixtures-match,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-fixtures-meta,
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-fixtures-codes {
+    color: #0f1e33;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-next-fixtures {
+    color: #475569;
+  }
+
+  html:not([data-theme='dark']) .outrights-root:not([data-theme='dark']) .outrights-live-card .home-next-code {
+    color: #1d4ed8;
+  }
+}
+
+/* ==========================================================================
+   light mode tournament panels use points-table ink
+   Mirrors computed .outrights-points-table th/td typography in light theme
+   onto fixtures, results, and performance panels (.outrights-root light only).
+   ========================================================================== */
+
+html[data-theme='light'] .outrights-root .outrights-performance-table,
+.outrights-root[data-theme='light'] .outrights-performance-table {
+  font-size: 0.82rem;
+}
+
+/* Table headers Ã¢â‚¬â€ same as .outrights-points-table thead th (light) */
+html[data-theme='light'] .outrights-root .outrights-performance-table thead th,
+.outrights-root[data-theme='light'] .outrights-performance-table thead th,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-th-rating,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-th-primary,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-th-price,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-th-rating,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-th-primary,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-th-price {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+  background: #f1f5f9;
+  border-bottom-color: #dbe2ec;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Table body cells Ã¢â‚¬â€ same as .outrights-points-table tbody td (light) */
+html[data-theme='light'] .outrights-root .outrights-performance-table tbody td,
+.outrights-root[data-theme='light'] .outrights-performance-table tbody td {
+  color: #0f1e33;
+  border-bottom-color: #e6ebf2;
+}
+
+html[data-theme='light'] .outrights-root .outrights-performance-table th,
+html[data-theme='light'] .outrights-root .outrights-performance-table td,
+.outrights-root[data-theme='light'] .outrights-performance-table th,
+.outrights-root[data-theme='light'] .outrights-performance-table td {
+  color: #0f1e33;
+}
+
+/* Primary list/table text Ã¢â‚¬â€ same ink as points tbody + team name */
+html[data-theme='light'] .outrights-root .outrights-live-card--fixtures .outrights-fixtures-date,
+html[data-theme='light'] .outrights-root .outrights-live-card--fixtures .outrights-fixtures-team,
+html[data-theme='light'] .outrights-root .outrights-live-card--fixtures .outrights-fixtures-model-prob,
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-fixtures-date,
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-fixtures-team,
+.outrights-root[data-theme='light'] .outrights-live-card--fixtures .outrights-fixtures-date,
+.outrights-root[data-theme='light'] .outrights-live-card--fixtures .outrights-fixtures-team,
+.outrights-root[data-theme='light'] .outrights-live-card--fixtures .outrights-fixtures-model-prob,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-fixtures-date,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-fixtures-team,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-name,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-team-code,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-market-rank,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-num,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-rating,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-primary,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-rank,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-price-value,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-name,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-team-code,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-market-rank,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-num,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-rating,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-primary,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-rank,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-price-value {
+  color: #0f1e33;
+}
+
+html[data-theme='light'] .outrights-root .outrights-live-card--fixtures .outrights-fixtures-team,
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-fixtures-team,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-name,
+.outrights-root[data-theme='light'] .outrights-live-card--fixtures .outrights-fixtures-team,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-fixtures-team,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Muted secondary Ã¢â‚¬â€ same as .outrights-points-table thead th / .outrights-points-rank (light) */
+html[data-theme='light'] .outrights-root .outrights-live-card--fixtures .outrights-fixtures-time,
+html[data-theme='light'] .outrights-root .outrights-live-card--fixtures .outrights-fixtures-venue,
+html[data-theme='light'] .outrights-root .outrights-live-card--fixtures .outrights-fixtures-vs,
+html[data-theme='light'] .outrights-root .outrights-live-card--fixtures .outrights-fixtures-codes,
+html[data-theme='light'] .outrights-root .outrights-live-card--fixtures .outrights-fixtures-page-status,
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-fixtures-time,
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-fixtures-venue,
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-fixtures-codes,
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-results-summary,
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-results-score,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-hand,
+.outrights-root[data-theme='light'] .outrights-live-card--fixtures .outrights-fixtures-time,
+.outrights-root[data-theme='light'] .outrights-live-card--fixtures .outrights-fixtures-venue,
+.outrights-root[data-theme='light'] .outrights-live-card--fixtures .outrights-fixtures-vs,
+.outrights-root[data-theme='light'] .outrights-live-card--fixtures .outrights-fixtures-codes,
+.outrights-root[data-theme='light'] .outrights-live-card--fixtures .outrights-fixtures-page-status,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-fixtures-time,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-fixtures-venue,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-fixtures-codes,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-results-summary,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-results-score,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-hand {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+/* Section headings Ã¢â‚¬â€ same as .outrights-live-card-title (light) */
+html[data-theme='light'] .outrights-root .outrights-performances-heading,
+html[data-theme='light'] .outrights-root .outrights-performance-card-title,
+.outrights-root[data-theme='light'] .outrights-performances-heading,
+.outrights-root[data-theme='light'] .outrights-performance-card-title {
+  color: #0b1526;
+}
+
+/* Keep winner / primary-stat emphasis from existing light panel rules */
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-results-team-row--winner .outrights-fixtures-team,
+html[data-theme='light'] .outrights-root .outrights-results-list .outrights-results-team-row--winner .outrights-results-score,
+html[data-theme='light'] .outrights-root .outrights-performance-table .outrights-performance-primary,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-results-team-row--winner .outrights-fixtures-team,
+.outrights-root[data-theme='light'] .outrights-results-list .outrights-results-team-row--winner .outrights-results-score,
+.outrights-root[data-theme='light'] .outrights-performance-table .outrights-performance-primary {
+  color: #0369a1;
+}
+
+/* Outrights settings overlay + tournament alerts page (enterprise tokens, light-dark aware) */
+.outrights-settings-overlay-anchor {
+  position: relative;
+}
+.outrights-dashboard-layout .dashboard-right .tournament-section-panel.outrights-settings-panel-wrap {
+  overflow: visible;
+  position: relative;
+  z-index: 30;
+}
+.outrights-settings-popover-wrap {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  right: 0;
+  z-index: 60;
+}
+.outrights-settings-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: default;
+}
+.outrights-settings-popover {
+  position: relative;
+  z-index: 60;
+  background: var(--or-surface, var(--bg-secondary));
+  color: var(--or-text, var(--text-primary));
+  border: 1px solid var(--or-border-strong, var(--border-subtle));
+  border-radius: var(--or-radius-lg, 14px);
+  box-shadow: var(--or-shadow-pop, 0 8px 28px rgba(2, 6, 16, 0.5));
+  overflow: hidden;
+  max-height: min(32rem, 70vh);
+  display: flex;
+  flex-direction: column;
+}
+.outrights-settings-popover .settings-page-header {
+  background: var(--or-header, var(--bg-surface));
+  border-bottom: 1px solid var(--or-border, var(--border-subtle));
+  flex-shrink: 0;
+}
+.outrights-settings-popover .settings-page-body {
+  background: var(--or-surface, var(--bg-secondary));
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+.outrights-settings-popover .settings-page-title {
+  color: var(--or-heading, var(--text-primary));
+}
+.settings-btn--alerts-link .settings-btn-desc {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  margin-top: 0.15rem;
+}
+.outrights-tournament-alerts-view .outrights-tournament-alerts-panel {
+  overflow: hidden;
+}
+@media (max-width: 900px) {
+  .outrights-settings-popover-wrap {
+    position: fixed;
+    top: auto;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+  }
+  .outrights-settings-popover {
+    max-height: 80vh;
+  }
 }

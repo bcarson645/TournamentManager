@@ -1,15 +1,22 @@
 ﻿'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { FORMATS, GENDERS } from '../data/tournaments'
 import {
   createOutright,
+  getOutrightsForTournament,
+  OUTRIGHTS_CHANGE_EVENT,
   OUTRIGHT_TYPES,
   OUTRIGHT_TYPE_LABELS,
   outrightStatusLabel,
   type OutrightType,
   type TournamentOutright,
 } from '../data/outrightsStore'
+import {
+  evaluateOutrightAlerts,
+  getOutrightAlertsStoreVersion,
+  subscribeOutrightAlertsStore,
+} from '../data/outrightAlertsStore'
 import type { OutrightsTournamentEntry } from '../hooks/useOutrightsTournaments'
 import OutrightsThemeToggle from './OutrightsThemeToggle'
 import type { OutrightsTheme } from '../hooks/useOutrightsTheme'
@@ -23,10 +30,13 @@ interface OutrightsSidebarProps {
   outrights: TournamentOutright[]
   selectedOutrightId: string | null
   showSimulatorPage?: boolean
+  showAlertsPage?: boolean
+  showTournamentAlertsPage?: boolean
   onSelectTournament: (entry: OutrightsTournamentEntry) => void
   onBackToTournaments: () => void
   onSelectOutright: (id: string | null) => void
   onOpenSimulator?: () => void
+  onOpenAlerts?: () => void
   collapsed?: boolean
   onToggleCollapsed?: () => void
   theme: OutrightsTheme
@@ -40,10 +50,13 @@ export default function OutrightsSidebar({
   outrights,
   selectedOutrightId,
   showSimulatorPage = false,
+  showAlertsPage = false,
+  showTournamentAlertsPage = false,
   onSelectTournament,
   onBackToTournaments,
   onSelectOutright,
   onOpenSimulator,
+  onOpenAlerts,
   collapsed = false,
   onToggleCollapsed,
   theme,
@@ -51,6 +64,24 @@ export default function OutrightsSidebar({
 }: OutrightsSidebarProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const createRef = useRef<HTMLDivElement>(null)
+  const [alertsTick, setAlertsTick] = useState(0)
+
+  useSyncExternalStore(subscribeOutrightAlertsStore, getOutrightAlertsStoreVersion, getOutrightAlertsStoreVersion)
+
+  useEffect(() => {
+    const onChange = () => setAlertsTick((t) => t + 1)
+    window.addEventListener(OUTRIGHTS_CHANGE_EVENT, onChange)
+    return () => window.removeEventListener(OUTRIGHTS_CHANGE_EVENT, onChange)
+  }, [])
+
+  const totalAlerts = useMemo(() => {
+    void alertsTick
+    let total = 0
+    for (const entry of tournaments) {
+      total += evaluateOutrightAlerts(entry.tournament.id, getOutrightsForTournament(entry.tournament.id)).length
+    }
+    return total
+  }, [tournaments, alertsTick])
 
   const fmt = selectedEntry ? FORMATS.find((f) => f.key === selectedEntry.format) : null
   const gen = selectedEntry ? GENDERS.find((g) => g.key === selectedEntry.gender) : null
@@ -101,6 +132,23 @@ export default function OutrightsSidebar({
       {!collapsed && mode === 'tournaments' && (
         <div className="sidebar-section sidebar-teams-section">
           <div className="sidebar-section-label">Tournaments</div>
+          {onOpenAlerts ? (
+            <button
+              type="button"
+              className={`sidebar-tree-item outrights-sidebar-alerts ${showAlertsPage ? 'active' : ''}`}
+              onClick={onOpenAlerts}
+              aria-current={showAlertsPage ? 'page' : undefined}
+              aria-label={`Open alerts view — ${totalAlerts} active ${totalAlerts === 1 ? 'alert' : 'alerts'} across all tournaments`}
+            >
+              <span className="sidebar-team-initial">!</span>
+              <span className="outrights-sidebar-tournament-text">
+                <span className="outrights-sidebar-tournament-name">Alerts</span>
+                <span className="outrights-sidebar-tournament-meta">
+                  {totalAlerts === 0 ? 'No active alerts' : `${totalAlerts} active`}
+                </span>
+              </span>
+            </button>
+          ) : null}
           <ul className="sidebar-tree">
             {tournaments.map((entry) => {
               const entryFmt = FORMATS.find((f) => f.key === entry.format)!
@@ -150,7 +198,7 @@ export default function OutrightsSidebar({
             <div className="sidebar-section-label">Tournament</div>
             <button
               type="button"
-              className={`sidebar-tree-item outrights-sidebar-overview ${selectedOutrightId === null && !showSimulatorPage ? 'active' : ''}`}
+              className={`sidebar-tree-item outrights-sidebar-overview ${selectedOutrightId === null && !showSimulatorPage && !showTournamentAlertsPage ? 'active' : ''}`}
               onClick={() => onSelectOutright(null)}
             >
               {selectedEntry.tournament.name}
@@ -162,6 +210,16 @@ export default function OutrightsSidebar({
             >
               Simulator
             </button>
+            {onOpenAlerts ? (
+              <button
+                type="button"
+                className={`sidebar-tree-item outrights-sidebar-tournament-alerts ${showTournamentAlertsPage ? 'active' : ''}`}
+                onClick={() => onOpenAlerts?.()}
+                aria-current={showTournamentAlertsPage ? 'page' : undefined}
+              >
+                Alerts
+              </button>
+            ) : null}
           </div>
 
           <div className="sidebar-section sidebar-teams-section">

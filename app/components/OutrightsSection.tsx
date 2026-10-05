@@ -8,14 +8,16 @@ import { useOutrightSuspensionScheduler } from '../hooks/useOutrightSuspensionSc
 import OutrightsSidebar from './OutrightsSidebar'
 import OutrightsThemeToggle from './OutrightsThemeToggle'
 import { useOutrightsTheme, type OutrightsTheme } from '../hooks/useOutrightsTheme'
-import OutrightsAllTournamentsOverview from './OutrightsAllTournamentsOverview'
+import OutrightsAlertsHubView from './OutrightsAlertsHubView'
+import OutrightsTournamentAlertsView from './OutrightsTournamentAlertsView'
+import OutrightsAllTournamentsOverview, { summarizeOutrightAlerts } from './OutrightsAllTournamentsOverview'
 import OutrightsPriceHistoryPanel from './OutrightsPriceHistoryPanel'
 import OutrightsSettlementPanel from './OutrightsSettlementPanel'
 import OutrightsSimulatorPanel from './OutrightsSimulatorPanel'
 import OutrightOddsCell from './OutrightOddsCell'
 import { TournamentPointsTable, TournamentUpcomingFixtures } from './TournamentLivePanel'
 import TournamentTopPerformances from './TournamentTopPerformances'
-import OutrightsTournamentSettings from './OutrightsTournamentSettings'
+import OutrightsTournamentSettings, { type OutrightsSettingsPageKey } from './OutrightsTournamentSettings'
 import {
   allSelectionsHavePrices,
   canConfirmOutrightPrices,
@@ -33,6 +35,11 @@ import {
   type OutrightSelection,
   type TournamentOutright,
 } from '../data/outrightsStore'
+import {
+  evaluateOutrightAlerts,
+  getOutrightAlertsStoreVersion,
+  subscribeOutrightAlertsStore,
+} from '../data/outrightAlertsStore'
 import { buildModelledPriceMap, buildPreppedPriceMap } from '../data/outrightPricing'
 import { getSquadStoreVersion, subscribeSquadStore } from '../data/squadStore'
 import { getSimulatorStoreVersion, subscribeSimulatorStore } from '../data/outrightSimulatorStore'
@@ -328,6 +335,8 @@ function TournamentOverview({
   onOpenSimulator,
   theme,
   onToggleTheme,
+  settingsOpenRequest,
+  onOpenAlerts,
 }: {
   entry: OutrightsTournamentEntry
   outrights: TournamentOutright[]
@@ -335,12 +344,24 @@ function TournamentOverview({
   onOpenSimulator: () => void
   theme: OutrightsTheme
   onToggleTheme: () => void
+  settingsOpenRequest?: { page: OutrightsSettingsPageKey; nonce: number } | null
+  onOpenAlerts: () => void
 }) {
   const fmt = FORMATS.find((f) => f.key === entry.format)!
   const gen = GENDERS.find((g) => g.key === entry.gender)!
   const activeCount = outrights.filter((o) => (o.status ?? 'inactive') === 'published').length
   const suspendedCount = outrights.filter((o) => o.status === 'suspended').length
   const settledCount = outrights.filter((o) => o.status === 'settled').length
+
+  useSyncExternalStore(subscribeOutrightAlertsStore, getOutrightAlertsStoreVersion, getOutrightAlertsStoreVersion)
+  const alertSummary = useMemo(
+    () => summarizeOutrightAlerts(evaluateOutrightAlerts(entry.tournament.id, outrights)),
+    [entry.tournament.id, outrights],
+  )
+  const hasActiveAlerts = alertSummary.total > 0
+  const alertsAriaLabel = hasActiveAlerts
+    ? `Open alerts for ${entry.tournament.name}. ${alertSummary.total} active ${alertSummary.total === 1 ? 'alert' : 'alerts'}, ${alertSummary.warning} needing attention.`
+    : `Open alerts for ${entry.tournament.name}. No active alerts.`
 
   return (
     <div className="outrights-overview">
@@ -374,6 +395,16 @@ function TournamentOverview({
           <span className="outrights-metric-value">{settledCount}</span>
           <span className="outrights-metric-label">Settled</span>
         </div>
+          <button
+            type="button"
+            className={'outrights-metric-pill outrights-metric-pill--alerts' + (hasActiveAlerts ? ' outrights-metric-pill--alerts-active' : ' outrights-metric-pill--alerts-healthy')}
+            onClick={onOpenAlerts}
+            aria-label={alertsAriaLabel}
+            title={hasActiveAlerts ? `${alertSummary.total} active alerts for ${entry.tournament.name} - view all` : `No active alerts for ${entry.tournament.name} - view all`}
+          >
+            <span className="outrights-metric-value">{alertSummary.total}</span>
+            <span className="outrights-metric-label">Alerts</span>
+          </button>
       </div>
 
       <div className="dashboard-content">
@@ -433,13 +464,15 @@ function TournamentOverview({
         </section>
 
         <section className="dashboard-right">
-          <div className="tournament-section-panel">
+          <div className="tournament-section-panel outrights-settings-panel-wrap">
             <OutrightsTournamentSettings
               tournamentId={entry.tournament.id}
               tournamentName={entry.tournament.name}
               format={entry.format}
               outrights={outrights}
               onOpenSimulator={onOpenSimulator}
+              onOpenAlerts={onOpenAlerts}
+              openRequest={settingsOpenRequest}
             />
           </div>
         </section>
@@ -468,6 +501,9 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
   const [showPriceHistory, setShowPriceHistory] = useState(false)
   const [showSettlement, setShowSettlement] = useState(false)
   const [showSimulatorPage, setShowSimulatorPage] = useState(false)
+  const [showAlertsPage, setShowAlertsPage] = useState(false)
+  const [showTournamentAlertsPage, setShowTournamentAlertsPage] = useState(false)
+  const [settingsOpenRequest, setSettingsOpenRequest] = useState<{ page: OutrightsSettingsPageKey; nonce: number } | null>(null)
 
   useSyncExternalStore(subscribeSquadStore, getSquadStoreVersion, getSquadStoreVersion)
   useSyncExternalStore(subscribeSimulatorStore, getSimulatorStoreVersion, getSimulatorStoreVersion)
@@ -505,7 +541,40 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
     setShowPriceHistory(false)
     setShowSettlement(false)
     setShowSimulatorPage(false)
+    setShowAlertsPage(false)
+    setShowTournamentAlertsPage(false)
+    setSettingsOpenRequest(null)
     onSelectTournament?.(entry)
+  }
+
+  function handleOpenTournamentAlerts(entry: OutrightsTournamentEntry) {
+    setSelectedTournamentId(entry.tournament.id)
+    setSelectedOutrightId(null)
+    setShowPriceHistory(false)
+    setShowSettlement(false)
+    setShowSimulatorPage(false)
+    setShowAlertsPage(false)
+    setShowTournamentAlertsPage(true)
+    setSettingsOpenRequest(null)
+    onSelectTournament?.(entry)
+  }
+
+  function handleOpenCurrentTournamentAlerts() {
+    setSelectedOutrightId(null)
+    setShowPriceHistory(false)
+    setShowSettlement(false)
+    setShowSimulatorPage(false)
+    setShowTournamentAlertsPage(true)
+    setSettingsOpenRequest(null)
+  }
+
+  function handleBackToTournamentOverview() {
+    setShowTournamentAlertsPage(false)
+    setSelectedOutrightId(null)
+    setShowPriceHistory(false)
+    setShowSettlement(false)
+    setShowSimulatorPage(false)
+    setSettingsOpenRequest(null)
   }
 
   function handleBackToTournaments() {
@@ -514,10 +583,14 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
     setShowPriceHistory(false)
     setShowSettlement(false)
     setShowSimulatorPage(false)
+    setShowAlertsPage(false)
+    setShowTournamentAlertsPage(false)
+    setSettingsOpenRequest(null)
   }
 
   function handleOpenSimulator() {
     setShowSimulatorPage(true)
+    setShowTournamentAlertsPage(false)
     setSelectedOutrightId(null)
     setShowPriceHistory(false)
     setShowSettlement(false)
@@ -525,6 +598,7 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
 
   function handleOpenOutright(id: string) {
     setShowSimulatorPage(false)
+    setShowTournamentAlertsPage(false)
     setSelectedOutrightId(id)
     setShowPriceHistory(false)
     setShowSettlement(false)
@@ -532,6 +606,7 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
 
   function handleOpenOverview() {
     setShowSimulatorPage(false)
+    setShowTournamentAlertsPage(false)
     setSelectedOutrightId(null)
     setShowPriceHistory(false)
     setShowSettlement(false)
@@ -564,10 +639,13 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
             outrights={outrights}
             selectedOutrightId={selectedOutrightId}
             showSimulatorPage={showSimulatorPage}
+            showAlertsPage={showAlertsPage}
+            showTournamentAlertsPage={showTournamentAlertsPage}
             onSelectTournament={handleSelectTournament}
             onBackToTournaments={handleBackToTournaments}
             onSelectOutright={(id) => { if (id === null) handleOpenOverview(); else handleOpenOutright(id) }}
             onOpenSimulator={handleOpenSimulator}
+            onOpenAlerts={selectedEntry ? handleOpenCurrentTournamentAlerts : () => setShowAlertsPage(true)}
             collapsed={sidebarCollapsed}
             onToggleCollapsed={toggleSidebarCollapsed}
             theme={outrightsTheme}
@@ -576,11 +654,26 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
 
           <main className="dashboard-main outrights-main">
             {!selectedEntry ? (
-              <OutrightsAllTournamentsOverview
-                tournaments={tournaments}
-                onSelectTournament={handleSelectTournament}
-                theme={outrightsTheme}
-                onToggleTheme={toggleOutrightsTheme}
+              showAlertsPage ? (
+                <OutrightsAlertsHubView
+                  tournaments={tournaments}
+                  onBack={handleBackToTournaments}
+                  onOpenTournamentAlerts={handleOpenTournamentAlerts}
+                />
+              ) : (
+                <OutrightsAllTournamentsOverview
+                  tournaments={tournaments}
+                  onSelectTournament={handleSelectTournament}
+                  theme={outrightsTheme}
+                  onToggleTheme={toggleOutrightsTheme}
+                  onOpenAlerts={() => setShowAlertsPage(true)}
+                />
+              )
+            ) : showTournamentAlertsPage && !selectedOutright && !showSimulatorPage ? (
+              <OutrightsTournamentAlertsView
+                entry={selectedEntry}
+                outrights={outrights}
+                onBack={handleBackToTournamentOverview}
               />
             ) : showSimulatorPage ? (
               <div className="outrights-overview outrights-simulator-view">
@@ -688,6 +781,8 @@ export default function OutrightsSection({ onSelectTournament }: OutrightsSectio
                 onOpenSimulator={handleOpenSimulator}
                 theme={outrightsTheme}
                 onToggleTheme={toggleOutrightsTheme}
+                settingsOpenRequest={settingsOpenRequest}
+                onOpenAlerts={handleOpenCurrentTournamentAlerts}
               />
             )}
           </main>

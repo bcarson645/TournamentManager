@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { FORMATS, GENDERS } from '../data/tournaments'
 import {
   getOutrightsForTournament,
@@ -8,6 +8,12 @@ import {
   OUTRIGHT_TYPES,
   type TournamentOutright,
 } from '../data/outrightsStore'
+import {
+  evaluateOutrightAlerts,
+  getOutrightAlertsStoreVersion,
+  subscribeOutrightAlertsStore,
+  type OutrightAlert,
+} from '../data/outrightAlertsStore'
 import type { OutrightsTournamentEntry } from '../hooks/useOutrightsTournaments'
 import OutrightsThemeToggle from './OutrightsThemeToggle'
 import type { OutrightsTheme } from '../hooks/useOutrightsTheme'
@@ -17,6 +23,47 @@ interface OutrightsAllTournamentsOverviewProps {
   onSelectTournament: (entry: OutrightsTournamentEntry) => void
   theme: OutrightsTheme
   onToggleTheme: () => void
+  onOpenAlerts?: () => void
+}
+
+export type OutrightAlertKind = 'missing' | 'overround' | 'modelled' | 'bet365'
+
+export function classifyOutrightAlertKind(alertId: string): OutrightAlertKind {
+  if (alertId.endsWith('-overround')) return 'overround'
+  if (alertId.endsWith('-modelled')) return 'modelled'
+  if (alertId.endsWith('-bet365')) return 'bet365'
+  return 'missing'
+}
+
+export interface OutrightAlertSummary {
+  total: number
+  warning: number
+  info: number
+  missing: number
+  overround: number
+  modelled: number
+  bet365: number
+}
+
+export const EMPTY_ALERT_SUMMARY: OutrightAlertSummary = {
+  total: 0,
+  warning: 0,
+  info: 0,
+  missing: 0,
+  overround: 0,
+  modelled: 0,
+  bet365: 0,
+}
+
+export function summarizeOutrightAlerts(alerts: OutrightAlert[]): OutrightAlertSummary {
+  const summary: OutrightAlertSummary = { ...EMPTY_ALERT_SUMMARY }
+  for (const alert of alerts) {
+    summary.total++
+    if (alert.severity === 'warning') summary.warning++
+    else summary.info++
+    summary[classifyOutrightAlertKind(alert.id)]++
+  }
+  return summary
 }
 
 function countByStatus(outrights: TournamentOutright[]) {
@@ -39,6 +86,7 @@ export default function OutrightsAllTournamentsOverview({
   onSelectTournament,
   theme,
   onToggleTheme,
+  onOpenAlerts,
 }: OutrightsAllTournamentsOverviewProps) {
   const [refreshTick, setRefreshTick] = useState(0)
 
@@ -47,6 +95,8 @@ export default function OutrightsAllTournamentsOverview({
     window.addEventListener(OUTRIGHTS_CHANGE_EVENT, onChange)
     return () => window.removeEventListener(OUTRIGHTS_CHANGE_EVENT, onChange)
   }, [])
+
+  useSyncExternalStore(subscribeOutrightAlertsStore, getOutrightAlertsStoreVersion, getOutrightAlertsStoreVersion)
 
   const rows = useMemo(() => {
     void refreshTick
@@ -69,6 +119,21 @@ export default function OutrightsAllTournamentsOverview({
       { markets: 0, active: 0, suspended: 0, settled: 0, inactive: 0 },
     )
   }, [rows])
+
+  const alertSummary = useMemo(() => {
+    void refreshTick
+    const all: OutrightAlert[] = []
+    for (const entry of tournaments) {
+      const outrights = getOutrightsForTournament(entry.tournament.id)
+      all.push(...evaluateOutrightAlerts(entry.tournament.id, outrights))
+    }
+    return summarizeOutrightAlerts(all)
+  }, [tournaments, refreshTick])
+
+  const hasActiveAlerts = alertSummary.total > 0
+  const alertsAriaLabel = hasActiveAlerts
+    ? `Open alerts view. ${alertSummary.total} active ${alertSummary.total === 1 ? 'alert' : 'alerts'} across all tournaments, ${alertSummary.warning} needing attention.`
+    : 'Open alerts view. No active alerts across all tournaments.'
 
   return (
     <div className="outrights-overview outrights-all-tournaments">
@@ -103,6 +168,18 @@ export default function OutrightsAllTournamentsOverview({
           <span className="outrights-metric-value">{totals.settled}</span>
           <span className="outrights-metric-label">Settled</span>
         </div>
+        {onOpenAlerts ? (
+          <button
+            type="button"
+            className={'outrights-metric-pill outrights-metric-pill--alerts' + (hasActiveAlerts ? ' outrights-metric-pill--alerts-active' : ' outrights-metric-pill--alerts-healthy')}
+            onClick={onOpenAlerts}
+            aria-label={alertsAriaLabel}
+            title={hasActiveAlerts ? `${alertSummary.total} active alerts across all tournaments - view all` : 'No active alerts across all tournaments - view all'}
+          >
+            <span className="outrights-metric-value">{alertSummary.total}</span>
+            <span className="outrights-metric-label">Alerts</span>
+          </button>
+        ) : null}
       </div>
 
       <section className="tournament-section-panel outrights-all-tournaments-panel">
