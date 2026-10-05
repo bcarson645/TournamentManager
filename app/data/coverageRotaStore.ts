@@ -1,7 +1,19 @@
-import { getStoredSquad } from './squadStore'
-import { TEAMS } from './teams'
 import { DEFAULT_TRADERS, type Trader } from './traders'
 export type { Trader } from './traders'
+
+// Coverage-schedule prototype branch does not carry the TM squad/team registry
+// (no ./squadStore or ./teams modules here), and nothing on this branch populates
+// squad drafts — so no team is ever "squad prepped". Local stubs keep this rota
+// module (currently unreferenced by the coverage UI) typechecking for Vercel builds.
+function getStoredSquad(_teamId: string): null {
+  return null
+}
+
+interface RotaTeamRef {
+  id: string
+}
+
+const TEAMS: Record<string, RotaTeamRef[]> = {}
 
 const STORAGE_KEY = 'tm-coverage-rota-v2'
 const LEGACY_STORAGE_KEY = 'tm-coverage-rota-v1'
