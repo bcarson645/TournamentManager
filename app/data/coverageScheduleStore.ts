@@ -14,8 +14,8 @@ export type GameLifecycle = 'prepping' | 'published' | 'settled' | 'price-check'
 
 export type PipelineStepState = 'done' | 'current' | 'pending'
 
-/** Operational workflow steps a trader can own on a game (trading is deliberately not a task). */
-export type CoverageTaskId = 'prep' | 'publish' | 'price-check' | 'settle' | 'scout'
+/** Operational workflow steps a trader can own on a game (trading is deliberately not a task; scout is a match attribute, not a stage). */
+export type CoverageTaskId = 'prep' | 'publish' | 'price-check' | 'settle'
 
 /** Hard cap on markets per game (one game never has more than this many markets sent). */
 export const MAX_MARKETS_PER_GAME = 150
@@ -45,7 +45,7 @@ export type ScheduleView =
   | 'import'
   | 'ops-alerts'
 
-export type ScheduleListMode = 'by-day' | 'day-matrix' | 'all-games' | 'by-tournament'
+export type ScheduleListMode = 'by-day' | 'day-matrix' | 'board' | 'all-games' | 'by-tournament'
 
 /** Row density for schedule fixture tables and lists. */
 export type ScheduleLayoutDensity = 'comfortable' | 'condensed' | 'ultra-condensed'
@@ -111,7 +111,7 @@ export interface ScheduleFixture {
   marketsSent?: number
   /** Markets to send for this game (capped at MAX_MARKETS_PER_GAME). */
   marketsTotal?: number
-  /** Who owns each workflow step (prep uses `prep`, scout uses `data`). */
+  /** Who owns each workflow step (prep uses `prep`). Scout is a boolean flag + `data` field, not a workflow step. */
   taskOwners?: Partial<Record<CoverageTaskId, string>>
   /** Per-task pool override: `false` = require a named owner first; omit or clear when assigned (default pool is open). */
   taskOpen?: Partial<Record<CoverageTaskId, boolean>>
@@ -508,7 +508,6 @@ export type FixtureLifecycleAction =
 
 function getFixtureTaskOwnerRaw(fixture: ScheduleFixture, task: CoverageTaskId): string | null {
   if (task === 'prep') return sanitizeTraderField(fixture.prep)
-  if (task === 'scout') return sanitizeTraderField(fixture.data)
   return sanitizeTraderField(fixture.taskOwners?.[task])
 }
 
@@ -519,7 +518,7 @@ function getFixtureTaskOwnerRaw(fixture: ScheduleFixture, task: CoverageTaskId):
 export function isFixtureTaskOpen(fixture: ScheduleFixture, task: CoverageTaskId): boolean {
   if (getFixtureTaskOwnerRaw(fixture, task)) return false
   if (fixture.taskOpen?.[task] === false) return false
-  // Prep, publish, settle, scout, and price-check all default to the open pool until assigned.
+  // Prep, publish, settle, and price-check all default to the open pool until assigned.
   return true
 }
 
@@ -594,6 +593,8 @@ function applyAssignmentToFixture(fixture: ScheduleFixture, patch: FixtureAssign
   }
   if (patch.taskOwner) {
     const { task, trader, open } = patch.taskOwner
+    // Legacy guard: scout used to be a workflow task — it is now a boolean flag only.
+    if ((task as string) === 'scout') return
     const nextOpen = { ...(fixture.taskOpen ?? {}) }
 
     if (open === true) {
@@ -601,8 +602,6 @@ function applyAssignmentToFixture(fixture: ScheduleFixture, patch: FixtureAssign
       fixture.taskOpen = Object.keys(nextOpen).length > 0 ? nextOpen : undefined
       if (task === 'prep') {
         fixture.prep = null
-      } else if (task === 'scout') {
-        fixture.data = null
       } else {
         const owners = { ...(fixture.taskOwners ?? {}) }
         delete owners[task]
@@ -618,8 +617,6 @@ function applyAssignmentToFixture(fixture: ScheduleFixture, patch: FixtureAssign
       const owner = trader && isValidTraderName(trader) ? trader : null
       if (task === 'prep') {
         fixture.prep = owner
-      } else if (task === 'scout') {
-        fixture.data = owner
       } else {
         const owners = { ...(fixture.taskOwners ?? {}) }
         if (owner) owners[task] = owner
@@ -1217,6 +1214,7 @@ function sanitizeScheduleDays(scheduleDays: ScheduleDay[]): void {
         if (fixture.taskOwners) {
           const owners: Partial<Record<CoverageTaskId, string>> = {}
           for (const [task, name] of Object.entries(fixture.taskOwners)) {
+            if (task === 'scout') continue
             if (name && isValidTraderName(name)) owners[task as CoverageTaskId] = name
           }
           fixture.taskOwners = owners
@@ -1224,11 +1222,11 @@ function sanitizeScheduleDays(scheduleDays: ScheduleDay[]): void {
         if (fixture.taskOpen) {
           const open: Partial<Record<CoverageTaskId, boolean>> = {}
           for (const [task, flag] of Object.entries(fixture.taskOpen)) {
+            if (task === 'scout') continue
             const id = task as CoverageTaskId
             const hasOwner =
               (id === 'prep' && sanitizeTraderField(fixture.prep)) ||
-              (id === 'scout' && sanitizeTraderField(fixture.data)) ||
-              (id !== 'prep' && id !== 'scout' && sanitizeTraderField(fixture.taskOwners?.[id]))
+              sanitizeTraderField(fixture.taskOwners?.[id])
             if (hasOwner) continue
             if (flag === false) open[id] = false
           }

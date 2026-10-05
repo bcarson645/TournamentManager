@@ -151,7 +151,7 @@ function FixtureHeaderCell({
               {coverageKind ? (
                 <span className={coverageTagClassName(coverageKind)}>{COVERAGE_TAG_LABEL[coverageKind]}</span>
               ) : null}
-              {row.scout && row.group !== 'scout' ? <span className="cov-chip cov-chip--info">Scout</span> : null}
+              {row.scout ? <span className="cov-chip cov-chip--info" title="Scout attached for trading">🔭 Scout</span> : null}
             </span>
           ) : null}
         </span>

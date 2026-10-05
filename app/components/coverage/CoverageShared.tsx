@@ -50,6 +50,7 @@ import {
 import StatusPipelineStrip from '../CoverageStatusPipeline'
 import CoverageMatchPanel from './CoverageMatchPanel'
 import CoverageDayMatrix from './CoverageDayMatrix'
+import CoverageBoard from './CoverageBoard'
 import FixtureMarketsBar from './CoverageMarketsProgress'
 
 export function CoverageTag({
@@ -1064,6 +1065,30 @@ export function WeekScheduleLayout({
           layoutDensity={layoutDensity}
           selectedFixtureId={selected?.fixture.id ?? null}
           onSelect={setSelected}
+        />
+      </ScheduleMatchSplit>
+    )
+  }
+
+  if (listMode === 'board') {
+    return (
+      <ScheduleMatchSplit
+        selected={selected}
+        persona={persona}
+        onClose={clear}
+        onUpdateAssignment={handleUpdateAssignment}
+        onMarkLifecycle={handleMarkLifecycle}
+        fill
+      >
+        <CoverageBoard
+          days={days}
+          persona={persona}
+          statusFilter={statusFilter}
+          contentFilters={contentFilters}
+          selectedFixtureId={selected?.fixture.id ?? null}
+          onSelect={setSelected}
+          onUpdateAssignment={onUpdateAssignment}
+          onMarkLifecycle={onMarkLifecycle}
         />
       </ScheduleMatchSplit>
     )

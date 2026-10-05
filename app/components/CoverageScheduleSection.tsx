@@ -260,7 +260,6 @@ export default function CoverageScheduleSection({
       publish: 0,
       'price-check': 0,
       settle: 0,
-      scout: 0,
     }
     for (const group of matrix.groups) {
       if (group.meta.task) counts[group.meta.task] += group.rows.length

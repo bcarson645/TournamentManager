@@ -1,0 +1,402 @@
+/* Coverage Board (Kanban prototype) — scoped under .cov-schedule-shell so both
+   cov themes (light-blue / default dark) apply automatically via --cov-* vars.
+   The board never causes page-level horizontal scroll: columns scroll inside
+   .cov-board-scroll. */
+
+.cov-schedule-shell .cov-board--p2 {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  min-height: 0;
+}
+
+.cov-schedule-shell .cov-board-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.cov-schedule-shell .cov-board-scope {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cov-schedule-shell .cov-board-daynav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cov-schedule-shell .cov-board-daylabel {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  min-width: 8rem;
+  text-align: center;
+}
+
+.cov-schedule-shell .cov-board-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: auto;
+}
+
+.cov-schedule-shell .cov-board-search {
+  min-width: 11rem;
+  max-width: 16rem;
+}
+
+.cov-schedule-shell .cov-board-mine select {
+  max-width: 8.5rem;
+}
+
+.cov-schedule-shell .cov-board-toast {
+  min-height: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--cov-text-secondary);
+}
+
+.cov-schedule-shell .cov-board-scroll {
+  overflow: auto;
+  border: 1px solid var(--cov-border);
+  border-radius: 0.625rem;
+  background: var(--cov-surface-muted);
+  max-width: 100%;
+}
+
+.cov-schedule-shell .cov-board-grid {
+  --board-lane-col: 9.5rem;
+  --board-col-w: 15rem;
+  display: grid;
+  grid-template-columns: var(--board-lane-col) repeat(var(--board-cols, 7), minmax(var(--board-col-w), 1fr));
+  min-width: calc(var(--board-lane-col) + var(--board-cols, 7) * var(--board-col-w));
+  align-items: start;
+}
+
+.cov-schedule-shell .cov-board-row {
+  display: contents;
+}
+
+.cov-schedule-shell .cov-board-corner {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.625rem;
+  background: var(--cov-surface);
+  border-bottom: 1px solid var(--cov-border);
+}
+
+.cov-schedule-shell .cov-board-corner-title {
+  font-weight: 800;
+  font-size: 0.8125rem;
+}
+
+.cov-schedule-shell .cov-board-corner-sub {
+  font-size: 0.75rem;
+  color: var(--cov-text-secondary);
+}
+
+.cov-schedule-shell .cov-board-colhead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.375rem;
+  padding: 0.625rem;
+  background: var(--cov-surface);
+  border-bottom: 1px solid var(--cov-border);
+  border-left: 1px solid var(--cov-border);
+}
+
+.cov-schedule-shell .cov-board-colhead--droppable {
+  box-shadow: inset 0 2px 0 var(--cov-accent);
+}
+
+.cov-schedule-shell .cov-board-colhead--drop {
+  background: var(--cov-accent-soft);
+}
+
+.cov-schedule-shell .cov-board-colhead-title {
+  font-weight: 800;
+  font-size: 0.8125rem;
+}
+
+.cov-schedule-shell .cov-board-colhead-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--cov-text-secondary);
+}
+
+.cov-schedule-shell .cov-board-lanehead {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.625rem;
+  border-top: 1px solid var(--cov-border);
+  background: var(--cov-surface);
+}
+
+.cov-schedule-shell .cov-board-lane-title {
+  font-weight: 800;
+  font-size: 0.8125rem;
+}
+
+.cov-schedule-shell .cov-board-lane-count {
+  font-size: 0.75rem;
+  color: var(--cov-text-secondary);
+}
+
+.cov-schedule-shell .cov-board-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 4rem;
+  padding: 0.625rem;
+  border-left: 1px solid var(--cov-border);
+  border-top: 1px solid var(--cov-border);
+  background: var(--cov-day-col-bg, transparent);
+}
+
+.cov-schedule-shell .cov-board-col--droppable {
+  background: color-mix(in srgb, var(--cov-accent-soft) 35%, transparent);
+}
+
+.cov-schedule-shell .cov-board-col--drop {
+  outline: 2px dashed var(--cov-accent-border);
+  outline-offset: -2px;
+  background: var(--cov-accent-soft);
+}
+
+.cov-schedule-shell .cov-board-empty {
+  color: var(--cov-text-muted);
+  text-align: center;
+  padding: 0.5rem 0;
+}
+
+.cov-schedule-shell .cov-board-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  text-align: left;
+  background: var(--cov-surface);
+  border: 1px solid var(--cov-border);
+  border-left-width: 3px;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.5625rem;
+  cursor: grab;
+  max-width: 100%;
+}
+
+.cov-schedule-shell .cov-board-card--warn { border-left-color: var(--cov-warn-border); }
+.cov-schedule-shell .cov-board-card--danger { border-left-color: var(--cov-danger-border); }
+.cov-schedule-shell .cov-board-card--info { border-left-color: var(--cov-accent-border); }
+.cov-schedule-shell .cov-board-card--done { border-left-color: var(--cov-accent); }
+.cov-schedule-shell .cov-board-card--muted { border-left-color: var(--cov-border); opacity: 0.85; }
+
+.cov-schedule-shell .cov-board-card--selected {
+  box-shadow: 0 0 0 2px var(--cov-accent-border);
+}
+
+.cov-schedule-shell .cov-board-card--dragging {
+  opacity: 0.5;
+}
+
+.cov-schedule-shell .cov-board-card--overdue {
+  border-color: var(--cov-danger-border);
+  background: var(--cov-danger-bg);
+}
+
+.cov-schedule-shell .cov-board-card-hit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  min-width: 0;
+}
+
+.cov-schedule-shell .cov-board-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cov-schedule-shell .cov-board-card-time {
+  font-weight: 800;
+  font-size: 0.8125rem;
+}
+
+.cov-schedule-shell .cov-board-card-flag {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: var(--cov-danger-border);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cov-schedule-shell .cov-board-card-match {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.cov-schedule-shell .cov-board-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.cov-schedule-shell .cov-board-card-markets {
+  display: block;
+  max-width: 100%;
+}
+
+.cov-schedule-shell .cov-board-card-action {
+  font-size: 0.75rem;
+  color: var(--cov-text-secondary);
+}
+
+.cov-schedule-shell .cov-board-card-action-detail {
+  font-weight: 700;
+  margin-left: 0.25rem;
+}
+
+.cov-schedule-shell .cov-board-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-top: 1px solid var(--cov-border);
+  padding-top: 0.375rem;
+}
+
+.cov-schedule-shell .cov-board-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.625rem;
+  height: 1.625rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  background: var(--cov-chip-neutral-bg);
+  color: var(--cov-chip-neutral-text);
+  border: 1px solid var(--cov-border);
+}
+
+.cov-schedule-shell .cov-board-avatar--mine {
+  background: var(--cov-accent-soft);
+  border-color: var(--cov-accent-border);
+  color: var(--cov-accent-text);
+}
+
+.cov-schedule-shell .cov-board-avatar--open {
+  border-style: dashed;
+  color: var(--cov-text-secondary);
+}
+
+.cov-schedule-shell .cov-board-avatar--none {
+  background: var(--cov-danger-bg-strong);
+  border-color: var(--cov-danger-border);
+}
+
+.cov-schedule-shell .cov-board-owner-name {
+  font-size: 0.75rem;
+  color: var(--cov-text-secondary);
+}
+
+.cov-schedule-shell .cov-board-assign {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cov-schedule-shell .cov-board-assign-select {
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 0.1875rem 0.375rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--cov-border);
+  background: var(--cov-surface-raised, var(--cov-surface));
+  color: inherit;
+}
+
+.cov-schedule-shell .cov-board-menu {
+  position: relative;
+  margin-left: auto;
+}
+
+.cov-schedule-shell .cov-board-menu-trigger {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--cov-border);
+  border-radius: 0.375rem;
+  padding: 0.0625rem 0.4375rem;
+  font-weight: 800;
+  color: var(--cov-text-secondary);
+}
+
+.cov-schedule-shell .cov-board-menu-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.cov-schedule-shell .cov-board-menu-panel {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 11rem;
+  background: var(--cov-surface-elevated, var(--cov-surface));
+  border: 1px solid var(--cov-border-strong);
+  border-radius: 0.5rem;
+  box-shadow: var(--cov-panel-shadow);
+  padding: 0.25rem;
+}
+
+.cov-schedule-shell .cov-board-menu-item {
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+.cov-schedule-shell .cov-board-menu-item:hover {
+  background: var(--cov-surface-hover);
+}
+
+.cov-schedule-shell .cov-board-hint {
+  font-size: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .cov-schedule-shell .cov-board-grid {
+    --board-lane-col: 6.5rem;
+    --board-col-w: 12.5rem;
+  }
+  .cov-schedule-shell .cov-board-search {
+    min-width: 0;
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  .cov-schedule-shell .cov-board-filters {
+    margin-left: 0;
+    width: 100%;
+  }
+}

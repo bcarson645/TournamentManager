@@ -17,6 +17,8 @@ const copies = [
   ['app/components/coverage/CoverageDayMatrix.tsx', 'app/components/coverage/CoverageDayMatrix.tsx'],
   ['app/components/coverage/CoverageMarketsProgress.tsx', 'app/components/coverage/CoverageMarketsProgress.tsx'],
   ['app/components/coverage/CoverageMatchPanel.tsx', 'app/components/coverage/CoverageMatchPanel.tsx'],
+  ['app/components/coverage/CoverageBoard.tsx', 'app/components/coverage/CoverageBoard.tsx'],
+  ['app/components/coverage/CoverageBoard.css', 'app/components/coverage/CoverageBoard.css'],
   ['scripts/import-coverage-xlsm.mjs', 'scripts/import-coverage-xlsm.mjs'],
 ]
 
@@ -46,6 +48,8 @@ if (globals.includes(scheduleCssMarker)) {
   globals = globals.split(scheduleCssMarker)[0].trimEnd()
 }
 globals += `\n\n${scheduleCssMarker}\n${scheduleBlock}`
+// NOTE: CoverageBoard.css travels with its component via `import './CoverageBoard.css'`
+// (copied above), so it is NOT inlined here — avoids duplicated rules on main.
 fs.writeFileSync(globalsPath, globals)
 console.log('Updated coverage schedule CSS in globals.css')
 

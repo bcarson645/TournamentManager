@@ -35,7 +35,6 @@ export type DayMatrixGroupId =
   | 'ready-to-publish'
   | 'publishing'
   | 'settle'
-  | 'scout'
   | 'complete'
 
 export const DAY_MATRIX_GROUP_ORDER: DayMatrixGroupId[] = [
@@ -44,7 +43,6 @@ export const DAY_MATRIX_GROUP_ORDER: DayMatrixGroupId[] = [
   'ready-to-publish',
   'publishing',
   'settle',
-  'scout',
   'complete',
 ]
 
@@ -88,12 +86,6 @@ export const DAY_MATRIX_GROUP_META: Record<DayMatrixGroupId, DayMatrixGroupMeta>
     task: 'settle',
     tone: 'info',
   },
-  scout: {
-    label: 'Scout',
-    action: 'Scouting needed — claim or assign, then mark scouted',
-    task: 'scout',
-    tone: 'info',
-  },
   complete: {
     label: 'No action needed',
     action: 'Done, automated or not covered',
@@ -120,10 +112,9 @@ export const DAY_MATRIX_TASK_META: Record<CoverageTaskId, DayMatrixTaskMeta> = {
   },
   'price-check': { label: 'Price check', short: 'PC', runLabel: 'Checked', hint: 'Mark price check complete' },
   settle: { label: 'Settle', short: 'Settle', runLabel: 'Settle', hint: 'Settle the game' },
-  scout: { label: 'Scout', short: 'Scout', runLabel: 'Scouted', hint: 'Mark scouting complete' },
 }
 
-export const DAY_MATRIX_TASKS: CoverageTaskId[] = ['prep', 'publish', 'price-check', 'settle', 'scout']
+export const DAY_MATRIX_TASKS: CoverageTaskId[] = ['prep', 'publish', 'price-check', 'settle']
 
 export interface DayMatrixRow {
   key: string
@@ -192,7 +183,7 @@ export interface DayMatrixOptions {
 const TONE_RANK: Record<DayMatrixTone, number> = { danger: 0, warn: 1, info: 2, done: 3, muted: 4 }
 
 function emptyCounts(): Record<CoverageTaskId, number> {
-  return { prep: 0, publish: 0, 'price-check': 0, settle: 0, scout: 0 }
+  return { prep: 0, publish: 0, 'price-check': 0, settle: 0 }
 }
 
 interface Classification {
@@ -204,8 +195,9 @@ interface Classification {
 }
 
 /**
- * Pick the single next action for a fixture (trading is intentionally not a task):
- * price check → prep → publish (ready / partly sent) → settle → scout → nothing.
+ * Pick the single next action for a fixture (trading is intentionally not a task;
+ * scout is a match attribute and never a next action):
+ * price check → prep → publish (ready / partly sent) → settle → nothing.
  */
 export function classifyFixtureNextAction(
   ctx: SelectedMatchContext,
@@ -264,10 +256,6 @@ export function classifyFixtureNextAction(
 
   if (steps.settle !== 'done') {
     return { group: 'settle', task: 'settle', actionLabel: 'Settle', tone: 'info', markets }
-  }
-
-  if (fixture.scout) {
-    return { group: 'scout', task: 'scout', actionLabel: 'Scout', tone: 'info', markets: null }
   }
 
   return { group: 'complete', task: null, actionLabel: 'All done', tone: 'done', markets: null }

@@ -676,6 +676,14 @@ export default function CoverageScheduleToolbar({
                     </button>
                     <button
                       type="button"
+                      className={'cov-tab cov-tab--sm' + (listMode === 'board' ? ' cov-tab-active' : '')}
+                      onClick={() => onListModeChange('board')}
+                      title="Kanban board: fixtures as cards, columns are workflow stages, lanes are tiers"
+                    >
+                      Board
+                    </button>
+                    <button
+                      type="button"
                       className={'cov-tab cov-tab--sm' + (listMode === 'all-games' ? ' cov-tab-active' : '')}
                       onClick={() => onListModeChange('all-games')}
                     >
