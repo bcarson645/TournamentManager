@@ -17777,11 +17777,20 @@ html[data-theme="light"] .ph-recent-row {
 }
 
 .mt-bars {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: flex-end;
   gap: 0.3rem;
   height: 12rem;
   overflow-x: auto;
+}
+
+.mt-chart-lines {
+  position: absolute;
+  inset: 0.8rem 0.8rem 0.4rem;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .mt-bar {
@@ -17820,12 +17829,9 @@ html[data-theme="light"] .ph-recent-row {
 }
 
 .mt-refline {
-  position: absolute;
-  left: 0.8rem;
-  right: 0.8rem;
   border-top: 2px dashed var(--accent);
-  opacity: 0.8;
-  pointer-events: none;
+  opacity: 0.95;
+  z-index: 3;
 }
 
 html[data-theme="light"] .md-tab {
@@ -18368,10 +18374,11 @@ html[data-theme="light"] .ph-hero-styles {
 }
 
 .mt-meanline,
-.mt-medianline {
+.mt-medianline,
+.mt-refline {
   position: absolute;
-  left: 0.8rem;
-  right: 0.8rem;
+  left: 0;
+  right: 0;
   pointer-events: none;
 }
 

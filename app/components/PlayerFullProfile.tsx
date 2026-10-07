@@ -1350,27 +1350,6 @@ function MatchTrendCard({
       ) : (
         <>
           <div className="mt-chart" role="img" aria-label={`${activeStat} trend bar chart`}>
-            {max > 0 && (
-              <div
-                className="mt-meanline"
-                style={{ bottom: `calc(${(mean / max) * 100}% + 1.4rem)` }}
-                title={`Mean ${fmtNum(mean)}`}
-              />
-            )}
-            {max > 0 && (
-              <div
-                className="mt-medianline"
-                style={{ bottom: `calc(${(median / max) * 100}% + 1.4rem)` }}
-                title={`Median ${fmtNum(median)}`}
-              />
-            )}
-            {max > 0 && (
-              <div
-                className="mt-refline"
-                style={{ bottom: `calc(${(ref / max) * 100}% + 1.4rem)` }}
-                title={`Reference ${fmtNum(ref)}`}
-              />
-            )}
             <div className="mt-bars">
               {bars.map((b) => (
                 <div key={b.key} className="mt-bar" title={b.title}>
@@ -1383,6 +1362,25 @@ function MatchTrendCard({
                 </div>
               ))}
             </div>
+            {max > 0 && (
+              <div className="mt-chart-lines" aria-hidden="true">
+                <div
+                  className="mt-meanline"
+                  style={{ bottom: `calc(${(mean / max) * 100}% + 1.4rem)` }}
+                  title={`Mean ${fmtNum(mean)}`}
+                />
+                <div
+                  className="mt-medianline"
+                  style={{ bottom: `calc(${(median / max) * 100}% + 1.4rem)` }}
+                  title={`Median ${fmtNum(median)}`}
+                />
+                <div
+                  className="mt-refline"
+                  style={{ bottom: `calc(${(ref / max) * 100}% + 1.4rem)` }}
+                  title={`Reference ${fmtNum(ref)}`}
+                />
+              </div>
+            )}
           </div>
           <p className="ph-hint">
             Newest on the left · {over} above · {below} below · {bars.length} innings
