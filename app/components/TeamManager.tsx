@@ -25,6 +25,7 @@ import TeamAnalyticsPanel from './TeamAnalyticsPanel'
 import { getTeamLogo, setTeamLogo as storeTeamLogo } from '../data/logoStore'
 import {
   getStoredSquad,
+  getSquadForTeam,
   getSquadStoreVersion,
   storeSquad,
   subscribeSquadStore,
@@ -427,6 +428,21 @@ export default function TeamManager({
       cancelled = true
     }
   }, [team.id, format, gender, hydrateFromDb])
+
+  /** Pull squad draft edits made elsewhere (e.g. Player Hub notes) into this panel. */
+  useEffect(() => {
+    const squad = getSquadForTeam(team.id)
+    const reapplied = reapplySquadRatings(
+      squad.startingXI,
+      squad.reserves,
+      squad.impactSubs,
+      format,
+      gender,
+    )
+    setStartingXI(reapplied.startingXI)
+    setReserves(reapplied.reserves)
+    setImpactSubs(reapplied.impactSubs)
+  }, [team.id, format, gender, squadStoreVersion])
 
   const avgFirstInnings = useMemo(() => generateAvgScore(team.id), [team.id])
   const last10 = useMemo(() => generateLast10(team.id), [team.id])

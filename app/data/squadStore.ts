@@ -238,14 +238,22 @@ export function findSquadPlayerOnTeam(
 }
 
 /** Persist a player note on the squad draft (same field as PlayerDetailPanel). */
-export function setSquadPlayerNote(teamId: string, playerId: string, note: string): boolean {
+export function setSquadPlayerNote(
+  teamId: string,
+  playerId: string,
+  note: string,
+  playerName?: string | null,
+): boolean {
   const stored = getStoredSquad(teamId)
   const squad = stored ?? getSquadForTeam(teamId)
   const nextNote = note.trim() ? note.trim().slice(0, PLAYER_NOTE_MAX) : undefined
   let found = false
+  const nameKey = playerName?.trim().toLowerCase() ?? ''
   const mapList = (list: SquadPlayer[]) =>
     list.map((p) => {
-      if (p.id !== playerId) return p
+      const idMatch = playerId && p.id === playerId
+      const nameMatch = !idMatch && nameKey && p.name.trim().toLowerCase() === nameKey
+      if (!idMatch && !nameMatch) return p
       found = true
       return { ...p, note: nextNote }
     })

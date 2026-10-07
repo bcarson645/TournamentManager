@@ -732,12 +732,18 @@ function HubPlayerRoute({
   onBack: () => void
   onOpenTeam: (teamId: string, tournamentId: string) => void
 }) {
+  const squadStoreVersion = useSyncExternalStore(
+    subscribeSquadStore,
+    getSquadStoreVersion,
+    getSquadStoreVersion,
+  )
+
   const squadPlayer = useMemo(() => {
     if (!route.teamId) return null
     const squad = getSquadForTeam(route.teamId)
     const all = [...squad.startingXI, ...squad.reserves, ...squad.impactSubs]
     return all.find((p) => p.name.toLowerCase() === route.playerName.toLowerCase()) ?? null
-  }, [route.teamId, route.playerName])
+  }, [route.teamId, route.playerName, squadStoreVersion])
 
   const teams = useMemo<HubPlayerTeamRef[]>(() => {
     const refs: HubPlayerTeamRef[] = []
@@ -762,7 +768,7 @@ function HubPlayerRoute({
       }
     }
     return refs.slice(0, 12)
-  }, [route.playerName])
+  }, [route.playerName, squadStoreVersion])
 
   const currentTeamName =
     route.teamId && route.tournamentId
@@ -780,6 +786,7 @@ function HubPlayerRoute({
         squadPlayer={squadPlayer}
         teams={teams}
         contextTournamentId={route.tournamentId}
+        contextTeamId={route.teamId}
         eyebrow={eyebrow}
         onBack={onBack}
         onOpenTeam={onOpenTeam}

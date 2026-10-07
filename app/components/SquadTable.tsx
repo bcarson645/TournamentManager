@@ -1038,7 +1038,12 @@ export default function SquadTable({
               </span>
             ) : null}
             {player.note?.trim() ? (
-              <span className="sq-note-dot" title="Has squad note">
+              <span
+                className="sq-note-dot"
+                title="Has squad note"
+                role="img"
+                aria-label="Has squad note"
+              >
                 <span className="sq-note-dot-inner" aria-hidden />
               </span>
             ) : null}

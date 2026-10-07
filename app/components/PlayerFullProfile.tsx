@@ -62,6 +62,8 @@ interface PlayerFullProfileProps {
   squadPlayer?: SquadPlayer | null
   teams: HubPlayerTeamRef[]
   contextTournamentId?: string | null
+  /** When opened from a team squad, notes save on this team’s draft. */
+  contextTeamId?: string | null
   eyebrow: string
   onBack: () => void
   onOpenTeam: (teamId: string, tournamentId: string) => void
@@ -140,6 +142,7 @@ export default function PlayerFullProfile({
   squadPlayer = null,
   teams,
   contextTournamentId = null,
+  contextTeamId = null,
   eyebrow,
   onBack,
   onOpenTeam,
@@ -643,6 +646,7 @@ export default function PlayerFullProfile({
             squadPlayer={squadPlayer}
             teams={teams}
             contextTournamentId={contextTournamentId}
+            contextTeamId={contextTeamId}
           />
           {layout.sections
             .filter((s) => s.id !== 'header' && s.visible)
@@ -715,11 +719,13 @@ function PlayerPrepNoteCard({
   squadPlayer,
   teams,
   contextTournamentId,
+  contextTeamId = null,
 }: {
   playerName: string
   squadPlayer?: SquadPlayer | null
   teams: HubPlayerTeamRef[]
   contextTournamentId?: string | null
+  contextTeamId?: string | null
 }) {
   useSyncExternalStore(subscribeSquadStore, getSquadStoreVersion, () => 0)
   const [draft, setDraft] = useState('')
@@ -727,7 +733,10 @@ function PlayerPrepNoteCard({
   const [savedFlash, setSavedFlash] = useState(false)
 
   const noteTeam =
-    teams.find((t) => t.tournamentId === contextTournamentId) ?? teams[0] ?? null
+    (contextTeamId ? teams.find((t) => t.teamId === contextTeamId) : null) ??
+    (contextTournamentId ? teams.find((t) => t.tournamentId === contextTournamentId) : null) ??
+    teams[0] ??
+    null
   const livePlayer = noteTeam
     ? findSquadPlayerOnTeam(noteTeam.teamId, squadPlayer?.id, playerName)
     : squadPlayer ?? null
@@ -739,7 +748,7 @@ function PlayerPrepNoteCard({
 
   function handleSave() {
     if (!noteTeam || !livePlayer) return
-    setSquadPlayerNote(noteTeam.teamId, livePlayer.id, draft)
+    setSquadPlayerNote(noteTeam.teamId, livePlayer.id, draft, playerName)
     setEditing(false)
     setSavedFlash(true)
     window.setTimeout(() => setSavedFlash(false), 1600)
@@ -747,7 +756,7 @@ function PlayerPrepNoteCard({
 
   function handleClear() {
     if (!noteTeam || !livePlayer) return
-    setSquadPlayerNote(noteTeam.teamId, livePlayer.id, '')
+    setSquadPlayerNote(noteTeam.teamId, livePlayer.id, '', playerName)
     setDraft('')
     setEditing(false)
   }
