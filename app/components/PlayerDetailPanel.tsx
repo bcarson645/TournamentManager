@@ -326,7 +326,7 @@ export default function PlayerDetailPanel({
               <div className="pp-name-row-chrome">
                 <div className="pp-name">{player.name}</div>
                 {player.note?.trim() ? (
-                  <span className="pp-note-chip" title="Squad note saved — use Squad note below">
+                  <span className="pp-note-chip" title="Player note saved — also shown in Tournament Prep">
                     Note
                   </span>
                 ) : null}
@@ -436,11 +436,11 @@ export default function PlayerDetailPanel({
                     type="button"
                     className={'pp-note-btn' + (notePopoverOpen ? ' pp-note-btn--open' : '')}
                     onClick={() => setNotePopoverOpen((o) => !o)}
-                    title="Add a short note for other editors of this squad"
+                    title="Add a player note (also shown in Tournament Prep)"
                     aria-expanded={notePopoverOpen}
-                    aria-controls="pp-squad-note-popover"
+                    aria-controls="pp-player-note-popover"
                   >
-                    Squad note
+                    Player note
                   </button>
                 ) : null}
                 {onRemoveFromSquad ? (
@@ -451,10 +451,10 @@ export default function PlayerDetailPanel({
               </div>
               {onSavePlayerNote && notePopoverOpen ? (
                 <div
-                  id="pp-squad-note-popover"
+                  id="pp-player-note-popover"
                   className="pp-note-popover"
                   role="dialog"
-                  aria-label="Squad note"
+                  aria-label="Player note"
                 >
                   <form
                     className="pp-note-popover-form"
@@ -464,9 +464,9 @@ export default function PlayerDetailPanel({
                       setNotePopoverOpen(false)
                     }}
                   >
-                    <h2 className="pp-note-popover-title">Squad note</h2>
+                    <h2 className="pp-note-popover-title">Player note</h2>
                     <p className="pp-note-popover-hint">
-                      Short note for the next person editing this squad (stored with the team draft in this browser).
+                      Shown on this profile and in Tournament Prep notes. Stored with the squad draft in this browser.
                     </p>
                     <textarea
                       ref={noteTextareaRef}

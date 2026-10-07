@@ -1,6 +1,6 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { TEAMS } from '../data/teams'
 import {
   getTraderById,
@@ -11,10 +11,15 @@ import {
   resolveTeamCoverageStatus,
   setTeamCoverageStatus,
   setTeamCoverageTrader,
+  setTournamentCoverageNotes,
   type CoverageStatus,
   type Trader,
 } from '../data/coverageRotaStore'
-import { getSquadStoreVersion, subscribeSquadStore } from '../data/squadStore'
+import {
+  getSquadPlayerNotesForTournament,
+  getSquadStoreVersion,
+  subscribeSquadStore,
+} from '../data/squadStore'
 import TraderPicker from './TraderPicker'
 import TournamentTraderAssign from './TournamentTraderAssign'
 
@@ -61,6 +66,11 @@ export default function TournamentPrepTeamPanel({
   const teams = TEAMS[tournamentId] ?? []
   const leadName = getTraderById(coverage.leadTraderId ?? leadTraderId)?.name
   const isPage = variant === 'page'
+  const playerNotes = getSquadPlayerNotesForTournament(tournamentId)
+  const [teamNotesDraft, setTeamNotesDraft] = useState(coverage.notes)
+  useEffect(() => {
+    setTeamNotesDraft(coverage.notes)
+  }, [coverage.notes])
 
   return (
     <section
@@ -176,6 +186,39 @@ export default function TournamentPrepTeamPanel({
           </table>
         </div>
       )}
+
+      <section className="tm-prep-notes" aria-label="Prep notes">
+        <h2 className="tm-prep-notes-title">Notes</h2>
+        <p className="tm-prep-notes-sub">Tournament notes stay with this prep board. Player notes are edited on the player profile.</p>
+        <label className="tm-prep-team-notes">
+          <span className="tm-prep-notes-label">Tournament notes</span>
+          <textarea
+            className="tm-prep-team-notes-input"
+            value={teamNotesDraft}
+            rows={3}
+            maxLength={4000}
+            placeholder="Add tournament-level prep notes…"
+            onChange={(e) => setTeamNotesDraft(e.target.value)}
+            onBlur={() => setTournamentCoverageNotes(tournamentId, teamNotesDraft.trim())}
+          />
+        </label>
+        <h3 className="tm-prep-player-notes-heading">Player notes</h3>
+        {playerNotes.length === 0 ? (
+          <p className="tm-prep-notes-empty">No player notes yet. Open a player profile and add a note to see it here.</p>
+        ) : (
+          <ul className="tm-prep-player-notes">
+            {playerNotes.map((n) => (
+              <li key={n.teamId + ':' + n.playerId} className="tm-prep-player-note">
+                <div className="tm-prep-player-note-head">
+                  <strong className="tm-prep-player-note-name">{n.playerName}</strong>
+                  <span className="tm-prep-player-note-team">{n.teamName}</span>
+                </div>
+                <p className="tm-prep-player-note-body">{n.note}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
   )
 }

@@ -201,6 +201,83 @@ function capStartingXIOvers(players: SquadPlayer[]): SquadPlayer[] {
   })
 }
 
+const PLAYER_NOTE_MAX = 4000
+
+export interface TournamentSquadPlayerNote {
+  teamId: string
+  teamName: string
+  playerId: string
+  playerName: string
+  note: string
+}
+
+function allPlayersInSquad(squad: {
+  startingXI: SquadPlayer[]
+  reserves: SquadPlayer[]
+  impactSubs: SquadPlayer[]
+}): SquadPlayer[] {
+  return [...squad.startingXI, ...squad.reserves, ...squad.impactSubs]
+}
+
+/** Live squad row for a team, matching id then name. */
+export function findSquadPlayerOnTeam(
+  teamId: string,
+  playerId?: string | null,
+  playerName?: string | null,
+): SquadPlayer | null {
+  const all = allPlayersInSquad(getSquadForTeam(teamId))
+  if (playerId) {
+    const byId = all.find((p) => p.id === playerId)
+    if (byId) return byId
+  }
+  if (playerName) {
+    const target = playerName.toLowerCase()
+    return all.find((p) => p.name.toLowerCase() === target) ?? null
+  }
+  return null
+}
+
+/** Persist a player note on the squad draft (same field as PlayerDetailPanel). */
+export function setSquadPlayerNote(teamId: string, playerId: string, note: string): boolean {
+  const stored = getStoredSquad(teamId)
+  const squad = stored ?? getSquadForTeam(teamId)
+  const nextNote = note.trim() ? note.trim().slice(0, PLAYER_NOTE_MAX) : undefined
+  let found = false
+  const mapList = (list: SquadPlayer[]) =>
+    list.map((p) => {
+      if (p.id !== playerId) return p
+      found = true
+      return { ...p, note: nextNote }
+    })
+  const startingXI = mapList(squad.startingXI)
+  const reserves = mapList(squad.reserves)
+  const impactSubs = mapList(squad.impactSubs)
+  if (!found) return false
+  storeSquad(teamId, startingXI, reserves, stored?.groundId ?? null, impactSubs)
+  return true
+}
+
+/** Player notes on every squad in a tournament (for Tournament Prep). */
+export function getSquadPlayerNotesForTournament(tournamentId: string): TournamentSquadPlayerNote[] {
+  const teams = TEAMS[tournamentId] ?? []
+  const out: TournamentSquadPlayerNote[] = []
+  for (const team of teams) {
+    for (const p of allPlayersInSquad(getSquadForTeam(team.id))) {
+      const note = p.note?.trim()
+      if (!note) continue
+      out.push({
+        teamId: team.id,
+        teamName: team.name,
+        playerId: p.id,
+        playerName: p.name,
+        note,
+      })
+    }
+  }
+  out.sort((a, b) => a.playerName.localeCompare(b.playerName) || a.teamName.localeCompare(b.teamName))
+  return out
+}
+
 export function getSquadForTeam(teamId: string): {
   startingXI: SquadPlayer[]
   reserves: SquadPlayer[]

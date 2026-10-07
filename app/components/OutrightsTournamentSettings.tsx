@@ -1,6 +1,16 @@
 'use client'
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+  type RefObject,
+} from 'react'
+import { createPortal } from 'react-dom'
 import {
   reactivateOutright,
   suspendOutright,
@@ -23,18 +33,141 @@ import {
   type OutrightSuspensionMode,
 } from '../data/outrightSuspensionStore'
 import type { CricketFormat } from '../data/tournaments'
+import OutrightsAlertsPanel from './OutrightsAlertsPanel'
+
+export type OutrightsSettingsPopoverPlacement = 'over' | 'below'
+
+function resolvePopoverAnchor(anchorRef: RefObject<HTMLElement | null>): HTMLElement | null {
+  const el = anchorRef.current
+  if (!el) return null
+  return (el.closest('.outrights-settings-panel-wrap') as HTMLElement | null) ?? el
+}
+
+function measurePopover(
+  anchor: HTMLElement,
+  placement: OutrightsSettingsPopoverPlacement,
+): { top: number; left: number; width: number; maxHeight: number } {
+  const rect = anchor.getBoundingClientRect()
+  const pad = 8
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+
+  if (placement === 'over') {
+    const left = Math.min(Math.max(pad, rect.left), Math.max(pad, vw - pad - 240))
+    const width = Math.max(240, Math.min(rect.width, vw - left - pad))
+    const top = Math.min(Math.max(pad, rect.top), Math.max(pad, vh - pad - 160))
+    const maxHeight = Math.max(160, vh - top - pad)
+    return { top, left, width, maxHeight }
+  }
+
+  const width = Math.min(Math.max(rect.width, 20 * 16), 32 * 16, vw - pad * 2)
+  let left = rect.right - width
+  left = Math.min(Math.max(pad, left), vw - width - pad)
+  let top = rect.bottom + 6
+  let maxHeight = vh - top - pad
+  if (maxHeight < 180 && rect.top > vh / 2) {
+    maxHeight = Math.max(160, rect.top - pad - 6)
+    top = Math.max(pad, rect.top - Math.min(360, maxHeight) - 6)
+    maxHeight = Math.max(160, rect.top - 6 - top)
+  }
+  return { top, left, width, maxHeight: Math.max(160, maxHeight) }
+}
+
+export function OutrightsSettingsPopover({
+  title,
+  ariaLabel,
+  onClose,
+  children,
+  anchorRef,
+  placement = 'over',
+}: {
+  title: string
+  ariaLabel: string
+  onClose: () => void
+  children: ReactNode
+  anchorRef: RefObject<HTMLElement | null>
+  placement?: OutrightsSettingsPopoverPlacement
+}) {
+  const [target, setTarget] = useState<HTMLElement | null>(null)
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
+
+  const updateCoords = useCallback(() => {
+    const anchor = resolvePopoverAnchor(anchorRef)
+    if (!anchor) return
+    setCoords(measurePopover(anchor, placement))
+  }, [anchorRef, placement])
+
+  useEffect(() => {
+    const root = document.querySelector('.outrights-root')
+    setTarget(root instanceof HTMLElement ? root : document.body)
+  }, [])
+
+  useLayoutEffect(() => {
+    updateCoords()
+    window.addEventListener('resize', updateCoords)
+    window.addEventListener('scroll', updateCoords, true)
+    return () => {
+      window.removeEventListener('resize', updateCoords)
+      window.removeEventListener('scroll', updateCoords, true)
+    }
+  }, [updateCoords])
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  if (!target || !coords) return null
+
+  return createPortal(
+    <div className="outrights-settings-popover-wrap">
+      <div
+        className="outrights-settings-popover-backdrop"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div
+        className="outrights-settings-popover"
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+        style={{
+          top: coords.top,
+          left: coords.left,
+          width: coords.width,
+          maxHeight: coords.maxHeight,
+        }}
+      >
+        <div className="settings-page-header">
+          <button type="button" className="settings-back" onClick={onClose}>
+            <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden>
+              <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" />
+            </svg>
+            Back
+          </button>
+          <h3 className="settings-page-title">{title}</h3>
+        </div>
+        <div className="settings-page-body">{children}</div>
+      </div>
+    </div>,
+    target,
+  )
+}
 
 const OPTIONS = [
   { key: 'suspension', label: 'Suspension Settings' },
   { key: 'tournament', label: 'Tournament Settings' },
+  { key: 'alerts', label: 'Alerts' },
 ] as const
 
 const SIMULATOR_OPTION = { key: 'simulator', label: 'Simulator' } as const
 
 type OptionKey = (typeof OPTIONS)[number]['key']
 
-/** Legacy 'alerts' key is accepted but never renders inside settings — it redirects to the alerts page. */
-export type OutrightsSettingsPageKey = OptionKey | 'alerts'
+export type OutrightsSettingsPageKey = OptionKey
 
 export interface OutrightsSettingsOpenRequest {
   page: OutrightsSettingsPageKey
@@ -47,7 +180,6 @@ interface OutrightsTournamentSettingsProps {
   format: CricketFormat
   outrights: TournamentOutright[]
   onOpenSimulator?: () => void
-  onOpenAlerts?: () => void
   openRequest?: OutrightsSettingsOpenRequest | null
 }
 
@@ -57,32 +189,16 @@ export default function OutrightsTournamentSettings({
   format,
   outrights,
   onOpenSimulator,
-  onOpenAlerts,
   openRequest,
 }: OutrightsTournamentSettingsProps) {
   const [activePage, setActivePage] = useState<OptionKey | null>(null)
-  const anchorRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!openRequest) return
-    // Alerts no longer live in settings — route to the dedicated alerts page instead.
-    if (openRequest.page === 'alerts') {
-      onOpenAlerts?.()
-      return
-    }
     setActivePage(openRequest.page)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openRequest, tournamentId])
-
-  // Close overlay on Escape.
-  useEffect(() => {
-    if (!activePage) return
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setActivePage(null)
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [activePage])
 
   useSyncExternalStore(
     subscribeOutrightSuspensionStore,
@@ -311,6 +427,16 @@ export default function OutrightsTournamentSettings({
         </div>
       )
     }
+    if (page === 'alerts') {
+      return (
+        <OutrightsAlertsPanel
+          tournamentId={tournamentId}
+          tournamentName={tournamentName}
+          outrights={outrights}
+          mode="config"
+        />
+      )
+    }
     return (
       <div className="settings-tournament-form">
         <p className="settings-lead">Outrights options for {tournamentName}</p>
@@ -324,7 +450,7 @@ export default function OutrightsTournamentSettings({
   const activeOpt = activePage ? OPTIONS.find((o) => o.key === activePage) : null
 
   return (
-    <div className="settings-panel outrights-settings-overlay-anchor" ref={anchorRef}>
+    <div className="settings-panel outrights-settings-overlay-anchor" ref={panelRef}>
       <h3 className="settings-heading">Outrights Settings</h3>
       <div className="settings-btn-grid">
         {OPTIONS.map((opt) => (
@@ -341,44 +467,18 @@ export default function OutrightsTournamentSettings({
             <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
           </svg>
         </button>
-        {onOpenAlerts ? (
-          <button type="button" className="settings-btn settings-btn--alerts-link" onClick={() => onOpenAlerts()}>
-            <span className="settings-btn-label">Alerts</span>
-            <span className="settings-btn-desc">Open the alerts page for {tournamentName}</span>
-            <svg className="settings-btn-arrow" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden>
-              <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" />
-            </svg>
-          </button>
-        ) : null}
       </div>
 
       {activePage && activeOpt ? (
-        <div className="outrights-settings-popover-wrap">
-          <div
-            className="outrights-settings-popover-backdrop"
-            onClick={() => setActivePage(null)}
-            aria-hidden
-          />
-          <div
-            className="outrights-settings-popover"
-            role="dialog"
-            aria-modal="false"
-            aria-label={`${activeOpt.label} for ${tournamentName}`}
-          >
-            <div className="settings-page-header">
-              <button type="button" className="settings-back" onClick={() => setActivePage(null)}>
-                <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden>
-                  <path d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" />
-                </svg>
-                Back
-              </button>
-              <h3 className="settings-page-title">{activeOpt.label}</h3>
-            </div>
-            <div className="settings-page-body">
-              {renderPageBody(activePage)}
-            </div>
-          </div>
-        </div>
+        <OutrightsSettingsPopover
+          title={activeOpt.label}
+          ariaLabel={`${activeOpt.label} for ${tournamentName}`}
+          onClose={() => setActivePage(null)}
+          anchorRef={panelRef}
+          placement="over"
+        >
+          {renderPageBody(activePage)}
+        </OutrightsSettingsPopover>
       ) : null}
     </div>
   )

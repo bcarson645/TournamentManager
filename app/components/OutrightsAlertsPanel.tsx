@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useSyncExternalStore } from 'react'
 import {
@@ -11,10 +11,13 @@ import {
 } from '../data/outrightAlertsStore'
 import type { TournamentOutright } from '../data/outrightsStore'
 
+export type OutrightsAlertsPanelMode = 'config' | 'live'
+
 interface OutrightsAlertsPanelProps {
   tournamentId: string
   tournamentName: string
   outrights: TournamentOutright[]
+  mode: OutrightsAlertsPanelMode
 }
 
 function alertClass(severity: OutrightAlert['severity']): string {
@@ -25,17 +28,41 @@ export default function OutrightsAlertsPanel({
   tournamentId,
   tournamentName,
   outrights,
+  mode,
 }: OutrightsAlertsPanelProps) {
   useSyncExternalStore(subscribeOutrightAlertsStore, getOutrightAlertsStoreVersion, getOutrightAlertsStoreVersion)
 
   const settings = getOutrightAlertsSettings(tournamentId)
   const liveAlerts = evaluateOutrightAlerts(tournamentId, outrights, settings)
 
+  if (mode === 'live') {
+    return (
+      <div className="outrights-alerts-live outrights-alerts-live--page">
+        {!settings.enabled ? (
+          <p className="settings-par-score-hint">Alerts are disabled for this tournament. Open alerts settings to enable rules.</p>
+        ) : liveAlerts.length === 0 ? (
+          <p className="settings-par-score-hint">No alerts triggered for current market data.</p>
+        ) : (
+          <ul className="outrights-alerts-list">
+            {liveAlerts.map((alert) => (
+              <li key={alert.id} className={alertClass(alert.severity)}>
+                <span className="outrights-alert-market">
+                  {alert.marketLabel} <span className="outrights-market-id">({alert.marketId})</span>
+                </span>
+                <span className="outrights-alert-message">{alert.message}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="settings-tournament-form outrights-alerts-form">
-      <p className="settings-lead">Alerts for {tournamentName}</p>
+      <p className="settings-lead">Alert settings for {tournamentName}</p>
       <p className="settings-par-score-hint">
-        Configure pricing and market alerts. Active alerts are evaluated from current market data.
+        Configure thresholds and rules. Live alerts stay on the alerts page.
       </p>
 
       <label className="settings-toggle-row">
@@ -155,26 +182,6 @@ export default function OutrightsAlertsPanel({
           </label>
         ) : null}
       </fieldset>
-
-      <div className="outrights-alerts-live">
-        <h4 className="outrights-alerts-live-title">Active alerts</h4>
-        {!settings.enabled ? (
-          <p className="settings-par-score-hint">Alerts are disabled for this tournament.</p>
-        ) : liveAlerts.length === 0 ? (
-          <p className="settings-par-score-hint">No alerts triggered for current market data.</p>
-        ) : (
-          <ul className="outrights-alerts-list">
-            {liveAlerts.map((alert) => (
-              <li key={alert.id} className={alertClass(alert.severity)}>
-                <span className="outrights-alert-market">
-                  {alert.marketLabel} <span className="outrights-market-id">({alert.marketId})</span>
-                </span>
-                <span className="outrights-alert-message">{alert.message}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
     </div>
   )
 }

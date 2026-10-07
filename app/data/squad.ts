@@ -138,10 +138,34 @@ export function normalizeBowlStats(
   return { ...pl, wkts, bowlAvg, bowlRating }
 }
 
+const ENGLAND_MEN_SQUAD = [
+  'Phil Salt',
+  'Jos Buttler',
+  'Harry Brook',
+  'Joe Root',
+  'Ben Duckett',
+  'Jacob Bethell',
+  'Will Jacks',
+  'Liam Livingstone',
+  'Sam Curran',
+  'Jofra Archer',
+  'Adil Rashid',
+  'Jamie Overton',
+  'Liam Dawson',
+  'Mark Wood',
+  'Reece Topley',
+  'Ben Stokes',
+  'Tom Banton',
+  'Sonny Baker',
+]
+
 const KNOWN_PLAYERS: Record<string, string[]> = {
   ...IPL_PLAYERS,
   ...THE_HUNDRED_MEN_SQUADS,
   ...BLAST_MEN_SQUADS,
+  't20intl-england': ENGLAND_MEN_SQUAD,
+  'odi-england': ENGLAND_MEN_SQUAD,
+  'test-england': ENGLAND_MEN_SQUAD,
 }
 
 function makePlayer(

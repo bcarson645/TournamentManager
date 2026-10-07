@@ -11,6 +11,8 @@ export interface Player {
 export interface Team {
   id: string
   name: string
+  /** National sides use the country name (England, India, …). Franchise teams inherit the league country. */
+  country?: string
   logo?: string
   battingFactor: number
   bowlingFactor: number
@@ -18,13 +20,33 @@ export interface Team {
   players: Player[]
 }
 
-function makeTeam(tournamentPrefix: string, name: string): Team {
+function makeTeam(tournamentPrefix: string, name: string, country?: string): Team {
   const id = `${tournamentPrefix}-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
-  return { id, name, battingFactor: 0, bowlingFactor: 0, totalFactor: 0, players: [] }
+  return { id, name, country, battingFactor: 0, bowlingFactor: 0, totalFactor: 0, players: [] }
 }
 
 function makeTeams(tournamentPrefix: string, names: string[]): Team[] {
   return names.map((n) => makeTeam(tournamentPrefix, n))
+}
+
+/** Full-member national sides — the country *is* the team. */
+export const ICC_MEN_FULL_MEMBERS = [
+  'England',
+  'India',
+  'Australia',
+  'Pakistan',
+  'South Africa',
+  'New Zealand',
+  'Sri Lanka',
+  'West Indies',
+  'Bangladesh',
+  'Afghanistan',
+  'Ireland',
+  'Zimbabwe',
+] as const
+
+function makeNationalTeams(tournamentPrefix: string, names: readonly string[]): Team[] {
+  return names.map((n) => makeTeam(tournamentPrefix, n, n))
 }
 
 export const TEAMS: Record<string, Team[]> = {
@@ -168,6 +190,11 @@ export const TEAMS: Record<string, Team[]> = {
     'Essex', 'Hampshire Hawks', 'Kent Spitfires',
     'Middlesex', 'Surrey', 'Sussex Sharks',
   ]),
+
+  // Men's internationals — countries are teams
+  't20-m-intl': makeNationalTeams('t20intl', ICC_MEN_FULL_MEMBERS),
+  'la-m-odi': makeNationalTeams('odi', ICC_MEN_FULL_MEMBERS),
+  'fc-m-test': makeNationalTeams('test', ICC_MEN_FULL_MEMBERS),
 }
 
 /**

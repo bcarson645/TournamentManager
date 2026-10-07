@@ -471,7 +471,6 @@ function TournamentOverview({
               format={entry.format}
               outrights={outrights}
               onOpenSimulator={onOpenSimulator}
-              onOpenAlerts={onOpenAlerts}
               openRequest={settingsOpenRequest}
             />
           </div>

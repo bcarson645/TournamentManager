@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchJson } from '../../lib/api/fetchJson'
 import { importCsvFileChunked } from '../../lib/cricketDb/importCsvClient'
+import PlayerHub from './PlayerHub'
+import PlayerLayoutBoard from './PlayerLayoutBoard'
 import type { AppTournamentOption } from '../../lib/cricketDb/appTournamentsClient'
 import { getBuiltinTournamentLabel } from '../../lib/cricketDb/appTournamentsClient'
 
@@ -32,7 +34,7 @@ interface AutoMapResult {
   unmappedCompetitions: UnmappedCompetition[]
 }
 
-type TabId = 'database' | 'players' | 'mappings' | 'raw'
+type TabId = 'hub' | 'layout' | 'database' | 'players' | 'mappings' | 'raw'
 
 interface DbStats {
   performances: number
@@ -102,6 +104,8 @@ interface PerfRow {
 }
 
 const TABS: { id: TabId; label: string }[] = [
+  { id: 'hub', label: 'Hub' },
+  { id: 'layout', label: 'Layout Board' },
   { id: 'database', label: 'Database' },
   { id: 'players', label: 'Players' },
   { id: 'mappings', label: 'Mappings' },
@@ -109,7 +113,7 @@ const TABS: { id: TabId; label: string }[] = [
 ]
 
 export default function PlayerTeamManagement() {
-  const [tab, setTab] = useState<TabId>('database')
+  const [tab, setTab] = useState<TabId>('hub')
   const [stats, setStats] = useState<DbStats | null>(null)
   const [statsError, setStatsError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -379,6 +383,18 @@ export default function PlayerTeamManagement() {
           </button>
         ))}
       </div>
+
+      {tab === 'hub' && (
+        <div className="ptm-panel">
+          <PlayerHub onOpenLayoutBoard={() => setTab('layout')} />
+        </div>
+      )}
+
+      {tab === 'layout' && (
+        <div className="ptm-panel">
+          <PlayerLayoutBoard onBackToHub={() => setTab('hub')} />
+        </div>
+      )}
 
       {tab === 'database' && (
         <div className="ptm-panel">
