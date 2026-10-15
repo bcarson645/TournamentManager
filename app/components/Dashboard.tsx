@@ -32,6 +32,9 @@ import TournamentSettings from './TournamentSettings'
 import TeamManager from './TeamManager'
 import { TournamentUpcomingFixtures } from './TournamentLivePanel'
 import TeamAnalyticsPanel from './TeamAnalyticsPanel'
+import TournamentRankingsFullView, {
+  type TournamentRankingsFocus,
+} from './TournamentRankingsFullView'
 import { useTournamentOptions } from '../hooks/useTournamentOptions'
 import TournamentLeadPrepHint from './TournamentLeadPrepHint'
 
@@ -70,6 +73,8 @@ export default function Dashboard({
   const [dashBatMetric, setDashBatMetric] = useState<DashboardBatMetric>('batRating')
   const [dashBowlMetric, setDashBowlMetric] = useState<DashboardBowlMetric>('bowlRating')
   const [dashBatPosFilter, setDashBatPosFilter] = useState<BattingPositionFilter>('all')
+  const [rankingsExpanded, setRankingsExpanded] = useState(false)
+  const [squadFocusPlayerId, setSquadFocusPlayerId] = useState<string | null>(null)
 
   useEffect(() => {
     setSidebarCollapsed(typeof window !== 'undefined' && localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1')
@@ -145,8 +150,10 @@ export default function Dashboard({
   const teamAnalyticsDocked =
     selectedTeam != null && analyticsTeam != null && analyticsTeam.id === selectedTeam.id
 
-  function handleSelectTeam(teamId: string) {
+  function handleSelectTeam(teamId: string, playerId?: string | null) {
     setAnalyticsTeamId(null)
+    setRankingsExpanded(false)
+    setSquadFocusPlayerId(playerId ?? null)
     setSelectedTeamId(teamId)
   }
 
@@ -197,6 +204,11 @@ export default function Dashboard({
               onOpenTeamAnalytics={() => setAnalyticsTeamId(selectedTeam.id)}
               teamAnalyticsOpen={teamAnalyticsDocked}
               onCloseTeamAnalytics={() => setAnalyticsTeamId(null)}
+              initialSelectedPlayerId={squadFocusPlayerId}
+              statsSeasonYear={selectedYear}
+              teamAnalyticsOverlayOpen={
+                analyticsTeam != null && !teamAnalyticsDocked
+              }
             />
           </main>
         </div>
@@ -268,6 +280,17 @@ export default function Dashboard({
           )}
         </div>
 
+        {rankingsExpanded ? (
+          <TournamentRankingsFullView
+            teams={teams}
+            tournamentName={tournament?.name ?? 'Tournament'}
+            seasonYear={selectedYear}
+            onBack={() => setRankingsExpanded(false)}
+            onOpenPlayerInTeam={(focus: TournamentRankingsFocus) => {
+              handleSelectTeam(focus.teamId, focus.playerId)
+            }}
+          />
+        ) : (
         <div className="dashboard-content">
           <section className="dashboard-left">
             <div className="tournament-section-panel">
@@ -305,7 +328,16 @@ export default function Dashboard({
               />
             </div>
             <div className="tournament-section-panel">
-              <h2 className="tournament-section-head">Player ratings</h2>
+              <div className="tournament-section-head-row">
+                <h2 className="tournament-section-head">Player ratings</h2>
+                <button
+                  type="button"
+                  className="tm-btn tm-btn-sm tournament-rankings-expand"
+                  onClick={() => setRankingsExpanded(true)}
+                >
+                  Expand full rankings
+                </button>
+              </div>
               <div className="tournament-section-body tournament-section-body--rankings">
                 <div className="rankings-metric-bar">
                   <label className="rankings-metric-label">
@@ -410,6 +442,7 @@ export default function Dashboard({
             </div>
           </section>
         </div>
+        )}
       </main>
     </div>
 

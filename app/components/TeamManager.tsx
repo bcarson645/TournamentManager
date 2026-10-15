@@ -187,6 +187,11 @@ interface TeamManagerProps {
   /** Team analytics shown in the player panel column (does not block squad). */
   teamAnalyticsOpen?: boolean
   onCloseTeamAnalytics?: () => void
+  /** Open team workspace with this squad row selected (e.g. from tournament rankings). */
+  initialSelectedPlayerId?: string | null
+  statsSeasonYear?: number
+  /** Team analytics open as fullscreen overlay (hide inline squad stats). */
+  teamAnalyticsOverlayOpen?: boolean
 }
 
 export default function TeamManager({
@@ -201,6 +206,9 @@ export default function TeamManager({
   onOpenTeamAnalytics,
   teamAnalyticsOpen = false,
   onCloseTeamAnalytics,
+  initialSelectedPlayerId = null,
+  statsSeasonYear = 2026,
+  teamAnalyticsOverlayOpen = false,
 }: TeamManagerProps) {
   const squadStoreVersion = useSyncExternalStore(subscribeSquadStore, getSquadStoreVersion, getSquadStoreVersion)
   const [dashBatMetric, setDashBatMetric] = useState<DashboardBatMetric>('batRating')
@@ -269,6 +277,15 @@ export default function TeamManager({
   })
 
   const [selectedPlayer, setSelectedPlayer] = useState<SquadPlayer | null>(null)
+  const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false)
+
+  const showInlineSquadStats =
+    sidePanelCollapsed && !teamAnalyticsOpen && !teamAnalyticsOverlayOpen
+
+  function selectPlayer(p: SquadPlayer | null) {
+    setSelectedPlayer(p)
+    if (p) setSidePanelCollapsed(false)
+  }
 
   const playerTournamentRanks = useMemo(
     () =>
@@ -443,6 +460,13 @@ export default function TeamManager({
     setReserves(reapplied.reserves)
     setImpactSubs(reapplied.impactSubs)
   }, [team.id, format, gender, squadStoreVersion])
+
+  useEffect(() => {
+    if (!initialSelectedPlayerId) return
+    const all = [...startingXI, ...reserves, ...impactSubs]
+    const found = all.find((p) => p.id === initialSelectedPlayerId)
+    if (found) selectPlayer(found)
+  }, [initialSelectedPlayerId, startingXI, reserves, impactSubs])
 
   const avgFirstInnings = useMemo(() => generateAvgScore(team.id), [team.id])
   const last10 = useMemo(() => generateLast10(team.id), [team.id])
@@ -1051,7 +1075,11 @@ export default function TeamManager({
       </div>
 
       {/* Scrollable squad body + player stats panel (always visible) */}
-      <div className="tm-body-layout tm-body-with-panel">
+      <div
+        className={
+          'tm-body-layout' + (showInlineSquadStats ? '' : ' tm-body-with-panel')
+        }
+      >
         <div className="tm-squad-body">
           <SquadTable
             cricketFormat={format}
@@ -1063,57 +1091,77 @@ export default function TeamManager({
             impactSubs={impactSubs}
             onUpdate={handleUpdate}
             selectedPlayerId={selectedPlayer?.id ?? null}
-            onSelectPlayer={(p) => setSelectedPlayer(p)}
+            onSelectPlayer={(p) => selectPlayer(p)}
             onAddPlayer={handleAddPlayer}
             onCreateCustomPlayer={handleCreateCustomPlayer}
+            showPerfStats={showInlineSquadStats}
+            tournamentName={tournamentName}
+            seasonYear={statsSeasonYear}
           />
         </div>
-        <div
-          className="tm-panel-resize-handle"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize side panel"
-          onMouseDown={handlePanelResizeStart}
-        />
-        {teamAnalyticsOpen ? (
-          <TeamAnalyticsPanel
-            team={team}
-            tournamentId={tournamentId}
-            format={format}
-            allTeams={allTeams}
-            batRating={teamBatRatings[team.id] ?? 0}
-            bowlRating={teamBowlingRatings[team.id] ?? 0}
-            tournamentName={tournamentName}
-            onClose={() => onCloseTeamAnalytics?.()}
-            mode="docked"
-            panelWidth={playerPanelWidth}
-          />
+        {!showInlineSquadStats ? (
+          <>
+            <div
+              className="tm-panel-resize-handle"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize side panel"
+              onMouseDown={handlePanelResizeStart}
+            />
+            {teamAnalyticsOpen ? (
+              <TeamAnalyticsPanel
+                team={team}
+                tournamentId={tournamentId}
+                format={format}
+                allTeams={allTeams}
+                batRating={teamBatRatings[team.id] ?? 0}
+                bowlRating={teamBowlingRatings[team.id] ?? 0}
+                tournamentName={tournamentName}
+                onClose={() => onCloseTeamAnalytics?.()}
+                mode="docked"
+                panelWidth={playerPanelWidth}
+              />
+            ) : (
+              <PlayerDetailPanel
+                player={selectedPlayer}
+                tournamentName={tournamentName}
+                contextTournamentId={tournamentId}
+                panelWidth={playerPanelWidth}
+                onClose={() => setSelectedPlayer(null)}
+                onCollapsePanel={() => setSidePanelCollapsed(true)}
+                squadSlot={
+                  selectedPlayer
+                    ? startingXI.some((p) => p.id === selectedPlayer.id)
+                      ? 'starting'
+                      : 'bench'
+                    : null
+                }
+                playerIsKeeper={selectedPlayer?.keeper === true}
+                onToggleWicketKeeper={
+                  selectedPlayer && startingXI.some((p) => p.id === selectedPlayer.id)
+                    ? handleToggleWicketKeeper
+                    : undefined
+                }
+                playerIsOverseas={selectedPlayer?.overseas === true}
+                onToggleOverseas={selectedPlayer ? handleToggleOverseas : undefined}
+                onSavePlayerNote={selectedPlayer ? handleSavePlayerNote : undefined}
+                onRemoveFromSquad={selectedPlayer ? handleRemovePlayerFromSquad : undefined}
+                tournamentRankSummary={playerTournamentRanks}
+              />
+            )}
+          </>
         ) : (
-          <PlayerDetailPanel
-            player={selectedPlayer}
-            tournamentName={tournamentName}
-            contextTournamentId={tournamentId}
-            panelWidth={playerPanelWidth}
-            onClose={() => setSelectedPlayer(null)}
-            squadSlot={
-              selectedPlayer
-                ? startingXI.some((p) => p.id === selectedPlayer.id)
-                  ? 'starting'
-                  : 'bench'
-                : null
-            }
-            playerIsKeeper={selectedPlayer?.keeper === true}
-            onToggleWicketKeeper={
-              selectedPlayer && startingXI.some((p) => p.id === selectedPlayer.id)
-                ? handleToggleWicketKeeper
-                : undefined
-            }
-            playerIsOverseas={selectedPlayer?.overseas === true}
-            onToggleOverseas={selectedPlayer ? handleToggleOverseas : undefined}
-            onSavePlayerNote={selectedPlayer ? handleSavePlayerNote : undefined}
-            onRemoveFromSquad={selectedPlayer ? handleRemovePlayerFromSquad : undefined}
-            tournamentRankSummary={playerTournamentRanks}
-          />
+          <button
+            type="button"
+            className="tm-panel-expand-rail"
+            onClick={() => setSidePanelCollapsed(false)}
+            title="Show player stats panel"
+            aria-label="Show player stats panel"
+          >
+            <span className="tm-panel-expand-tab" aria-hidden>
+              ‹ Stats
+            </span>
+          </button>
         )}
       </div>
     </div>

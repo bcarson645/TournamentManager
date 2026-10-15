@@ -43,6 +43,8 @@ interface PlayerDetailPanelProps {
   onRemoveFromSquad?: () => void
   /** Ranks vs all tournament squad drafts (when editing a team in the tournament). */
   tournamentRankSummary?: PlayerTournamentRankSummary | null
+  /** Collapse side panel to show inline squad stats table instead. */
+  onCollapsePanel?: () => void
 }
 
 type StatsTab = 'batting' | 'bowling' | 'h2h'
@@ -178,6 +180,7 @@ export default function PlayerDetailPanel({
   onSavePlayerNote,
   onRemoveFromSquad,
   tournamentRankSummary = null,
+  onCollapsePanel,
 }: PlayerDetailPanelProps) {
   const [profile, setProfile] = useState<PlayerProfile>(() =>
     player ? profileForSquadPlayer(player) : makeDefaultProfile(),
@@ -287,6 +290,11 @@ export default function PlayerDetailPanel({
             <p className="pp-empty-text">
               Select a player from the squad table to view career stats.
             </p>
+            {onCollapsePanel ? (
+              <button type="button" className="tm-btn pp-empty-collapse" onClick={onCollapsePanel}>
+                ⇥ Collapse · show Stats columns
+              </button>
+            ) : null}
           </div>
         </div>
       </aside>
@@ -339,7 +347,18 @@ export default function PlayerDetailPanel({
                 onChange={(e) => setProfile((p) => ({ ...p, country: e.target.value }))}
               />
             </div>
-            <button className="pp-close" onClick={onClose} title="Close">×          </button>
+            <div className="pp-header-actions">
+              {onCollapsePanel ? (
+                <button
+                  className="tm-btn tm-btn-sm"
+                  onClick={onCollapsePanel}
+                  title="Collapse panel and show Stats columns in the squad table"
+                >
+                  ⇥ Stats
+                </button>
+              ) : null}
+              <button className="pp-close" onClick={onClose} title="Close">×          </button>
+            </div>
           </div>
 
           <div className="pp-tabs" role="tablist" aria-label="Batting bowling and head-to-head">

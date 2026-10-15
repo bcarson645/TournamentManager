@@ -25,6 +25,12 @@ import {
   computeTournamentBowlingTeamIndex,
 } from '../data/squadStore'
 import {
+  type SquadStatsScope,
+  squadPlayerBattingDisplay,
+  squadPlayerBowlingDisplay,
+  profileForSquadPlayer,
+} from '../data/squadPlayerDisplayStats'
+import {
   formatSquadRatingDisplay,
   readSquadHideBatRawColumns,
   readSquadEditFoursSixes,
@@ -466,8 +472,14 @@ function buildSquadTableHeaderRows(
   posTitle: string,
   hideLockColumn = false,
   hideBatRawCols = false,
+  showPerfStats = false,
+  perfMode: 'batting' | 'bowling' = 'batting',
+  perfScope: SquadStatsScope = 'recent',
+  onPerfModeChange?: (m: 'batting' | 'bowling') => void,
+  onPerfScopeChange?: (s: SquadStatsScope) => void,
 ) {
   const battingColSpan = hideBatRawCols ? 5 : 7
+  const perfColSpan = showPerfStats ? 6 : 0
   return (
     <>
       <tr className="group-header-row">
@@ -489,6 +501,71 @@ function buildSquadTableHeaderRows(
             <span className="group-panel-chip__label">Bowling</span>
           </div>
         </th>
+        {showPerfStats ? (
+          <th
+            colSpan={perfColSpan}
+            className={
+              'group-header group-panel-title ' +
+              (perfMode === 'batting' ? 'group-panel-title--batting' : 'group-panel-title--bowling')
+            }
+          >
+            <div className="sq-stats-head">
+              <div
+                className={
+                  'group-panel-chip ' +
+                  (perfMode === 'batting' ? 'group-panel-chip--batting' : 'group-panel-chip--bowling')
+                }
+              >
+                <span className="group-panel-chip__label">Stats</span>
+              </div>
+              <div
+                className="sq-stats-head-toggle"
+                role="tablist"
+                aria-label="Stats mode"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={perfMode === 'batting'}
+                  className={
+                    'sq-stats-head-btn' + (perfMode === 'batting' ? ' sq-stats-head-btn--active sq-stats-head-btn--bat' : '')
+                  }
+                  onClick={() => onPerfModeChange?.('batting')}
+                >
+                  Bat
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={perfMode === 'bowling'}
+                  className={
+                    'sq-stats-head-btn' + (perfMode === 'bowling' ? ' sq-stats-head-btn--active sq-stats-head-btn--bowl' : '')
+                  }
+                  onClick={() => onPerfModeChange?.('bowling')}
+                >
+                  Bowl
+                </button>
+              </div>
+              <label
+                className="sq-stats-head-scope"
+                title="Squad / recent uses prepped values, This tournament uses tournament history, Career uses career stats"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <span>Data</span>
+                <select
+                  value={perfScope}
+                  onChange={(e) => onPerfScopeChange?.(e.target.value as SquadStatsScope)}
+                  aria-label="Stats timeframe"
+                >
+                  <option value="recent">Squad / recent</option>
+                  <option value="tournament">This tournament</option>
+                  <option value="career">Career</option>
+                </select>
+              </label>
+            </div>
+          </th>
+        ) : null}
         <th colSpan={1} className="group-header group-panel-title group-panel-title--actions">
           <div className="group-panel-chip group-panel-chip--actions">
             <span className="group-panel-chip__label">Actions</span>
@@ -523,6 +600,27 @@ function buildSquadTableHeaderRows(
         <th className="th-sq-num th-bowl th-stat th-stat-bowl">SR</th>
         <th className="th-sq-num th-bowl th-stat th-stat-bowl">Avg</th>
         <th className="th-sq-num th-bowl th-stat th-stat-bowl">Rating</th>
+        {showPerfStats ? (
+          perfMode === 'batting' ? (
+            <>
+              <th className="th-sq-num th-bat th-stat th-stat-bat" title="Real batting average">Avg</th>
+              <th className="th-sq-num th-bat th-stat th-stat-bat" title="Real strike rate">SR</th>
+              <th className="th-sq-num th-bat th-stat th-stat-bat" title="Form: average of recent scores">Form</th>
+              <th className="th-sq-num th-bat th-stat th-stat-bat" title="Average batting position">Avg pos</th>
+              <th className="th-sq-num th-bat th-stat th-stat-bat" title="Last 5 innings scores (* = not out)">Recent 5</th>
+              <th className="th-sq-num th-bat th-stat th-stat-bat sq-tbd-head" title="More fields coming soon">TBD</th>
+            </>
+          ) : (
+            <>
+              <th className="th-sq-num th-bowl th-stat th-stat-bowl" title="Real wickets per innings">W/inn</th>
+              <th className="th-sq-num th-bowl th-stat th-stat-bowl" title="Real overs per innings">O/inn</th>
+              <th className="th-sq-num th-bowl th-stat th-stat-bowl" title="Real economy">Econ</th>
+              <th className="th-sq-num th-bowl th-stat th-stat-bowl" title="Real bowling average">B Avg</th>
+              <th className="th-sq-num th-bowl th-stat th-stat-bowl" title="Last 5 bowling performances">Recent 5</th>
+              <th className="th-sq-num th-bowl th-stat th-stat-bowl sq-tbd-head" title="More fields coming soon">TBD</th>
+            </>
+          )
+        ) : null}
         <th className={`th-lock th-core${hideLockColumn ? ' th-lock--none' : ''}`}>
           {hideLockColumn ? (
             <span className="th-lock-reserves-mute" title="Locks not used for reserves">
@@ -539,6 +637,97 @@ function buildSquadTableHeaderRows(
       </tr>
     </>
   )
+}
+
+function PerfCells({
+  player,
+  section,
+  index,
+  mode,
+  scope,
+  tournamentName,
+  seasonYear,
+}: {
+  player: SquadPlayer
+  section: RosterSection
+  index: number
+  mode: 'batting' | 'bowling'
+  scope: SquadStatsScope
+  tournamentName: string
+  seasonYear: number
+}) {
+  const profile = profileForSquadPlayer(player)
+  const cell = (v: string, key: string, bowl: boolean) => (
+    <td
+      key={key}
+      className={'sq-num sq-stat sq-perf-cell ' + (bowl ? 'sq-stat-bowl' : 'sq-stat-bat')}
+    >
+      {v}
+    </td>
+  )
+  if (mode === 'batting') {
+    const s = squadPlayerBattingDisplay(
+      player,
+      profile,
+      section,
+      index,
+      scope,
+      tournamentName,
+      seasonYear,
+    )
+    return (
+      <>
+        {cell(fmt2(s.average), 'avg', false)}
+        {cell(fmt2(s.strikeRate), 'sr', false)}
+        {cell(fmt2(s.form), 'form', false)}
+        {cell(s.avgPosition > 0 ? String(s.avgPosition) : '—', 'pos', false)}
+        <td
+          key="recent"
+          className="sq-stat sq-stat-bat sq-recent-cell"
+          title={recentBattingTitle(profile)}
+        >
+          {recentBatting(profile)}
+        </td>
+        {cell('—', 'tbd', false)}
+      </>
+    )
+  }
+  const s = squadPlayerBowlingDisplay(player, profile, scope, tournamentName, seasonYear)
+  return (
+    <>
+      {cell(fmt2(s.wicketsPerInnings), 'w', true)}
+      {cell(fmt2(s.oversPerInnings), 'o', true)}
+      {cell(fmt2(s.economy), 'e', true)}
+      {cell(fmt2(s.bowlingAverage), 'a', true)}
+      <td
+        key="recent"
+        className="sq-stat sq-stat-bowl sq-recent-cell"
+        title="No recent bowling figures in dataset"
+      >
+        —
+      </td>
+      {cell('—', 'tbd', true)}
+    </>
+  )
+}
+
+function recentBatting(profile: { recentInnings?: { score: number; notOut: boolean }[] }): string {
+  const recent = (profile.recentInnings ?? []).slice(0, 5)
+  if (recent.length === 0) return '—'
+  return recent.map((inn) => `${inn.score}${inn.notOut ? '*' : ''}`).join(' · ')
+}
+
+function recentBattingTitle(profile: {
+  recentInnings?: { score: number; notOut: boolean }[]
+}): string {
+  const recent = (profile.recentInnings ?? []).slice(0, 5)
+  if (recent.length === 0) return 'No recent innings in dataset'
+  return 'Last 5 innings scores (* = not out). Balls not tracked in dataset.'
+}
+
+function fmt2(n: number): string {
+  if (!Number.isFinite(n)) return '—'
+  return n.toFixed(2)
 }
 
 /**
@@ -587,6 +776,10 @@ interface SquadTableProps {
   onAddPlayer?: (dbEntry: PlayerDbEntry, target: 'reserves' | 'impact') => void
   /** Add a named player with blank (zero) stats to reserves for manual editing. */
   onCreateCustomPlayer?: (name: string) => void
+  /** Extra read-only "Real stats" section to the right of bowling (shown when panel collapsed). */
+  showPerfStats?: boolean
+  tournamentName?: string
+  seasonYear?: number
 }
 
 export default function SquadTable({
@@ -602,7 +795,12 @@ export default function SquadTable({
   onSelectPlayer,
   onAddPlayer,
   onCreateCustomPlayer,
+  showPerfStats = false,
+  tournamentName = '',
+  seasonYear = 2026,
 }: SquadTableProps) {
+  const [perfMode, setPerfMode] = useState<'batting' | 'bowling'>('batting')
+  const [perfScope, setPerfScope] = useState<SquadStatsScope>('recent')
   const [swapSource, setSwapSource] = useState<{ section: RosterSection; index: number } | null>(null)
   const [addQueryRes, setAddQueryRes] = useState('')
   const [addQueryImp, setAddQueryImp] = useState('')
@@ -1427,6 +1625,17 @@ export default function SquadTable({
         >
           {Number.isNaN(player.bowlRating) ? '–' : formatSquadRatingDisplay(player.bowlRating, ratingDp)}
         </td>
+        {showPerfStats ? (
+          <PerfCells
+            player={player}
+            section={section}
+            index={index}
+            mode={perfMode}
+            scope={perfScope}
+            tournamentName={tournamentName}
+            seasonYear={seasonYear}
+          />
+        ) : null}
         <td className="sq-lock sq-core">
           {section !== 'reserves' && (
             <input
@@ -1512,6 +1721,16 @@ export default function SquadTable({
           >
             {formatSquadRatingDisplay(totBowlRating, 2)}
           </td>
+          {showPerfStats ? (
+            <>
+              <td className="sq-num sq-stat sq-perf-cell sq-totals-empty" />
+              <td className="sq-num sq-stat sq-perf-cell sq-totals-empty" />
+              <td className="sq-num sq-stat sq-perf-cell sq-totals-empty" />
+              <td className="sq-num sq-stat sq-perf-cell sq-totals-empty" />
+              <td className="sq-stat sq-perf-cell sq-totals-empty" />
+              <td className="sq-num sq-stat sq-perf-cell sq-totals-empty" />
+            </>
+          ) : null}
           <td className="sq-lock sq-core sq-totals-lock">{lockBulkHeaderButton(section)}</td>
         </tr>
       </tfoot>
@@ -1526,7 +1745,7 @@ export default function SquadTable({
   const addResultsRes = useMemo(() => searchPlayers(addQueryRes, existingNames), [addQueryRes, existingNames])
   const addResultsImp = useMemo(() => searchPlayers(addQueryImp, existingNames), [addQueryImp, existingNames])
 
-  const squadColumnCount = hideBatRawCols ? 18 : 20
+  const squadColumnCount = (hideBatRawCols ? 18 : 20) + (showPerfStats ? 6 : 0)
   const squadTableClass = [
     'squad-table',
     valueSteppers ? 'squad-table--value-steppers' : '',
@@ -1535,6 +1754,12 @@ export default function SquadTable({
   ]
     .filter(Boolean)
     .join(' ')
+
+  const perfHeaderArgs = {
+    perfScope,
+    onPerfModeChange: setPerfMode,
+    onPerfScopeChange: setPerfScope,
+  } as const
 
   return (
     <div className="squad-table-container">
@@ -1613,7 +1838,7 @@ export default function SquadTable({
         <div className="squad-table-wrap">
           <table className={squadTableClass}>
             <thead>
-              {buildSquadTableHeaderRows('Pos', 'Line-up order in the starting XI (1–11)', false, hideBatRawCols)}
+              {buildSquadTableHeaderRows('Pos', 'Line-up order in the starting XI (1–11)', false, hideBatRawCols, showPerfStats, perfMode, perfHeaderArgs.perfScope, perfHeaderArgs.onPerfModeChange, perfHeaderArgs.onPerfScopeChange)}
             </thead>
             <tbody>{startingXI.map((p, i) => renderRow(p, i, 'starting'))}</tbody>
             {renderTotalsRow(startingXI, 'starting')}
@@ -1632,6 +1857,11 @@ export default function SquadTable({
                   'Par batting position 1–11 for rating (bench/impact: pick the slot to compare in the par table)',
                   false,
                   hideBatRawCols,
+                  showPerfStats,
+                  perfMode,
+                  perfHeaderArgs.perfScope,
+                  perfHeaderArgs.onPerfModeChange,
+                  perfHeaderArgs.onPerfScopeChange,
                 )}
               </thead>
               <tbody>
@@ -1739,6 +1969,11 @@ export default function SquadTable({
                 'Par batting position 1–11 for rating (bench/impact: pick the slot to compare in the par table)',
                 true,
                 hideBatRawCols,
+                showPerfStats,
+                perfMode,
+                perfHeaderArgs.perfScope,
+                perfHeaderArgs.onPerfModeChange,
+                perfHeaderArgs.onPerfScopeChange,
               )}
             </thead>
             <tbody>{reserves.map((p, i) => renderRow(p, i, 'reserves'))}</tbody>
