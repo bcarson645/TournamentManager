@@ -20,6 +20,7 @@ import Dashboard from './components/Dashboard'
 import AppNavSidebar, { type HomeNavId } from './components/AppNavSidebar'
 import PlayerTeamManagement from './components/PlayerTeamManagement'
 import OutrightsSection from './components/OutrightsSection'
+import MonitoringSection from './components/monitoring/MonitoringSection'
 import TournamentPrepAssignments from './components/TournamentPrepAssignments'
 import TournamentPrepTeamsPage from './components/TournamentPrepTeamsPage'
 import type { PrepTeamsTarget } from './data/prepNavigation'
@@ -153,7 +154,10 @@ function computeHomeTournamentRailRows(
 }
 
 const PLACEHOLDER_LABELS: Record<
-  Exclude<HomeNavId, 'tournament-manager' | 'prep-assignments' | 'outrights' | 'player-team'>,
+  Exclude<
+    HomeNavId,
+    'tournament-manager' | 'prep-assignments' | 'outrights' | 'monitoring' | 'player-team'
+  >,
   string
 > = {
   settings: 'Settings',
@@ -479,6 +483,17 @@ export default function Home() {
         <AppNavSidebar activeId={homeNav} onSelect={handleHomeNavSelect} />
         <main className="app-home-main app-home-main--flush">
           <OutrightsSection />
+        </main>
+      </div>
+    )
+  }
+
+  if (homeNav === 'monitoring') {
+    return (
+      <div className="app-home-shell">
+        <AppNavSidebar activeId={homeNav} onSelect={handleHomeNavSelect} />
+        <main className="app-home-main app-home-main--flush">
+          <MonitoringSection />
         </main>
       </div>
     )

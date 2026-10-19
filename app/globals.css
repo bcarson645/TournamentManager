@@ -19089,3 +19089,529 @@ html[data-theme="light"] .sq-perf-cell {
 html[data-theme="light"] .teams-table-subrow th {
   background: rgba(15, 23, 42, 0.04);
 }
+
+/* —— Trading UI: Monitoring (cricket fixtures demo) —— */
+.monitoring-root {
+  --mon-navy: #1a3a5c;
+  --mon-navy-dark: #0f2840;
+  --mon-panel: #f4f6f9;
+  --mon-panel-border: #c5cdd8;
+  --mon-text: #1e293b;
+  --mon-muted: #64748b;
+  --mon-live: #16a34a;
+  --mon-warn: #f59e0b;
+  --mon-extreme: #e11d48;
+  min-height: calc(100vh - 3.5rem);
+  display: flex;
+  flex-direction: column;
+  background: #e8ecf1;
+  color: var(--mon-text);
+  font-size: 0.8rem;
+}
+
+.monitoring-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 1rem;
+  background: linear-gradient(180deg, var(--mon-navy) 0%, var(--mon-navy-dark) 100%);
+  color: #e2e8f0;
+  border-bottom: 2px solid #0a1f33;
+}
+
+.monitoring-topbar-title {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.monitoring-topbar-product {
+  opacity: 0.85;
+}
+
+.monitoring-topbar-sep {
+  margin: 0 0.35rem;
+  opacity: 0.5;
+}
+
+.monitoring-topbar-page {
+  color: #fff;
+}
+
+.monitoring-topbar-meta {
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+
+.monitoring-shell {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 280px;
+  gap: 0;
+  min-height: 0;
+  height: calc(100vh - 3.5rem - 2.25rem);
+}
+
+.monitoring-left,
+.monitoring-center,
+.monitoring-right {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--mon-panel-border);
+  background: #fff;
+}
+
+.monitoring-right {
+  border-right: none;
+  background: var(--mon-panel);
+}
+
+.monitoring-left-search {
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid var(--mon-panel-border);
+  background: #eef1f5;
+}
+
+.monitoring-search-input {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--mon-panel-border);
+  border-radius: 3px;
+  font-size: 0.78rem;
+}
+
+.monitoring-date-filter {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--mon-panel-border);
+  background: #fafbfc;
+}
+
+.monitoring-date-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mon-muted);
+  flex: 1;
+}
+
+.monitoring-date-input {
+  font-size: 0.76rem;
+  padding: 0.25rem 0.35rem;
+  border: 1px solid var(--mon-panel-border);
+  border-radius: 3px;
+}
+
+.monitoring-date-clear {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--mon-panel-border);
+  background: #fff;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.monitoring-tree {
+  padding: 0.35rem 0;
+}
+
+.monitoring-tree-sport {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: none;
+  background: #dfe6ee;
+  font-weight: 800;
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.monitoring-cricket-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.monitoring-tree-sport-label {
+  flex: 1;
+}
+
+.monitoring-tree-chevron {
+  opacity: 0.6;
+  font-size: 0.7rem;
+}
+
+.monitoring-tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.monitoring-tree-comp {
+  border-bottom: 1px solid #e8ecf0;
+}
+
+.monitoring-tree-comp-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem 0.35rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.monitoring-tree-count {
+  color: var(--mon-muted);
+  font-weight: 500;
+}
+
+.monitoring-tree-fixtures {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.35rem;
+}
+
+.monitoring-tree-fixture-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.3rem 0.55rem 0.3rem 1.75rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: var(--mon-text);
+}
+
+.monitoring-tree-fixture-btn:hover,
+.monitoring-tree-fixture-btn--active {
+  background: rgba(26, 58, 92, 0.08);
+}
+
+.monitoring-tree-fixture-btn--active {
+  border-left: 3px solid var(--mon-navy);
+  padding-left: calc(1.75rem - 3px);
+}
+
+.monitoring-tree-fixture-meta {
+  color: var(--mon-muted);
+  font-size: 0.68rem;
+}
+
+.monitoring-center-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: #eef1f5;
+  border-bottom: 1px solid var(--mon-panel-border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.monitoring-center-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.monitoring-center-count {
+  font-size: 0.72rem;
+  color: var(--mon-muted);
+}
+
+.monitoring-fixture-list {
+  padding: 0.35rem;
+}
+
+.monitoring-fixture-card {
+  margin-bottom: 0.35rem;
+  border: 1px solid var(--mon-panel-border);
+  border-radius: 2px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.monitoring-fixture-card--highlight {
+  box-shadow: inset 0 0 0 1px var(--mon-navy);
+}
+
+.monitoring-fixture-summary {
+  display: grid;
+  grid-template-columns: 3rem minmax(8rem, 1.4fr) minmax(6rem, 1fr) 4.5rem 5rem 4.5rem auto 1.2rem;
+  gap: 0.35rem 0.5rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: none;
+  background: #fff;
+  text-align: left;
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.monitoring-fixture-card:nth-child(even) .monitoring-fixture-summary {
+  background: #fafbfc;
+}
+
+.monitoring-fixture-card--expanded .monitoring-fixture-summary {
+  background: #f0f4f8;
+  border-bottom: 1px solid var(--mon-panel-border);
+}
+
+.monitoring-fixture-id {
+  font-size: 0.68rem;
+  color: var(--mon-muted);
+  text-transform: uppercase;
+}
+
+.monitoring-fixture-vs {
+  margin: 0 0.25rem;
+  color: var(--mon-muted);
+  font-weight: 400;
+}
+
+.monitoring-fixture-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.monitoring-fixture-score-sep {
+  margin: 0 0.25rem;
+  color: var(--mon-muted);
+  font-weight: 400;
+}
+
+.monitoring-status {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.15rem 0.35rem;
+  border-radius: 2px;
+  text-align: center;
+}
+
+.monitoring-status--live {
+  background: rgba(22, 163, 74, 0.15);
+  color: var(--mon-live);
+}
+
+.monitoring-status--upcoming,
+.monitoring-status--scheduled {
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--mon-muted);
+}
+
+.monitoring-fixture-detail {
+  font-size: 0.72rem;
+  color: var(--mon-muted);
+}
+
+.monitoring-scout-pill {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  color: var(--mon-muted);
+  text-align: center;
+}
+
+.monitoring-scout-pill--on {
+  background: rgba(22, 163, 74, 0.2);
+  border-color: rgba(22, 163, 74, 0.45);
+  color: #15803d;
+}
+
+.monitoring-fixture-chevron {
+  text-align: center;
+  color: var(--mon-muted);
+  font-size: 0.65rem;
+}
+
+.monitoring-fixture-markets {
+  padding: 0.5rem 0.65rem 0.65rem;
+  background: #f8fafc;
+}
+
+.monitoring-markets-head {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.72rem;
+  color: var(--mon-muted);
+  margin-bottom: 0.35rem;
+}
+
+.monitoring-markets-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+}
+
+.monitoring-markets-table th,
+.monitoring-markets-table td {
+  padding: 0.3rem 0.45rem;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.monitoring-markets-table th {
+  background: #e8edf3;
+  font-weight: 700;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.monitoring-th-price,
+.monitoring-td-price {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.monitoring-trade-btn {
+  margin-top: 0.45rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid var(--mon-navy);
+  background: var(--mon-navy);
+  color: #fff;
+  border-radius: 2px;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.monitoring-right-title {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #e8edf3;
+  border-bottom: 1px solid var(--mon-panel-border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.monitoring-alerts {
+  padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.monitoring-alert {
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--mon-panel-border);
+  border-radius: 2px;
+  background: #fff;
+  border-left-width: 4px;
+}
+
+.monitoring-alert--info {
+  border-left-color: #3b82f6;
+}
+
+.monitoring-alert--warn {
+  border-left-color: var(--mon-warn);
+}
+
+.monitoring-alert--extreme {
+  border-left-color: var(--mon-extreme);
+  background: #fff5f7;
+}
+
+.monitoring-alert-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.76rem;
+}
+
+.monitoring-alert-ago {
+  font-size: 0.68rem;
+  color: var(--mon-muted);
+  white-space: nowrap;
+}
+
+.monitoring-alert-fixture {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.monitoring-alert-body {
+  margin: 0.25rem 0 0;
+  font-size: 0.72rem;
+  color: var(--mon-muted);
+  line-height: 1.35;
+}
+
+.monitoring-info-card {
+  margin: 0.45rem;
+  padding: 0.5rem;
+  border: 1px dashed var(--mon-panel-border);
+  background: #fff;
+  border-radius: 2px;
+}
+
+.monitoring-info-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.monitoring-info-body {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--mon-muted);
+  line-height: 1.4;
+}
+
+.monitoring-empty {
+  padding: 1.5rem 0.75rem;
+  color: var(--mon-muted);
+  text-align: center;
+}
+
+.monitoring-empty--compact {
+  padding: 0.75rem;
+  font-size: 0.74rem;
+}
+
+@media (max-width: 1100px) {
+  .monitoring-shell {
+    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .monitoring-right {
+    grid-column: 1 / -1;
+    max-height: 220px;
+    border-top: 1px solid var(--mon-panel-border);
+  }
+
+  .monitoring-fixture-summary {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+  }
+}
