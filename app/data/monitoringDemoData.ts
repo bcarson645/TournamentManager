@@ -1,5 +1,8 @@
 export type MonitoringFixtureStatus = 'live' | 'upcoming' | 'stumps' | 'scheduled'
 
+/** Which side is currently batting; null if not in an innings (e.g. pre-match). */
+export type MonitoringBattingSide = 'home' | 'away'
+
 export interface MonitoringMarketRow {
   market: string
   selection: string
@@ -7,8 +10,17 @@ export interface MonitoringMarketRow {
   line?: string
 }
 
+/** One swappable price board (dropdown + labelled odds boxes). */
+export interface MonitoringPriceBoard {
+  id: string
+  name: string
+  columns: { label: string; value: string }[]
+}
+
 export interface MonitoringFixture {
   id: string
+  /** Display ref on fixture row (Expert Radar style). */
+  refId: string
   competitionId: string
   competitionLabel: string
   formatLabel: string
@@ -20,7 +32,13 @@ export interface MonitoringFixture {
   statusDetail: string
   scoreHome: string
   scoreAway: string
+  /** Set when a team is at the crease; omit when neither side is batting. */
+  battingSide?: MonitoringBattingSide
   scouting: boolean
+  /** Short live commentary line for the match popup. */
+  commentary: string
+  /** Boards available in the row market dropdowns. */
+  priceBoards: MonitoringPriceBoard[]
   markets: MonitoringMarketRow[]
 }
 
@@ -39,6 +57,9 @@ export interface MonitoringAlert {
   agoLabel: string
 }
 
+/** Default market columns in the centre toolbar (swappable via dropdown). */
+export const MONITORING_DEFAULT_SLOT_BOARD_IDS = ['match', 'eng-inns', 'aus-inns', 'session']
+
 export const MONITORING_COMPETITIONS: MonitoringCompetition[] = [
   { id: 'ashes', label: 'The Ashes (Test)', fixtureCount: 1 },
   { id: 'ipl', label: 'Indian Premier League', fixtureCount: 2 },
@@ -48,6 +69,7 @@ export const MONITORING_COMPETITIONS: MonitoringCompetition[] = [
 export const MONITORING_FIXTURES: MonitoringFixture[] = [
   {
     id: 'ashes-5th-test',
+    refId: 'CR-ASH-5TH',
     competitionId: 'ashes',
     competitionLabel: 'The Ashes',
     formatLabel: 'Test',
@@ -59,7 +81,57 @@ export const MONITORING_FIXTURES: MonitoringFixture[] = [
     statusDetail: 'Lunch',
     scoreHome: '312/4',
     scoreAway: '289 & 41/0',
+    battingSide: 'away',
     scouting: true,
+    commentary:
+      'England are 312 for 4 at lunch on day 3 — Australia are 41 for 0 in their second innings (289 all out).',
+    priceBoards: [
+      {
+        id: 'match',
+        name: 'Match winner',
+        columns: [
+          { label: '1', value: '2.10' },
+          { label: 'X', value: '4.60' },
+          { label: '2', value: '1.85' },
+        ],
+      },
+      {
+        id: 'eng-inns',
+        name: 'Eng 1st inns runs',
+        columns: [
+          { label: 'O', value: '1.92' },
+          { label: '325.5', value: '—' },
+          { label: 'U', value: '1.88' },
+        ],
+      },
+      {
+        id: 'aus-inns',
+        name: 'Aus 2nd inns runs',
+        columns: [
+          { label: 'O', value: '1.73' },
+          { label: '193.5', value: '—' },
+          { label: 'U', value: '2.37' },
+        ],
+      },
+      {
+        id: 'session',
+        name: 'Session runs',
+        columns: [
+          { label: 'O', value: '1.85' },
+          { label: '142.5', value: '—' },
+          { label: 'U', value: '1.95' },
+        ],
+      },
+      {
+        id: 'top-bat',
+        name: 'Top batter',
+        columns: [
+          { label: 'Root', value: '5.50' },
+          { label: 'Smith', value: '6.20' },
+          { label: '—', value: '—' },
+        ],
+      },
+    ],
     markets: [
       { market: 'Match winner', selection: 'England', price: '2.10' },
       { market: 'Match winner', selection: 'Australia', price: '1.85' },
@@ -71,6 +143,7 @@ export const MONITORING_FIXTURES: MonitoringFixture[] = [
   },
   {
     id: 'ipl-mi-csk',
+    refId: 'CR-IPL-4412',
     competitionId: 'ipl',
     competitionLabel: 'IPL',
     formatLabel: 'T20',
@@ -82,7 +155,37 @@ export const MONITORING_FIXTURES: MonitoringFixture[] = [
     statusDetail: '14.2 ov',
     scoreHome: '142/3',
     scoreAway: '—',
+    battingSide: 'home',
     scouting: true,
+    commentary: 'Mumbai Indians are 142 for 3 after 14.2 overs — Chennai yet to bat.',
+    priceBoards: [
+      {
+        id: 'match',
+        name: 'Match winner',
+        columns: [
+          { label: '1', value: '1.72' },
+          { label: '2', value: '2.18' },
+        ],
+      },
+      {
+        id: 'inns',
+        name: 'MI innings runs',
+        columns: [
+          { label: 'O', value: '1.90' },
+          { label: '178.5', value: '—' },
+          { label: 'U', value: '1.90' },
+        ],
+      },
+      {
+        id: 'powerplay',
+        name: 'PP runs',
+        columns: [
+          { label: 'O', value: '1.88' },
+          { label: '52.5', value: '—' },
+          { label: 'U', value: '1.92' },
+        ],
+      },
+    ],
     markets: [
       { market: 'Match winner', selection: 'Mumbai Indians', price: '1.72' },
       { market: 'Match winner', selection: 'Chennai Super Kings', price: '2.18' },
@@ -92,6 +195,7 @@ export const MONITORING_FIXTURES: MonitoringFixture[] = [
   },
   {
     id: 'ipl-rcb-kkr',
+    refId: 'CR-IPL-4413',
     competitionId: 'ipl',
     competitionLabel: 'IPL',
     formatLabel: 'T20',
@@ -104,6 +208,26 @@ export const MONITORING_FIXTURES: MonitoringFixture[] = [
     scoreHome: '—',
     scoreAway: '—',
     scouting: false,
+    commentary: 'Match starts in under 5 hours. Line-ups expected within the hour.',
+    priceBoards: [
+      {
+        id: 'match',
+        name: 'Match winner',
+        columns: [
+          { label: '1', value: '1.95' },
+          { label: '2', value: '1.95' },
+        ],
+      },
+      {
+        id: 'inns',
+        name: 'RCB innings runs',
+        columns: [
+          { label: 'O', value: '1.88' },
+          { label: '165.5', value: '—' },
+          { label: 'U', value: '1.92' },
+        ],
+      },
+    ],
     markets: [
       { market: 'Match winner', selection: 'RCB', price: '1.95' },
       { market: 'Match winner', selection: 'KKR', price: '1.95' },
@@ -112,6 +236,7 @@ export const MONITORING_FIXTURES: MonitoringFixture[] = [
   },
   {
     id: 'wbbl-six-sta',
+    refId: 'CR-WBBL-882',
     competitionId: 'wbbl',
     competitionLabel: 'WBBL',
     formatLabel: 'T20',
@@ -123,7 +248,28 @@ export const MONITORING_FIXTURES: MonitoringFixture[] = [
     statusDetail: '8.4 ov',
     scoreHome: '78/1',
     scoreAway: '—',
+    battingSide: 'home',
     scouting: true,
+    commentary: 'Sydney Sixers are 78 for 1 after 8.4 overs in the chase.',
+    priceBoards: [
+      {
+        id: 'match',
+        name: 'Match winner',
+        columns: [
+          { label: '1', value: '1.65' },
+          { label: '2', value: '2.30' },
+        ],
+      },
+      {
+        id: 'inns',
+        name: 'Sixers innings runs',
+        columns: [
+          { label: 'O', value: '1.91' },
+          { label: '142.5', value: '—' },
+          { label: 'U', value: '1.89' },
+        ],
+      },
+    ],
     markets: [
       { market: 'Match winner', selection: 'Sixers', price: '1.65' },
       { market: 'Match winner', selection: 'Stars', price: '2.30' },
@@ -132,6 +278,7 @@ export const MONITORING_FIXTURES: MonitoringFixture[] = [
   },
   {
     id: 'wbbl-per-adl',
+    refId: 'CR-WBBL-883',
     competitionId: 'wbbl',
     competitionLabel: 'WBBL',
     formatLabel: 'T20',
@@ -144,6 +291,26 @@ export const MONITORING_FIXTURES: MonitoringFixture[] = [
     scoreHome: '—',
     scoreAway: '—',
     scouting: false,
+    commentary: 'Scheduled for tomorrow morning — prices are early markets only.',
+    priceBoards: [
+      {
+        id: 'match',
+        name: 'Match winner',
+        columns: [
+          { label: '1', value: '1.78' },
+          { label: '2', value: '2.05' },
+        ],
+      },
+      {
+        id: 'inns',
+        name: 'Scorchers innings runs',
+        columns: [
+          { label: 'O', value: '1.90' },
+          { label: '148.5', value: '—' },
+          { label: 'U', value: '1.90' },
+        ],
+      },
+    ],
     markets: [
       { market: 'Match winner', selection: 'Scorchers', price: '1.78' },
       { market: 'Match winner', selection: 'Strikers', price: '2.05' },
