@@ -18,6 +18,8 @@ import {
   pullRatingsFromTournamentManager,
   removeSimulatorGroup,
   portSimulatorPricesToLinkedOutrights,
+  cancelSimulatorRun,
+  clearSimulatorResults,
   runSimulatorForTournament,
   saveSimulatorConfig,
   subscribeSimulatorStore,
@@ -63,10 +65,10 @@ export default function OutrightsSimulatorPanel({
     setPortMsg(msg)
   }
 
-  function handleRun() {
+  async function handleRun() {
     setRunning(true)
     try {
-      runSimulatorForTournament(tournamentId, format)
+      await runSimulatorForTournament(tournamentId, format)
     } finally {
       setRunning(false)
     }
@@ -113,8 +115,10 @@ export default function OutrightsSimulatorPanel({
     <div className="outrights-simulator">
       <p className="settings-lead">Simulate {tournamentName} using the match betting model</p>
       <p className="settings-par-score-hint">
-        Monte Carlo simulation of group fixtures plus knockout stage. Enable custom groups to run round-robin within each
-        group and advance top teams to knockouts. Modelled prices for Tournament Winner use win probabilities from the latest run.
+        Monte Carlo simulation of group fixtures plus knockout stage (extra matches for teams that advance). Each run also
+        simulates tournament runs (Gamma around Prep Raw per innings) and wickets (Poisson from XI expected wickets per
+        game), using squad Raw and opponent bowling / conditions. Top run-scorer and top wicket-taker probabilities are
+        from how often each player leads across iterations.
       </p>
 
       <div className="outrights-simulator-sanity-block">
@@ -475,14 +479,99 @@ export default function OutrightsSimulatorPanel({
         </table>
       </div>
 
-      <button
-        type="button"
-        className="outrights-action-btn outrights-action-btn-primary outrights-simulator-run"
-        disabled={running || teams.length < 2}
-        onClick={handleRun}
-      >
-        {running ? 'Running...' : `Run ${config.iterations.toLocaleString()} simulations`}
-      </button>
+      <div className="outrights-simulator-run-row">
+        <button
+          type="button"
+          className="outrights-action-btn outrights-action-btn-primary outrights-simulator-run"
+          disabled={running || teams.length < 2}
+          onClick={handleRun}
+        >
+          {running ? 'Running...' : `Run ${config.iterations.toLocaleString()} simulations`}
+        </button>
+        {running ? (
+          <button
+            type="button"
+            className="outrights-action-btn outrights-action-btn-sm"
+            onClick={() => {
+              cancelSimulatorRun()
+              setRunning(false)
+            }}
+          >
+            Cancel
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="outrights-action-btn outrights-action-btn-sm"
+          onClick={() => clearSimulatorResults(tournamentId)}
+        >
+          Clear saved results
+        </button>
+      </div>
+
+      {config.lastPlayerResult ? (
+        <section className="outrights-simulator-results outrights-simulator-results--players">
+          <h4 className="outrights-simulator-results-title">Top run-scorer (simulated)</h4>
+          <p className="settings-par-score-hint">
+            Mean runs = average tournament runs across {config.lastPlayerResult.iterations.toLocaleString()} paths.
+            Games = average XI innings (group + knockouts when team qualifies).
+          </p>
+          <div className="outrights-simulator-table-wrap">
+            <table className="outrights-simulator-table outrights-simulator-results-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Team</th>
+                  <th>Top %</th>
+                  <th>Avg runs</th>
+                  <th>Avg games</th>
+                  <th>#1 finishes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {config.lastPlayerResult.batters.slice(0, 25).map((row) => (
+                  <tr key={row.playerId}>
+                    <td>{row.name}</td>
+                    <td>{row.teamName}</td>
+                    <td>{(row.topProbability * 100).toFixed(2)}%</td>
+                    <td>{row.meanTotal.toFixed(1)}</td>
+                    <td>{row.meanGamesPlayed.toFixed(2)}</td>
+                    <td>{row.topCount.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <h4 className="outrights-simulator-results-title">Top wicket-taker (simulated)</h4>
+          <div className="outrights-simulator-table-wrap">
+            <table className="outrights-simulator-table outrights-simulator-results-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Team</th>
+                  <th>Top %</th>
+                  <th>Avg wkts</th>
+                  <th>Avg games</th>
+                  <th>#1 finishes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {config.lastPlayerResult.bowlers.slice(0, 25).map((row) => (
+                  <tr key={row.playerId}>
+                    <td>{row.name}</td>
+                    <td>{row.teamName}</td>
+                    <td>{(row.topProbability * 100).toFixed(2)}%</td>
+                    <td>{row.meanTotal.toFixed(2)}</td>
+                    <td>{row.meanGamesPlayed.toFixed(2)}</td>
+                    <td>{row.topCount.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {config.lastResult ? (
         <section className="outrights-simulator-results">

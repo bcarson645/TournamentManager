@@ -3,6 +3,8 @@ import { IPL_PLAYERS } from './iplPlayers'
 import { THE_HUNDRED_MEN_SQUADS } from './theHundredMenPlayers'
 import { makeDefaultProfile, getProfileForPlayer } from './playerProfile'
 import { calculateBatRating, calculateBowlRating } from './ratingBenchmarks'
+import { DEFAULT_MATCH_PREP_SETTINGS } from './matchPrepSettings'
+import { computePrepRawEffective } from './prepRawFormula'
 import type { CricketFormat, Gender } from './tournaments'
 
 export type BowlAction = 'SEAM' | 'OFS' | 'LEG'
@@ -28,14 +30,11 @@ export interface SquadPlayer {
   playerId: string
   name: string
   btCaz: number
-  /** Seeded / profile base raw average; read-only in squad table. */
+  /** Prep formula Raw before **RAW ADJ** (Excel M without trailing manual tweak). */
   rawBase: number
-  /** User adjustment; effective `raw` = rawBase + rawAdj for ratings. */
+  /** Trader tweak (Excel `-1` on end of formula); `raw` = rawBase + rawAdj. */
   rawAdj: number
-  /**
-   * Effective raw average for batting rating (`rawBase + rawAdj`).
-   * Recomputed when `rawBase` or `rawAdj` changes; kept in sync in storage.
-   */
+  /** Effective Prep Raw (`rawBase + rawAdj`). */
   raw: number
   /** Batting SR.CAZ — runs per ball (not per 100 balls). */
   sr: number
@@ -181,12 +180,17 @@ function makePlayer(
   const bowl = profile.careerBowling
 
   const btCaz = bat.average || 0
-  const rawBase = bat.average ? Math.round(bat.average * 0.85 * 10) / 10 : 0
   const rawAdj = 0
-  const raw = Math.round((rawBase + rawAdj) * 10) / 10
   const sr = bat.strikeRate ?? 0
-
   const ratingParPosition = Math.max(1, Math.min(11, position))
+  const { rawBase, raw } = computePrepRawEffective({
+    btCaz,
+    battingPosition: ratingParPosition,
+    format,
+    matchPrep: DEFAULT_MATCH_PREP_SETTINGS,
+    battingAtHome: true,
+    rawAdj,
+  })
   const batRating = calculateBatRating(btCaz, raw, sr, ratingParPosition, format, gender)
 
   const econ = bowl.economy || 0
@@ -244,11 +248,17 @@ export function createCustomSquadBlank(
   const bat = profile.careerBatting
   const bowl = profile.careerBowling
   const btCaz = bat.average || 0
-  const rawBase = bat.average ? Math.round(bat.average * 0.85 * 10) / 10 : 0
   const rawAdj = 0
-  const raw = Math.round((rawBase + rawAdj) * 10) / 10
   const sr = bat.strikeRate ?? 0
   const ratingParPosition = 11
+  const { rawBase, raw } = computePrepRawEffective({
+    btCaz,
+    battingPosition: ratingParPosition,
+    format,
+    matchPrep: DEFAULT_MATCH_PREP_SETTINGS,
+    battingAtHome: true,
+    rawAdj,
+  })
   const batRating = calculateBatRating(btCaz, raw, sr, ratingParPosition, format, gender)
 
   const econ = bowl.economy || 0

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { buildCompetitorPrices } from '../data/fixtureDetail'
 import { computeFixtureMatchModel } from '../data/fixtureMatchModel'
 import { getTeamsByTournament } from '../data/teams'
 import { getTournamentLiveData, type FormResult } from '../data/tournamentLiveData'
@@ -103,6 +104,17 @@ function isFixtureTba(fixture: { homeTeamId: string; awayTeamId: string; stage?:
   return fixture.stage === 'qualifier' || fixture.stage === 'final' || !fixture.homeTeamId || !fixture.awayTeamId
 }
 
+const SHORT_BOOK_NAMES: Record<string, string> = {
+  Bet365: '365',
+  Betfair: 'BF',
+  Pinnacle: 'PIN',
+  Sportsbet: 'SB',
+}
+
+function shortBookName(book: string): string {
+  return SHORT_BOOK_NAMES[book] ?? book.slice(0, 3).toUpperCase()
+}
+
 export function TournamentPointsTable({
   tournamentId,
   tournamentName,
@@ -197,20 +209,23 @@ export function TournamentUpcomingFixtures({
   tournamentId,
   format,
   embedded = false,
+  onSelectFixture,
 }: {
   tournamentId: string
   format: CricketFormat
   embedded?: boolean
+  onSelectFixture?: (fixtureId: string) => void
 }) {
   const [view, setView] = useState<FixturesView>('fixtures')
   const [showModelOdds, setShowModelOdds] = useState(false)
+  const [showCrawled, setShowCrawled] = useState(false)
   const [fixturesPage, setFixturesPage] = useState(0)
   const [resultsPage, setResultsPage] = useState(0)
   const teams = getTeamsByTournament(tournamentId)
   const live = useMemo(() => getTournamentLiveData(tournamentId), [tournamentId])
   const teamById = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams])
 
-  useSyncExternalStore(
+  const simulatorVersion = useSyncExternalStore(
     subscribeSimulatorStore,
     getSimulatorStoreVersion,
     getSimulatorStoreVersion,
@@ -252,6 +267,25 @@ export function TournamentUpcomingFixtures({
     safeResultsPage * FIXTURES_PAGE_SIZE + FIXTURES_PAGE_SIZE,
   )
 
+  const fixtureModels = useMemo(() => {
+    if (!showModelOdds) return new Map<string, ReturnType<typeof computeFixtureMatchModel>>()
+    const map = new Map<string, ReturnType<typeof computeFixtureMatchModel>>()
+    for (const fixture of visibleFixtures) {
+      if (isFixtureTba(fixture)) continue
+      map.set(
+        fixture.id,
+        computeFixtureMatchModel(
+          tournamentId,
+          fixture.homeTeamId,
+          fixture.awayTeamId,
+          format,
+          fixture.id,
+        ),
+      )
+    }
+    return map
+  }, [showModelOdds, visibleFixtures, tournamentId, format, simulatorVersion])
+
   useEffect(() => {
     setFixturesPage(0)
     setResultsPage(0)
@@ -291,14 +325,30 @@ export function TournamentUpcomingFixtures({
             </button>
           </div>
           {view === 'fixtures' ? (
-            <button
-              type="button"
-              className={'outrights-fixtures-model-toggle' + (showModelOdds ? ' outrights-fixtures-model-toggle--active' : '')}
-              aria-pressed={showModelOdds}
-              onClick={() => setShowModelOdds((on) => !on)}
-            >
-              Model odds
-            </button>
+            <>
+              <button
+                type="button"
+                className={'outrights-fixtures-model-toggle' + (showModelOdds ? ' outrights-fixtures-model-toggle--active' : '')}
+                aria-pressed={showModelOdds}
+                onClick={() => setShowModelOdds((on) => !on)}
+              >
+                Model odds
+              </button>
+              <button
+                type="button"
+                className={'outrights-fixtures-model-toggle' + (showCrawled ? ' outrights-fixtures-model-toggle--active' : '')}
+                aria-pressed={showCrawled}
+                title="Show crawled book prices beside model prices"
+                onClick={() => {
+                  setShowCrawled((on) => {
+                    if (!on) setShowModelOdds(true)
+                    return !on
+                  })
+                }}
+              >
+                Crawled
+              </button>
+            </>
           ) : null}
         </div>
       </div>
@@ -311,61 +361,103 @@ export function TournamentUpcomingFixtures({
           <ul className={'outrights-fixtures-list' + (showModelOdds ? ' outrights-fixtures-list--model' : '')}>
             {visibleFixtures.map((fixture) => {
               const tba = isFixtureTba(fixture)
-              const model =
-                showModelOdds && !tba
-                  ? computeFixtureMatchModel(
-                      tournamentId,
-                      fixture.homeTeamId,
-                      fixture.awayTeamId,
-                      format,
-                      fixture.id,
-                    )
-                  : null
+              const model = showModelOdds && !tba ? fixtureModels.get(fixture.id) ?? null : null
               const homeCode = live.teamCodes[fixture.homeTeamId] ?? '?'
               const awayCode = live.teamCodes[fixture.awayTeamId] ?? '?'
+              const books = model && showCrawled
+                ? buildCompetitorPrices(model.homeFairPrice, model.awayFairPrice)
+                : []
+              const openHub = () => onSelectFixture?.(fixture.id)
 
               return (
-                <li key={fixture.id} className="outrights-fixtures-item">
-                  <div className="outrights-fixtures-when">
-                    <span className="outrights-fixtures-date">{fixture.dateLabel}</span>
-                    <span className="outrights-fixtures-time">{fixture.time}</span>
-                    <span className="outrights-fixtures-md">{fixtureMatchLabel(fixture)}</span>
-                    {fixture.venue ? (
-                      <span className="outrights-fixtures-venue">{fixture.venue}</span>
-                    ) : null}
-                  </div>
-                  <div className="outrights-fixtures-match">
-                    {tba ? (
-                      <span className="outrights-fixtures-team outrights-fixtures-team--tba">TBA vs TBA</span>
-                    ) : model ? (
-                      <div className="outrights-fixtures-teams-with-model" aria-label="Match model win probabilities">
-                        <div className="outrights-fixtures-team-row">
+                <li
+                  key={fixture.id}
+                  className={
+                    'outrights-fixtures-item' +
+                    (onSelectFixture ? ' outrights-fixtures-item--clickable' : '')
+                  }
+                >
+                  <button
+                    type="button"
+                    className="outrights-fixtures-item-btn"
+                    disabled={!onSelectFixture}
+                    onClick={openHub}
+                  >
+                    <div className="outrights-fixtures-when">
+                      <span className="outrights-fixtures-date">{fixture.dateLabel}</span>
+                      <span className="outrights-fixtures-time">{fixture.time}</span>
+                      <span className="outrights-fixtures-md">{fixtureMatchLabel(fixture)}</span>
+                      {fixture.venue ? (
+                        <span className="outrights-fixtures-venue">{fixture.venue}</span>
+                      ) : null}
+                      {!model ? (
+                        <span className="outrights-fixtures-codes">
+                          {homeCode} v {awayCode}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="outrights-fixtures-match">
+                      {tba ? (
+                        <span className="outrights-fixtures-team outrights-fixtures-team--tba">TBA vs TBA</span>
+                      ) : model ? (
+                        <div className="outrights-fixtures-teams-with-model" aria-label="Match model win probabilities">
+                          <div className="outrights-fixtures-team-row">
+                            <span className="outrights-fixtures-team">{teamName(fixture.homeTeamId)}</span>
+                            <span className="outrights-fixtures-prices">
+                              <span className="outrights-fixtures-model-inline">
+                                <span className="outrights-fixtures-model-prob">{formatWinProb(model.homeWinProb)}</span>
+                                <span className="outrights-fixtures-model-price">{formatOutrightOddsValue(model.homeFairPrice)}</span>
+                              </span>
+                              {books.length > 0 ? (
+                                <span className="outrights-fixtures-crawled">
+                                  {books.map((b) => (
+                                    <span key={b.book} className="outrights-fixtures-chip" title={b.book}>
+                                      <small>{shortBookName(b.book)}</small>
+                                      {b.homePrice.toFixed(2)}
+                                    </span>
+                                  ))}
+                                </span>
+                              ) : null}
+                            </span>
+                          </div>
+                          <div className="outrights-fixtures-team-row">
+                            <span className="outrights-fixtures-team">{teamName(fixture.awayTeamId)}</span>
+                            <span className="outrights-fixtures-prices">
+                              <span className="outrights-fixtures-model-inline">
+                                <span className="outrights-fixtures-model-prob">{formatWinProb(model.awayWinProb)}</span>
+                                <span className="outrights-fixtures-model-price">{formatOutrightOddsValue(model.awayFairPrice)}</span>
+                              </span>
+                              {books.length > 0 ? (
+                                <span className="outrights-fixtures-crawled">
+                                  {books.map((b) => (
+                                    <span key={b.book} className="outrights-fixtures-chip" title={b.book}>
+                                      <small>{shortBookName(b.book)}</small>
+                                      {b.awayPrice.toFixed(2)}
+                                    </span>
+                                  ))}
+                                </span>
+                              ) : null}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
                           <span className="outrights-fixtures-team">{teamName(fixture.homeTeamId)}</span>
-                          <span className="outrights-fixtures-model-inline">
-                            <span className="outrights-fixtures-model-prob">{formatWinProb(model.homeWinProb)}</span>
-                            <span className="outrights-fixtures-model-price">{formatOutrightOddsValue(model.homeFairPrice)}</span>
-                          </span>
-                        </div>
-                        <div className="outrights-fixtures-team-row">
+                          <span className="outrights-fixtures-vs">vs</span>
                           <span className="outrights-fixtures-team">{teamName(fixture.awayTeamId)}</span>
-                          <span className="outrights-fixtures-model-inline">
-                            <span className="outrights-fixtures-model-prob">{formatWinProb(model.awayWinProb)}</span>
-                            <span className="outrights-fixtures-model-price">{formatOutrightOddsValue(model.awayFairPrice)}</span>
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <span className="outrights-fixtures-team">{teamName(fixture.homeTeamId)}</span>
-                        <span className="outrights-fixtures-vs">vs</span>
-                        <span className="outrights-fixtures-team">{teamName(fixture.awayTeamId)}</span>
-                      </>
-                    )}
-                  </div>
-                  {!model ? (
-                    <span className="outrights-fixtures-codes">
-                      {homeCode} v {awayCode}
-                    </span>
+                        </>
+                      )}
+                    </div>
+                  </button>
+                  {onSelectFixture ? (
+                    <button
+                      type="button"
+                      className="outrights-fixtures-hubbtn"
+                      onClick={openHub}
+                      aria-label={`Open match hub: ${teamName(fixture.homeTeamId)} vs ${teamName(fixture.awayTeamId)}`}
+                    >
+                      Hub ↗
+                    </button>
                   ) : null}
                 </li>
               )

@@ -71,7 +71,9 @@ function simulateKnockoutMatch(
   ratings: Record<string, TeamSimulatorRating>,
   config: SimulationConfig,
   rng: () => number,
+  knockoutLog?: PairFixture[],
 ): string {
+  knockoutLog?.push({ homeTeamId: homeId, awayTeamId: awayId })
   const home = ratingFor(ratings, homeId)
   const away = ratingFor(ratings, awayId)
   const result = sampleMatchWithMargin(
@@ -109,7 +111,7 @@ function generateGroupRoundRobin(teamIds: string[]): PairFixture[] {
   return fixtures
 }
 
-function buildSimulationFixtures(config: SimulationConfig, teams: Team[]): PairFixture[] {
+export function buildSimulationFixtures(config: SimulationConfig, teams: Team[]): PairFixture[] {
   const teamIds = teams.map((t) => t.id)
 
   if (config.structure === 'ipl' && teamIds.length >= 2 && !config.useGroups) {
@@ -182,6 +184,7 @@ function resolveTournamentOutcome(
   ratings: Record<string, TeamSimulatorRating>,
   config: SimulationConfig,
   rng: () => number,
+  knockoutLog?: PairFixture[],
 ): TournamentOutcome {
   if (structure === 'league') {
     const champion = table[0]?.teamId ?? ''
@@ -194,7 +197,7 @@ function resolveTournamentOutcome(
     const second = table[1]?.teamId
     if (!first) return { champion: '', finalists: [] }
     if (!second) return { champion: first, finalists: [first] }
-    const champion = simulateKnockoutMatch(first, second, ratings, config, rng)
+    const champion = simulateKnockoutMatch(first, second, ratings, config, rng, knockoutLog)
     return { champion, finalists: [first, second] }
   }
 
@@ -206,20 +209,20 @@ function resolveTournamentOutcome(
     if (!first) return { champion: '', finalists: [] }
     if (!second) return { champion: first, finalists: [first] }
     if (!third || !fourth) {
-      const champion = simulateKnockoutMatch(first, second, ratings, config, rng)
+      const champion = simulateKnockoutMatch(first, second, ratings, config, rng, knockoutLog)
       return { champion, finalists: [first, second] }
     }
 
-    const q1Winner = simulateKnockoutMatch(first, second, ratings, config, rng)
+    const q1Winner = simulateKnockoutMatch(first, second, ratings, config, rng, knockoutLog)
     const q1Loser = q1Winner === first ? second : first
-    const elimWinner = simulateKnockoutMatch(third, fourth, ratings, config, rng)
-    const q2Winner = simulateKnockoutMatch(q1Loser, elimWinner, ratings, config, rng)
+    const elimWinner = simulateKnockoutMatch(third, fourth, ratings, config, rng, knockoutLog)
+    const q2Winner = simulateKnockoutMatch(q1Loser, elimWinner, ratings, config, rng, knockoutLog)
     const finalHome =
       table.findIndex((r) => r.teamId === q1Winner) <= table.findIndex((r) => r.teamId === q2Winner)
         ? q1Winner
         : q2Winner
     const finalAway = finalHome === q1Winner ? q2Winner : q1Winner
-    const champion = simulateKnockoutMatch(finalHome, finalAway, ratings, config, rng)
+    const champion = simulateKnockoutMatch(finalHome, finalAway, ratings, config, rng, knockoutLog)
     return { champion, finalists: [q1Winner, q2Winner] }
   }
 
@@ -229,8 +232,8 @@ function resolveTournamentOutcome(
     const third = table[2]?.teamId
     if (!first) return { champion: '', finalists: [] }
     if (!second || !third) return { champion: first, finalists: [first] }
-    const elimWinner = simulateKnockoutMatch(second, third, ratings, config, rng)
-    const champion = simulateKnockoutMatch(first, elimWinner, ratings, config, rng)
+    const elimWinner = simulateKnockoutMatch(second, third, ratings, config, rng, knockoutLog)
+    const champion = simulateKnockoutMatch(first, elimWinner, ratings, config, rng, knockoutLog)
     return { champion, finalists: [first, elimWinner] }
   }
 
@@ -239,10 +242,72 @@ function resolveTournamentOutcome(
     const champion = top4[0] ?? ''
     return { champion, finalists: champion ? [champion] : [] }
   }
-  const semi1 = simulateKnockoutMatch(top4[0], top4[3] ?? top4[1], ratings, config, rng)
-  const semi2 = simulateKnockoutMatch(top4[1], top4[2] ?? top4[0], ratings, config, rng)
-  const champion = simulateKnockoutMatch(semi1, semi2, ratings, config, rng)
+  const semi1 = simulateKnockoutMatch(top4[0], top4[3] ?? top4[1], ratings, config, rng, knockoutLog)
+  const semi2 = simulateKnockoutMatch(top4[1], top4[2] ?? top4[0], ratings, config, rng, knockoutLog)
+  const champion = simulateKnockoutMatch(semi1, semi2, ratings, config, rng, knockoutLog)
   return { champion, finalists: [semi1, semi2] }
+}
+
+export interface TournamentIterationResult {
+  outcome: TournamentOutcome
+  knockoutMatches: PairFixture[]
+}
+
+/** One Monte Carlo draw: group stage results plus any knockout fixtures for that path. */
+export function simulateTournamentIteration(
+  config: SimulationConfig,
+  teamIds: string[],
+  groupFixtures: PairFixture[],
+  rng: () => number,
+): TournamentIterationResult {
+  const points = new Map<string, number>()
+  const runMargin = new Map<string, number>()
+  for (const id of teamIds) {
+    points.set(id, 0)
+    runMargin.set(id, 0)
+  }
+
+  for (const fix of groupFixtures) {
+    const homeId = fix.homeTeamId
+    const awayId = fix.awayTeamId
+    if (!homeId || !awayId) continue
+
+    const home = ratingFor(config.teamRatings, homeId)
+    const away = ratingFor(config.teamRatings, awayId)
+    const result = sampleMatchWithMargin(
+      {
+        homeBatRating: home.battingRating,
+        homeBowlRating: home.bowlingRating,
+        awayBatRating: away.battingRating,
+        awayBowlRating: away.bowlingRating,
+        conditions: config.conditions,
+        homeAdjustPct: config.homeAdjustPct,
+        format: config.format,
+      },
+      home.conditions,
+      rng,
+    )
+    const winnerId = result.winner === 'home' ? homeId : awayId
+    points.set(winnerId, (points.get(winnerId) ?? 0) + 2)
+    runMargin.set(homeId, (runMargin.get(homeId) ?? 0) + result.margin)
+    runMargin.set(awayId, (runMargin.get(awayId) ?? 0) - result.margin)
+  }
+
+  const table =
+    config.structure === 'ipl' || !(config.useGroups && config.groups.some((g) => g.teamIds.length >= 2))
+      ? standings(teamIds, points, runMargin)
+      : qualifyFromGroups(config.groups, config.advancePerGroup, points, runMargin)
+
+  const knockoutMatches: PairFixture[] = []
+  const outcome = resolveTournamentOutcome(
+    config.structure,
+    table,
+    config.teamRatings,
+    config,
+    rng,
+    knockoutMatches,
+  )
+  return { outcome, knockoutMatches }
 }
 
 export function runTournamentSimulation(config: SimulationConfig): TournamentSimulationResult {
@@ -259,44 +324,7 @@ export function runTournamentSimulation(config: SimulationConfig): TournamentSim
   const rng = mulberry32(config.iterations * 9973 + config.tournamentId.length)
 
   for (let i = 0; i < config.iterations; i++) {
-    const points = new Map<string, number>()
-    const runMargin = new Map<string, number>()
-    for (const id of teamIds) {
-      points.set(id, 0)
-      runMargin.set(id, 0)
-    }
-
-    for (const fix of fixtures) {
-      const homeId = fix.homeTeamId
-      const awayId = fix.awayTeamId
-      if (!homeId || !awayId) continue
-
-      const home = ratingFor(config.teamRatings, homeId)
-      const away = ratingFor(config.teamRatings, awayId)
-      const result = sampleMatchWithMargin(
-        {
-          homeBatRating: home.battingRating,
-          homeBowlRating: home.bowlingRating,
-          awayBatRating: away.battingRating,
-          awayBowlRating: away.bowlingRating,
-          conditions: config.conditions,
-          homeAdjustPct: config.homeAdjustPct,
-          format: config.format,
-        },
-        home.conditions,
-        rng,
-      )
-      const winnerId = result.winner === 'home' ? homeId : awayId
-      points.set(winnerId, (points.get(winnerId) ?? 0) + 2)
-      runMargin.set(homeId, (runMargin.get(homeId) ?? 0) + result.margin)
-      runMargin.set(awayId, (runMargin.get(awayId) ?? 0) - result.margin)
-    }
-
-    const table =
-      config.structure === 'ipl' || !(config.useGroups && config.groups.some((g) => g.teamIds.length >= 2))
-        ? standings(teamIds, points, runMargin)
-        : qualifyFromGroups(config.groups, config.advancePerGroup, points, runMargin)
-    const outcome = resolveTournamentOutcome(config.structure, table, config.teamRatings, config, rng)
+    const { outcome } = simulateTournamentIteration(config, teamIds, fixtures, rng)
     if (outcome.champion) winCounts.set(outcome.champion, (winCounts.get(outcome.champion) ?? 0) + 1)
     for (const finalistId of outcome.finalists) {
       finalistCounts.set(finalistId, (finalistCounts.get(finalistId) ?? 0) + 1)

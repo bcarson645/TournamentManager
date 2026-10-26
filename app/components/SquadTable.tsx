@@ -17,6 +17,8 @@ import {
   MAX_IMPACT_SUBS,
   ratingParPosForBatCalc,
 } from '../data/squad'
+import type { TournamentMatchPrepSettings } from '../data/matchPrepSettings'
+import { recomputePlayerPrepRaw, recomputeSquadPrepRaw } from '../data/prepRawFormula'
 import { searchPlayers, PlayerDbEntry } from '../data/playerDatabase'
 import { type CricketFormat, type Gender, scheduledInningsOversForFormat } from '../data/tournaments'
 import { calculateBatRating, calculateBowlRating } from '../data/ratingBenchmarks'
@@ -399,6 +401,23 @@ function recalcRatings(
   }))
 }
 
+function applyPrepRawThenRatings(
+  newS: SquadPlayer[],
+  newR: SquadPlayer[],
+  newI: SquadPlayer[],
+  cricketFormat: CricketFormat,
+  gender: Gender,
+  matchPrep: TournamentMatchPrepSettings,
+  battingAtHome: boolean,
+): { startingXI: SquadPlayer[]; reserves: SquadPlayer[]; impactSubs: SquadPlayer[] } {
+  const prep = recomputeSquadPrepRaw(newS, newR, newI, cricketFormat, matchPrep, battingAtHome)
+  return {
+    startingXI: recalcRatings(prep.startingXI, 'starting', cricketFormat, gender),
+    reserves: recalcRatings(prep.reserves, 'reserves', cricketFormat, gender),
+    impactSubs: recalcRatings(prep.impactSubs, 'impact', cricketFormat, gender),
+  }
+}
+
 function listFor(
   section: RosterSection,
   newS: SquadPlayer[],
@@ -767,6 +786,8 @@ interface SquadTableProps {
   impactSubEnabled: boolean
   /** Par score for team rating index: bat = (Σ ratings + par)/par, bowl = (par − Σ)/par. */
   ratingParScore: number
+  matchPrep: TournamentMatchPrepSettings
+  battingAtHome: boolean
   startingXI: SquadPlayer[]
   reserves: SquadPlayer[]
   impactSubs: SquadPlayer[]
@@ -787,6 +808,8 @@ export default function SquadTable({
   gender,
   impactSubEnabled,
   ratingParScore,
+  matchPrep,
+  battingAtHome,
   startingXI,
   reserves,
   impactSubs,
@@ -903,11 +926,16 @@ export default function SquadTable({
         return
       }
     }
-    onUpdate(
-      recalcRatings(newS, 'starting', cricketFormat, gender),
-      recalcRatings(newR, 'reserves', cricketFormat, gender),
-      recalcRatings(newI, 'impact', cricketFormat, gender),
+    const next = applyPrepRawThenRatings(
+      newS,
+      newR,
+      newI,
+      cricketFormat,
+      gender,
+      matchPrep,
+      battingAtHome,
     )
+    onUpdate(next.startingXI, next.reserves, next.impactSubs)
     setSwapSource(null)
   }
 
@@ -941,11 +969,16 @@ export default function SquadTable({
         return
       }
     }
-    onUpdate(
-      recalcRatings(newS, 'starting', cricketFormat, gender),
-      recalcRatings(newR, 'reserves', cricketFormat, gender),
-      recalcRatings(newI, 'impact', cricketFormat, gender),
+    const next = applyPrepRawThenRatings(
+      newS,
+      newR,
+      newI,
+      cricketFormat,
+      gender,
+      matchPrep,
+      battingAtHome,
     )
+    onUpdate(next.startingXI, next.reserves, next.impactSubs)
     dragItem.current = null
     dragOver.current = null
   }
@@ -966,7 +999,7 @@ export default function SquadTable({
       num = Math.round(num * 100) / 100
     }
     if (field === 'rawAdj') {
-      num = Math.round(num)
+      num = Math.round(num * 2) / 2
     }
     if (field === 'econ') {
       num = Math.round(num * 10) / 10
@@ -979,14 +1012,18 @@ export default function SquadTable({
     }
     const list = [...listFor(section, startingXI, reserves, impactSubs)]
     const prev = list[index]!
-    const updated =
-      field === 'rawAdj'
-        ? {
-            ...prev,
-            rawAdj: num,
-            raw: Math.round((prev.rawBase + num) * 10) / 10,
-          }
-        : { ...prev, [field]: num }
+    let updated: SquadPlayer =
+      field === 'rawAdj' ? { ...prev, rawAdj: num } : { ...prev, [field]: num }
+    if (field === 'rawAdj' || field === 'btCaz') {
+      updated = recomputePlayerPrepRaw(
+        updated,
+        section,
+        index,
+        cricketFormat,
+        matchPrep,
+        battingAtHome,
+      )
+    }
     if (field === 'rawAdj' || field === 'btCaz' || field === 'sr') {
       updated.batRating = calculateBatRating(
         updated.btCaz,
@@ -1306,7 +1343,7 @@ export default function SquadTable({
           <>
             <td
               className="sq-num sq-stat sq-stat-bat sq-raw-base"
-              title={`Base ${player.rawBase.toFixed(1)} + RAW ADJ ${player.rawAdj >= 0 ? '+' : ''}${player.rawAdj} → effective for rating`}
+              title={`Prep base ${player.rawBase.toFixed(1)} + RAW ADJ ${player.rawAdj >= 0 ? '+' : ''}${player.rawAdj} (Excel trailing tweak)`}
             >
               {player.raw.toFixed(1)}
             </td>

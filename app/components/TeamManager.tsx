@@ -17,6 +17,13 @@ import {
 import { CricketFormat, Gender } from '../data/tournaments'
 import { ratingParPosForBatCalc } from '../data/squad'
 import { calculateBatRating, calculateBowlRating } from '../data/ratingBenchmarks'
+import {
+  getMatchPrepSettings,
+  setMatchPrepSettings,
+  type TournamentMatchPrepSettings,
+} from '../data/matchPrepSettings'
+import { recomputeSquadPrepRaw, teamBattingScalar } from '../data/prepRawFormula'
+import { getRawRunsRatioTable } from '../data/battingBaseRunsRatio'
 import { PlayerDbEntry } from '../data/playerDatabase'
 import { GROUNDS, Ground } from '../data/grounds'
 import SquadTable from './SquadTable'
@@ -76,7 +83,17 @@ function reapplySquadRatings(
   impactSubs: SquadPlayer[],
   format: CricketFormat,
   gender: Gender,
+  matchPrep: TournamentMatchPrepSettings,
+  battingAtHome: boolean,
 ): { startingXI: SquadPlayer[]; reserves: SquadPlayer[]; impactSubs: SquadPlayer[] } {
+  const prep = recomputeSquadPrepRaw(
+    startingXI,
+    reserves,
+    impactSubs,
+    format,
+    matchPrep,
+    battingAtHome,
+  )
   const mapList = (list: SquadPlayer[], section: 'starting' | 'reserves' | 'impact') =>
     list.map((p, i) => {
       const n = normalizeBowlStats(normalizeSquadPlayer(p), format, gender)
@@ -93,9 +110,9 @@ function reapplySquadRatings(
         bowlRating: calculateBowlRating(n.econ, n.bowlWpo, n.bowlAvg, n.overs, format, gender),
       }
     })
-  const sx = mapList(startingXI, 'starting')
-  const rx = mapList(reserves, 'reserves')
-  const ix = mapList(impactSubs, 'impact')
+  const sx = mapList(prep.startingXI, 'starting')
+  const rx = mapList(prep.reserves, 'reserves')
+  const ix = mapList(prep.impactSubs, 'impact')
   const [s, r, i] = sanitizeKeeperFlags(sx, rx, ix)
   return { startingXI: s, reserves: r, impactSubs: i }
 }
@@ -229,6 +246,13 @@ export default function TeamManager({
   )
 
   const { impactSubEnabled, ratingParScore } = useTournamentOptions(tournamentId)
+  const [matchPrep, setMatchPrep] = useState(() => getMatchPrepSettings(tournamentId))
+  const [battingAtHome, setBattingAtHome] = useState(true)
+
+  useEffect(() => {
+    setMatchPrep(getMatchPrepSettings(tournamentId))
+  }, [tournamentId])
+
   const coverageVersion = useSyncExternalStore(
     subscribeCoverageRota,
     getCoverageRotaVersion,
@@ -245,34 +269,43 @@ export default function TeamManager({
   const [startingXI, setStartingXI] = useState<SquadPlayer[]>(() => {
     const stored = getStoredSquad(team.id)
     if (!stored) return makeSquadForTeam(team.id, format, gender).startingXI
+    const prep = getMatchPrepSettings(tournamentId)
     return reapplySquadRatings(
       stored.startingXI,
       stored.reserves,
       stored.impactSubs ?? [],
       format,
       gender,
+      prep,
+      true,
     ).startingXI
   })
   const [reserves, setReserves] = useState<SquadPlayer[]>(() => {
     const stored = getStoredSquad(team.id)
     if (!stored) return makeSquadForTeam(team.id, format, gender).reserves
+    const prep = getMatchPrepSettings(tournamentId)
     return reapplySquadRatings(
       stored.startingXI,
       stored.reserves,
       stored.impactSubs ?? [],
       format,
       gender,
+      prep,
+      true,
     ).reserves
   })
   const [impactSubs, setImpactSubs] = useState<SquadPlayer[]>(() => {
     const stored = getStoredSquad(team.id)
     if (!stored) return []
+    const prep = getMatchPrepSettings(tournamentId)
     return reapplySquadRatings(
       stored.startingXI,
       stored.reserves,
       stored.impactSubs ?? [],
       format,
       gender,
+      prep,
+      true,
     ).impactSubs
   })
 
@@ -363,7 +396,16 @@ export default function TeamManager({
             const seed = data.stats![p.name]
             if (!seed) return p
             const next = playerNeedsDbHydrate(p)
-              ? mergeDbStatsIntoSquadPlayer(p, seed, format, gender, section, i)
+              ? mergeDbStatsIntoSquadPlayer(
+                  p,
+                  seed,
+                  format,
+                  gender,
+                  section,
+                  i,
+                  matchPrep,
+                  battingAtHome,
+                )
               : mergeDbBowlingIntoSquadPlayer(p, seed, format, gender)
             if (squadPlayerDatasetStatsDiffers(p, next)) changed = true
             return next
@@ -379,7 +421,7 @@ export default function TeamManager({
         return null
       }
     },
-    [format, gender],
+    [format, gender, matchPrep, battingAtHome],
   )
 
   useEffect(() => {
@@ -401,6 +443,8 @@ export default function TeamManager({
           stored.impactSubs ?? [],
           format,
           gender,
+          matchPrep,
+          battingAtHome,
         )
         sxi = reapplied.startingXI
         res = reapplied.reserves
@@ -424,6 +468,8 @@ export default function TeamManager({
           hydrated.impactSubs,
           format,
           gender,
+          matchPrep,
+          battingAtHome,
         )
         sxi = final.startingXI
         res = final.reserves
@@ -444,7 +490,7 @@ export default function TeamManager({
     return () => {
       cancelled = true
     }
-  }, [team.id, format, gender, hydrateFromDb])
+  }, [team.id, format, gender, hydrateFromDb, matchPrep, battingAtHome])
 
   /** Pull squad draft edits made elsewhere (e.g. Player Hub notes) into this panel. */
   useEffect(() => {
@@ -455,11 +501,13 @@ export default function TeamManager({
       squad.impactSubs,
       format,
       gender,
+      matchPrep,
+      battingAtHome,
     )
     setStartingXI(reapplied.startingXI)
     setReserves(reapplied.reserves)
     setImpactSubs(reapplied.impactSubs)
-  }, [team.id, format, gender, squadStoreVersion])
+  }, [team.id, format, gender, squadStoreVersion, matchPrep, battingAtHome])
 
   useEffect(() => {
     if (!initialSelectedPlayerId) return
@@ -523,6 +571,23 @@ export default function TeamManager({
       return n ?? prev
     })
   }, [startingXI, reserves, impactSubs])
+
+  function refreshSquadPrepRaw(
+    sx: SquadPlayer[],
+    sr: SquadPlayer[],
+    si: SquadPlayer[],
+    prep = matchPrep,
+    atHome = battingAtHome,
+  ) {
+    const rated = reapplySquadRatings(sx, sr, si, format, gender, prep, atHome)
+    handleUpdate(rated.startingXI, rated.reserves, rated.impactSubs)
+  }
+
+  function patchMatchPrep(patch: Partial<TournamentMatchPrepSettings>) {
+    const next = setMatchPrepSettings(tournamentId, patch)
+    setMatchPrep(next)
+    refreshSquadPrepRaw(startingXI, reserves, impactSubs, next, battingAtHome)
+  }
 
   function handleUpdate(
     newStarting: SquadPlayer[],
@@ -813,6 +878,72 @@ export default function TeamManager({
 
           <div className="tm-ribbon-surface tm-ribbon-surface--meta">
           {/* Home ground */}
+          <div className="tm-prep-factors" aria-label="Match prep factors for Raw">
+            <div className="tm-prep-factors-row">
+              <label className="tm-prep-factor">
+                <span className="tm-prep-factor-label">Home conditions</span>
+                <input
+                  type="number"
+                  className="tm-prep-factor-input"
+                  step={0.001}
+                  min={0.5}
+                  max={2}
+                  value={matchPrep.homeConditionsFactor}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value)
+                    if (!Number.isFinite(v)) return
+                    patchMatchPrep({ homeConditionsFactor: v })
+                  }}
+                />
+              </label>
+              <label className="tm-prep-factor">
+                <span className="tm-prep-factor-label">Away bowling</span>
+                <input
+                  type="number"
+                  className="tm-prep-factor-input"
+                  step={0.001}
+                  min={0.5}
+                  max={2}
+                  value={matchPrep.awayBowlingFactor}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value)
+                    if (!Number.isFinite(v)) return
+                    patchMatchPrep({ awayBowlingFactor: v })
+                  }}
+                />
+              </label>
+              <label className="tm-prep-factor tm-prep-factor--check">
+                <input
+                  type="checkbox"
+                  checked={battingAtHome}
+                  onChange={(e) => {
+                    const atHome = e.target.checked
+                    setBattingAtHome(atHome)
+                    refreshSquadPrepRaw(startingXI, reserves, impactSubs, matchPrep, atHome)
+                  }}
+                />
+                <span>Batting at home</span>
+              </label>
+            </div>
+            <details className="tm-prep-factors-par">
+              <summary>
+                Raw prep help · scalar {teamBattingScalar(battingAtHome, matchPrep).toFixed(3)} ·{' '}
+                {format} runs ratio
+              </summary>
+              <p className="tm-prep-factors-hint">
+                Raw ≈ (bt.caz × position runs ratio × team scalar) + RAW ADJ. At home: home
+                conditions ÷ away bowling.
+              </p>
+              <ol className="tm-prep-factors-par-table" aria-label="Runs ratio by batting position">
+                {getRawRunsRatioTable(format).map((r, i) => (
+                  <li key={i} title={`Bat ${i + 1}`}>
+                    {r}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          </div>
+
           <div className="tm-ground">
             <div className="tm-ground-row">
               <span className="tm-ground-label">Home Ground</span>
@@ -1086,6 +1217,8 @@ export default function TeamManager({
             gender={gender}
             impactSubEnabled={impactSubEnabled}
             ratingParScore={ratingParScore}
+            matchPrep={matchPrep}
+            battingAtHome={battingAtHome}
             startingXI={startingXI}
             reserves={reserves}
             impactSubs={impactSubs}

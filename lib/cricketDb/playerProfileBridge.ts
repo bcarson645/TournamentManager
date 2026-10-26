@@ -1,4 +1,6 @@
 import type { CareerBatting, CareerBowling, PlayerProfile, RecentInnings } from '../../app/data/playerProfile'
+import { DEFAULT_MATCH_PREP_SETTINGS } from '../../app/data/matchPrepSettings'
+import { computePrepRawBase } from '../../app/data/prepRawFormula'
 import { getCricketDb } from './client'
 import { findCanonicalByAppName, resolveCanonicalPlayerId } from './playerMerges'
 import { playerNameSimilarity } from './nameMatch'
@@ -65,7 +67,14 @@ export function getDatasetPlayerIdForAppName(appName: string, recordAlias = fals
 
 export function aggregateToSquadStatSeed(agg: PlayerT20Aggregate): SquadStatSeed {
   const btCaz = agg.average ?? 0
-  const rawBase = btCaz > 0 ? Math.round(btCaz * 0.85 * 10) / 10 : 0
+  const rawBase = computePrepRawBase({
+    btCaz,
+    battingPosition: 11,
+    format: 't20',
+    matchPrep: DEFAULT_MATCH_PREP_SETTINGS,
+    battingAtHome: true,
+    rawAdj: 0,
+  })
   const sr = agg.strikeRatePerBall ?? 0
 
   const bowlAvg = agg.bowlAverage ?? 0

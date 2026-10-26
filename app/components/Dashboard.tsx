@@ -31,6 +31,7 @@ import PlayerRankings from './PlayerRankings'
 import TournamentSettings from './TournamentSettings'
 import TeamManager from './TeamManager'
 import { TournamentUpcomingFixtures } from './TournamentLivePanel'
+import FixtureDetailView from './FixtureDetailView'
 import TeamAnalyticsPanel from './TeamAnalyticsPanel'
 import TournamentRankingsFullView, {
   type TournamentRankingsFocus,
@@ -75,6 +76,7 @@ export default function Dashboard({
   const [dashBatPosFilter, setDashBatPosFilter] = useState<BattingPositionFilter>('all')
   const [rankingsExpanded, setRankingsExpanded] = useState(false)
   const [squadFocusPlayerId, setSquadFocusPlayerId] = useState<string | null>(null)
+  const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null)
 
   useEffect(() => {
     setSidebarCollapsed(typeof window !== 'undefined' && localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1')
@@ -280,7 +282,17 @@ export default function Dashboard({
           )}
         </div>
 
-        {rankingsExpanded ? (
+        {selectedFixtureId ? (
+          <FixtureDetailView
+            tournamentId={tournamentId}
+            fixtureId={selectedFixtureId}
+            format={format}
+            gender={gender}
+            tournament={tournament}
+            onBack={() => setSelectedFixtureId(null)}
+            onSelectFixture={(id) => setSelectedFixtureId(id)}
+          />
+        ) : rankingsExpanded ? (
           <TournamentRankingsFullView
             teams={teams}
             tournamentName={tournament?.name ?? 'Tournament'}
@@ -291,6 +303,7 @@ export default function Dashboard({
             }}
           />
         ) : (
+        <>
         <div className="dashboard-content">
           <section className="dashboard-left">
             <div className="tournament-section-panel">
@@ -315,6 +328,7 @@ export default function Dashboard({
                   tournamentId={tournamentId}
                   format={format}
                   embedded
+                  onSelectFixture={(id) => setSelectedFixtureId(id)}
                 />
               </div>
             </div>
@@ -442,6 +456,7 @@ export default function Dashboard({
             </div>
           </section>
         </div>
+        </>
         )}
       </main>
     </div>

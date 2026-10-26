@@ -1,5 +1,8 @@
 import type { CricketFormat, Gender } from './tournaments'
 import { calculateBatRating, calculateBowlRating } from './ratingBenchmarks'
+import type { TournamentMatchPrepSettings } from './matchPrepSettings'
+import { DEFAULT_MATCH_PREP_SETTINGS } from './matchPrepSettings'
+import { computePrepRawEffective } from './prepRawFormula'
 import {
   SquadPlayer,
   calcWktsAndBowlAvg,
@@ -57,17 +60,26 @@ export function mergeDbStatsIntoSquadPlayer(
   gender: Gender,
   section: 'starting' | 'reserves' | 'impact',
   index: number,
+  matchPrep: TournamentMatchPrepSettings = DEFAULT_MATCH_PREP_SETTINGS,
+  battingAtHome = true,
 ): SquadPlayer {
   const rawAdj = player.rawAdj ?? 0
-  const raw = Math.round((seed.rawBase + rawAdj) * 10) / 10
   const ratingParPosition = ratingParPosForBatCalc(section, index, player)
+  const { rawBase, raw } = computePrepRawEffective({
+    btCaz: seed.btCaz,
+    battingPosition: ratingParPosition,
+    format,
+    matchPrep,
+    battingAtHome,
+    rawAdj,
+  })
   const bowling = bowlingFromSeed(seed, format, gender)
 
   return {
     ...player,
     playerId: seed.datasetPlayerId,
     btCaz: seed.btCaz,
-    rawBase: seed.rawBase,
+    rawBase,
     raw,
     sr: seed.sr,
     fours: seed.fours,

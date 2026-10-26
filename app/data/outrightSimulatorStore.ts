@@ -7,7 +7,11 @@ import {
   probabilityToFairOdds,
   type BookOddsMarketResult,
 } from './outrightOdds'
-import { runTournamentSimulation, type TournamentSimulationResult } from './tournamentSimulator'
+import {
+  runCombinedOutrightSimulationAsync,
+  type PlayerPropSimulationResult,
+} from './playerOutrightSimulator'
+import type { TournamentSimulationResult } from './tournamentSimulator'
 import { setOutrightInputPricesByEntityId, type OutrightType } from './outrightsStore'
 import type { CricketFormat } from './tournaments'
 
@@ -70,9 +74,30 @@ export interface SimulatorTournamentConfig {
   maximumPrice: number
   teamRatings: Record<string, TeamSimulatorRating>
   lastResult: TournamentSimulationResult | null
+  lastPlayerResult: PlayerPropSimulationResult | null
 }
 
 type Store = Record<string, SimulatorTournamentConfig>
+
+const PLAYER_RESULT_KEEP = 40
+
+let memoryStore: Store | null = null
+
+function slimPlayerResult(result: PlayerPropSimulationResult | null): PlayerPropSimulationResult | null {
+  if (!result) return null
+  return {
+    ...result,
+    batters: result.batters.slice(0, PLAYER_RESULT_KEEP),
+    bowlers: result.bowlers.slice(0, PLAYER_RESULT_KEEP),
+  }
+}
+
+function slimStoredRow(row: SimulatorTournamentConfig): SimulatorTournamentConfig {
+  return {
+    ...row,
+    lastPlayerResult: slimPlayerResult(row.lastPlayerResult),
+  }
+}
 
 function newGroupId(): string {
   return `grp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -123,7 +148,7 @@ function normalizeGroups(tournamentId: string, groups: SimulatorGroup[] | undefi
 function defaultConfig(tournamentId: string): SimulatorTournamentConfig {
   return {
     structure: 'league-semis-final',
-    iterations: 10000,
+    iterations: 2500,
     conditions: 1,
     homeAdjustPct: 2,
     useGroups: false,
@@ -134,25 +159,41 @@ function defaultConfig(tournamentId: string): SimulatorTournamentConfig {
     maximumPrice: 1001,
     teamRatings: defaultTeamRatings(tournamentId),
     lastResult: null,
+    lastPlayerResult: null,
   }
 }
 
 function readAll(): Store {
   if (typeof window === 'undefined') return {}
+  if (memoryStore) return memoryStore
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return {}
-    return JSON.parse(raw) as Store
+    if (!raw) {
+      memoryStore = {}
+      return memoryStore
+    }
+    const parsed = JSON.parse(raw) as Store
+    memoryStore = Object.fromEntries(
+      Object.entries(parsed).map(([id, row]) => [id, slimStoredRow(row)]),
+    )
+    return memoryStore
   } catch {
-    return {}
+    memoryStore = {}
+    return memoryStore
   }
 }
 
 function writeAll(all: Store): void {
   if (typeof window === 'undefined') return
+  memoryStore = all
   localStorage.setItem(STORAGE_KEY, JSON.stringify(all))
   simulatorStoreVersion++
   window.dispatchEvent(new CustomEvent(SIMULATOR_CHANGE_EVENT))
+}
+
+/** Drop cached sim outputs if the UI feels sluggish (large localStorage payload). */
+export function clearSimulatorResults(tournamentId: string): void {
+  saveSimulatorConfig(tournamentId, { lastResult: null, lastPlayerResult: null })
 }
 
 export function getSimulatorConfig(tournamentId: string): SimulatorTournamentConfig {
@@ -163,7 +204,7 @@ export function getSimulatorConfig(tournamentId: string): SimulatorTournamentCon
   const base = defaultTeamRatings(tournamentId)
   return {
     structure: row.structure ?? 'league-semis-final',
-    iterations: row.iterations ?? 10000,
+    iterations: row.iterations ?? 2500,
     conditions: row.conditions ?? 1,
     homeAdjustPct: row.homeAdjustPct ?? 2,
     useGroups: row.useGroups ?? false,
@@ -174,13 +215,35 @@ export function getSimulatorConfig(tournamentId: string): SimulatorTournamentCon
     maximumPrice: row.maximumPrice ?? 1001,
     teamRatings: { ...base, ...row.teamRatings },
     lastResult: row.lastResult ?? null,
+    lastPlayerResult: row.lastPlayerResult ?? null,
   }
 }
 
 export function saveSimulatorConfig(tournamentId: string, patch: Partial<SimulatorTournamentConfig>): void {
   if (typeof window === 'undefined') return
   const all = readAll()
-  all[tournamentId] = { ...getSimulatorConfig(tournamentId), ...patch }
+  const prev = all[tournamentId] ?? defaultConfig(tournamentId)
+  const base = defaultTeamRatings(tournamentId)
+  const merged: SimulatorTournamentConfig = {
+    structure: prev.structure ?? 'league-semis-final',
+    iterations: prev.iterations ?? 2500,
+    conditions: prev.conditions ?? 1,
+    homeAdjustPct: prev.homeAdjustPct ?? 2,
+    useGroups: prev.useGroups ?? false,
+    groups: normalizeGroups(tournamentId, prev.groups),
+    advancePerGroup: prev.advancePerGroup ?? 2,
+    oddsMarginPct: prev.oddsMarginPct ?? 10,
+    minimumPrice: prev.minimumPrice ?? 1.01,
+    maximumPrice: prev.maximumPrice ?? 1001,
+    teamRatings: { ...base, ...prev.teamRatings },
+    lastResult: prev.lastResult ?? null,
+    lastPlayerResult: prev.lastPlayerResult ?? null,
+    ...patch,
+  }
+  if (patch.lastPlayerResult) {
+    merged.lastPlayerResult = slimPlayerResult(patch.lastPlayerResult)
+  }
+  all[tournamentId] = merged
   writeAll(all)
 }
 
@@ -238,9 +301,8 @@ export function importTeamRatingsFromJson(
   return { updated, errors }
 }
 
-export function runSimulatorForTournament(tournamentId: string, format: CricketFormat): TournamentSimulationResult {
-  const cfg = getSimulatorConfig(tournamentId)
-  const result = runTournamentSimulation({
+function buildSimulationConfig(tournamentId: string, format: CricketFormat, cfg: SimulatorTournamentConfig) {
+  return {
     tournamentId,
     structure: cfg.structure,
     iterations: cfg.iterations,
@@ -251,9 +313,30 @@ export function runSimulatorForTournament(tournamentId: string, format: CricketF
     advancePerGroup: cfg.advancePerGroup,
     format: cricketFormatToMatchFormat(format),
     teamRatings: cfg.teamRatings,
-  })
-  saveSimulatorConfig(tournamentId, { lastResult: result })
-  return result
+  }
+}
+
+let activeSimulationToken = 0
+
+export async function runSimulatorForTournament(
+  tournamentId: string,
+  format: CricketFormat,
+): Promise<TournamentSimulationResult> {
+  const runToken = ++activeSimulationToken
+  const cfg = getSimulatorConfig(tournamentId)
+  const simConfig = buildSimulationConfig(tournamentId, format, cfg)
+  const { tournament, players } = await runCombinedOutrightSimulationAsync(simConfig, format)
+  if (runToken !== activeSimulationToken) return tournament
+  saveSimulatorConfig(tournamentId, { lastResult: tournament, lastPlayerResult: players })
+  return tournament
+}
+
+export function cancelSimulatorRun(): void {
+  activeSimulationToken++
+}
+
+export function getLastPlayerPropSimulation(tournamentId: string): PlayerPropSimulationResult | null {
+  return getSimulatorConfig(tournamentId).lastPlayerResult
 }
 
 export type SimulationBookKind = 'winner' | 'finalist'

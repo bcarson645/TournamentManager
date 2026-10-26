@@ -62,7 +62,7 @@ export function computeFixtureMatchModel(
       homeAdjustPct: config.homeAdjustPct,
       format: cricketFormatToMatchFormat(format),
     },
-    8000,
+    1200,
     mulberry32(seedFromFixtureId(fixtureId)),
   )
 
