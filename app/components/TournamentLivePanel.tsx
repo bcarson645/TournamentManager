@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { buildCompetitorPrices } from '../data/fixtureDetail'
 import { computeFixtureMatchModel } from '../data/fixtureMatchModel'
 import { getTeamsByTournament } from '../data/teams'
@@ -113,6 +113,88 @@ const SHORT_BOOK_NAMES: Record<string, string> = {
 
 function shortBookName(book: string): string {
   return SHORT_BOOK_NAMES[book] ?? book.slice(0, 3).toUpperCase()
+}
+
+function crawledAverage(values: number[]): number | null {
+  const valid = values.filter((v) => Number.isFinite(v) && v > 0)
+  if (valid.length === 0) return null
+  return valid.reduce((sum, v) => sum + v, 0) / valid.length
+}
+
+function crawledDiffPct(ours: number | undefined, avg: number): number | null {
+  if (!Number.isFinite(ours) || !Number.isFinite(avg) || avg <= 0) return null
+  return (((ours as number) - avg) / avg) * 100
+}
+
+function avgDiffGradient(pct: number | null): CSSProperties | undefined {
+  if (pct === null || !Number.isFinite(pct)) return undefined
+  const magnitude = Math.abs(pct)
+  if (magnitude < 2) return undefined
+  const t = Math.min((magnitude - 2) / 23, 1)
+  const rgb = pct < 0 ? '34, 197, 94' : '239, 68, 68'
+  const top = (0.08 + t * 0.22).toFixed(2)
+  const bottom = (0.2 + t * 0.4).toFixed(2)
+  const border = (0.35 + t * 0.4).toFixed(2)
+  return {
+    background: `linear-gradient(180deg, rgba(${rgb}, ${top}), rgba(${rgb}, ${bottom}))`,
+    borderColor: `rgba(${rgb}, ${border})`,
+  }
+}
+
+function FixtureCrawledOdds({
+  ours,
+  avg,
+  probLabel,
+  books,
+}: {
+  ours: number | undefined
+  avg: number
+  probLabel: string
+  books: { book: string; price: number }[]
+}) {
+  const booksLabel = books.map((b) => `${shortBookName(b.book)} ${b.price.toFixed(2)}`).join(' · ')
+  const avgDiff = crawledDiffPct(ours, avg)
+  const avgDiffLabel =
+    avgDiff === null || !Number.isFinite(avgDiff)
+      ? 'no diff'
+      : (avgDiff > 0 ? '+' : '') + avgDiff.toFixed(1) + '% vs ours'
+  return (
+    <span className="outrights-fixtures-odds">
+      <span
+        className="outrights-fixtures-odds-group"
+        title={`Our price ${formatOutrightOddsValue(ours)} (${probLabel})`}
+      >
+        <span className="outrights-fixtures-odds-box outrights-fixtures-odds-box--prob">
+          <span className="outrights-fixtures-odds-label">Prob</span>
+          <span className="outrights-fixtures-odds-price">{probLabel}</span>
+        </span>
+        <span className="outrights-fixtures-odds-box outrights-fixtures-odds-box--ours">
+          <span className="outrights-fixtures-odds-label">Ours</span>
+          <span className="outrights-fixtures-odds-price">{formatOutrightOddsValue(ours)}</span>
+        </span>
+      </span>
+      <span
+        className="outrights-fixtures-odds-box outrights-fixtures-odds-box--avg"
+        style={avgDiffGradient(avgDiff)}
+        title={`Average of ${books.length} crawled books: ${booksLabel} (${avgDiffLabel})`}
+      >
+        <span className="outrights-fixtures-odds-label">Avg</span>
+        <span className="outrights-fixtures-odds-price">{avg.toFixed(2)}</span>
+      </span>
+      <span className="outrights-fixtures-odds-books" aria-label={'Crawled book prices: ' + booksLabel}>
+        {books.map((b) => (
+          <span
+            key={b.book}
+            className="outrights-fixtures-odds-box outrights-fixtures-odds-box--book"
+            title={`${b.book}: ${b.price.toFixed(2)}`}
+          >
+            <span className="outrights-fixtures-odds-label">{shortBookName(b.book)}</span>
+            <span className="outrights-fixtures-odds-price">{b.price.toFixed(2)}</span>
+          </span>
+        ))}
+      </span>
+    </span>
+  )
 }
 
 export function TournamentPointsTable({
@@ -367,6 +449,8 @@ export function TournamentUpcomingFixtures({
               const books = model && showCrawled
                 ? buildCompetitorPrices(model.homeFairPrice, model.awayFairPrice)
                 : []
+              const homeAvg = model && showCrawled ? crawledAverage(books.map((b) => b.homePrice)) : null
+              const awayAvg = model && showCrawled ? crawledAverage(books.map((b) => b.awayPrice)) : null
               const openHub = () => onSelectFixture?.(fixture.id)
 
               return (
@@ -404,39 +488,37 @@ export function TournamentUpcomingFixtures({
                           <div className="outrights-fixtures-team-row">
                             <span className="outrights-fixtures-team">{teamName(fixture.homeTeamId)}</span>
                             <span className="outrights-fixtures-prices">
-                              <span className="outrights-fixtures-model-inline">
-                                <span className="outrights-fixtures-model-prob">{formatWinProb(model.homeWinProb)}</span>
-                                <span className="outrights-fixtures-model-price">{formatOutrightOddsValue(model.homeFairPrice)}</span>
-                              </span>
-                              {books.length > 0 ? (
-                                <span className="outrights-fixtures-crawled">
-                                  {books.map((b) => (
-                                    <span key={b.book} className="outrights-fixtures-chip" title={b.book}>
-                                      <small>{shortBookName(b.book)}</small>
-                                      {b.homePrice.toFixed(2)}
-                                    </span>
-                                  ))}
+                              {books.length > 0 && homeAvg !== null ? (
+                                <FixtureCrawledOdds
+                                  ours={model.homeFairPrice}
+                                  avg={homeAvg}
+                                  probLabel={formatWinProb(model.homeWinProb)}
+                                  books={books.map((b) => ({ book: b.book, price: b.homePrice }))}
+                                />
+                              ) : (
+                                <span className="outrights-fixtures-model-inline">
+                                  <span className="outrights-fixtures-model-prob">{formatWinProb(model.homeWinProb)}</span>
+                                  <span className="outrights-fixtures-model-price">{formatOutrightOddsValue(model.homeFairPrice)}</span>
                                 </span>
-                              ) : null}
+                              )}
                             </span>
                           </div>
                           <div className="outrights-fixtures-team-row">
                             <span className="outrights-fixtures-team">{teamName(fixture.awayTeamId)}</span>
                             <span className="outrights-fixtures-prices">
-                              <span className="outrights-fixtures-model-inline">
-                                <span className="outrights-fixtures-model-prob">{formatWinProb(model.awayWinProb)}</span>
-                                <span className="outrights-fixtures-model-price">{formatOutrightOddsValue(model.awayFairPrice)}</span>
-                              </span>
-                              {books.length > 0 ? (
-                                <span className="outrights-fixtures-crawled">
-                                  {books.map((b) => (
-                                    <span key={b.book} className="outrights-fixtures-chip" title={b.book}>
-                                      <small>{shortBookName(b.book)}</small>
-                                      {b.awayPrice.toFixed(2)}
-                                    </span>
-                                  ))}
+                              {books.length > 0 && awayAvg !== null ? (
+                                <FixtureCrawledOdds
+                                  ours={model.awayFairPrice}
+                                  avg={awayAvg}
+                                  probLabel={formatWinProb(model.awayWinProb)}
+                                  books={books.map((b) => ({ book: b.book, price: b.awayPrice }))}
+                                />
+                              ) : (
+                                <span className="outrights-fixtures-model-inline">
+                                  <span className="outrights-fixtures-model-prob">{formatWinProb(model.awayWinProb)}</span>
+                                  <span className="outrights-fixtures-model-price">{formatOutrightOddsValue(model.awayFairPrice)}</span>
                                 </span>
-                              ) : null}
+                              )}
                             </span>
                           </div>
                         </div>

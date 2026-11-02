@@ -91,7 +91,7 @@ export interface PlayerT20Aggregate {
   oversText: string | null
   economy: number | null
   bowlAverage: number | null
-  recentInnings: { date: string; runs: number; notOut: boolean }[]
+  recentInnings: { date: string; runs: number; notOut: boolean; balls: number; fours: number; sixes: number }[]
 }
 
 function isDismissed(dismissal: string | null): boolean {
@@ -145,7 +145,7 @@ export function getPlayerT20Aggregate(playerId: string): PlayerT20Aggregate | nu
   let bowlRuns = 0
   let bowlInnings = 0
   const bowlRows: { bowl_runs: number | null; bowl_overs: string | null }[] = []
-  const recentInnings: { date: string; runs: number; notOut: boolean }[] = []
+  const recentInnings: { date: string; runs: number; notOut: boolean; balls: number; fours: number; sixes: number }[] = []
   const bowlMatchKeys = new Set<string>()
 
   for (const r of rows) {
@@ -166,6 +166,9 @@ export function getPlayerT20Aggregate(playerId: string): PlayerT20Aggregate | nu
           date: r.match_date,
           runs: br,
           notOut: !isDismissed(r.dismissal),
+          balls: r.bat_balls ?? 0,
+          fours: r.fours ?? 0,
+          sixes: r.sixes ?? 0,
         })
       }
     }

@@ -1,11 +1,13 @@
 'use client'
 
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { Fragment, useMemo, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import type { CricketFormat, Gender, Tournament } from '../data/tournaments'
 import {
   buildFixtureDetail,
   type FixtureBatterRow,
   type FixtureBowlerRow,
+  type MatchMarketRow,
+  type TeamBatterMatchups,
 } from '../data/fixtureDetail'
 import {
   getSimulatorConfig,
@@ -164,65 +166,765 @@ function PhaseBars({
   )
 }
 
-function BattersTable({ rows, teamName }: { rows: FixtureBatterRow[]; teamName: string }) {
-  if (rows.length === 0) return <p className="fxd-empty">No squad data for {teamName}.</p>
+type BatMetric = 'runs' | 'fours' | 'sixes' | 'sr'
+type BatWindow = 5 | 10 | 15
+type BatStat = 'avg' | 'med'
+
+const BAT_METRICS: { key: BatMetric; label: string }[] = [
+  { key: 'runs', label: 'Runs' },
+  { key: 'fours', label: '4s' },
+  { key: 'sixes', label: '6s' },
+  { key: 'sr', label: 'Strike rate' },
+]
+
+const BAT_WINDOWS: BatWindow[] = [5, 10, 15]
+
+/** Warn tint when our line sits well off the reference (recent avg / career). */
+function lineWarnClass(line: number, ref: number | null, threshold = 0.2): string {
+  if (ref === null || !(ref > 0)) return ''
+  return Math.abs(line - ref) / ref > threshold ? ' fxd-cell--warn' : ''
+}
+
+function diffLabel(line: number, ref: number | null): string {
+  if (ref === null || !(ref > 0)) return 'no reference'
+  const pct = Math.round(((line - ref) / ref) * 100)
+  return `${pct > 0 ? '+' : ''}${pct}% vs ${ref.toFixed(1)}`
+}
+
+function medianOf(scores: number[]): number | null {
+  if (scores.length === 0) return null
+  const s = [...scores].sort((a, b) => a - b)
+  const m = s.length >> 1
+  if (s.length % 2 === 1) return s[m]!
+  return Math.round(((s[m - 1]! + s[m]!) / 2) * 10) / 10
+}
+
+/** Full-cell form tint — the further past/m short of the line, the deeper the green/red. */
+function formCellStyle(actual: number, line: number): CSSProperties | undefined {
+  if (!(line > 0)) return undefined
+  const t = Math.min(Math.abs(actual - line) / line, 1)
+  const alpha = 0.14 + t * 0.42
+  const rgb = actual >= line ? '34, 197, 94' : '239, 68, 68'
+  return {
+    background: `linear-gradient(180deg, rgba(${rgb}, ${(alpha * 0.75).toFixed(2)}), rgba(${rgb}, ${alpha.toFixed(2)}))`,
+  }
+}
+
+function teamChipClass(teamId: string, homeTeamId: string): string {
+  return 'fxd-team-chip ' + (teamId === homeTeamId ? 'fxd-team-chip--home' : 'fxd-team-chip--away')
+}
+
+function meanOf(values: number[]): number | null {
+  if (values.length === 0) return null
+  return Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100) / 100
+}
+
+function BoundaryGamesTable({
+  rows,
+  window,
+  stat,
+  metric,
+  homeTeamId,
+}: {
+  rows: FixtureBatterRow[]
+  window: BatWindow
+  stat: BatStat
+  metric: 'fours' | 'sixes'
+  homeTeamId: string
+}) {
+  const isFours = metric === 'fours'
+  const unit = isFours ? '×4' : '×6'
   return (
     <table className="fxd-table">
       <thead>
         <tr>
-          <th>#</th>
           <th>Batter</th>
-          <th title="Batting CAZ input">bat.caz</th>
-          <th title="Strike-rate CAZ (runs per ball)">sr.caz</th>
-          <th title="Model expected runs this game">Exp. runs</th>
-          <th>Last 5</th>
-          <th>Avg L5</th>
+          <th title={`Over/under ${unit} line ending in .5`}>Line</th>
+          {Array.from({ length: window }, (_, i) => (
+            <th key={i} title={i === 0 ? `Most recent game: boundaries over sent line` : `${i + 1} games ago`}>G{i + 1}</th>
+          ))}
+          <th title={`${stat === 'avg' ? 'Average' : 'Median'} boundaries, last ${window}`}>{stat === 'avg' ? `Avg L${window}` : `Med L${window}`}</th>
+          <th title={`Games in last ${window} clearing the sent line`}>Hit</th>
         </tr>
       </thead>
       <tbody>
-        {rows.map((r) => (
-          <tr key={r.id}>
-            <td className="fxd-muted">{r.position}</td>
-            <td>{r.name}</td>
-            <td className="fxd-num">{r.batCaz.toFixed(1)}</td>
-            <td className="fxd-num">{r.srCaz.toFixed(2)}</td>
-            <td className="fxd-num fxd-num--hi">{r.expectedRuns.toFixed(1)}</td>
-            <td className="fxd-muted">{r.recentScores.length > 0 ? r.recentScores.join(', ') : '—'}</td>
-            <td className="fxd-num">{r.avgLast5 != null ? r.avgLast5.toFixed(1) : '—'}</td>
-          </tr>
-        ))}
+        {rows.map((r) => {
+          const actuals = (isFours ? r.recentFours : r.recentSixes).slice(0, window)
+          const sent = (isFours ? r.sentFoursLines : r.sentSixesLines).slice(0, window)
+          const runs = r.recentScores.slice(0, window)
+          const line = isFours ? r.lineFours : r.lineSixes
+          const ref = stat === 'avg' ? meanOf(actuals) : medianOf(actuals)
+          const hits = actuals.filter((a, i) => a >= (sent[i] ?? line)).length
+          return (
+            <tr key={r.id}>
+              <td>
+                {r.name}{' '}
+                <span className={teamChipClass(r.teamId, homeTeamId)} title={`${r.teamName} · batting #${r.position}`}>
+                  {r.teamName.slice(0, 3).toUpperCase()} #{r.position}
+                </span>
+              </td>
+              <td
+                className={'fxd-num fxd-num--hi' + lineWarnClass(line, ref)}
+                title={`Prep ${isFours ? r.expFours.toFixed(1) : r.expSixes.toFixed(1)} — ${diffLabel(line, ref)} L${window} ${stat === 'avg' ? 'avg' : 'med'}`}
+              >
+                {line.toFixed(1)}
+              </td>
+              {Array.from({ length: window }, (_, i) => {
+                const a = actuals[i]
+                const s = sent[i] ?? line
+                if (a === undefined) return <td key={i} className="fxd-muted">—</td>
+                const over = a >= s
+                return (
+                  <td
+                    key={i}
+                    className={'fxd-num ' + (over ? 'fxd-cell--over' : 'fxd-cell--under')}
+                    style={formCellStyle(a, s)}
+                    title={`${a} ${unit} in a ${runs[i] ?? '?'}‑run knock vs sent ${s.toFixed(1)}`}
+                  >
+                    <span className="fxd-cell-line">{s.toFixed(1)}</span>
+                    {a}
+                  </td>
+                )
+              })}
+              <td className="fxd-num">{ref != null ? ref.toFixed(2) : '—'}</td>
+              <td className="fxd-num" title={`${hits} of last ${window} cleared the sent line`}>
+                {hits}/{actuals.length}
+              </td>
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   )
 }
 
-function BowlersTable({ rows, teamName }: { rows: FixtureBowlerRow[]; teamName: string }) {
-  if (rows.length === 0) return <p className="fxd-empty">No squad data for {teamName}.</p>
+function CombinedBattingTable({ rows, homeTeamId }: { rows: FixtureBatterRow[]; homeTeamId: string }) {
+  const [metric, setMetric] = useState<BatMetric>('runs')
+  const [window, setWindow] = useState<BatWindow>(5)
+  const [stat, setStat] = useState<BatStat>('avg')
+  const ordered = useMemo(() => [...rows].sort((a, b) => b.batCaz - a.batCaz), [rows])
+  if (ordered.length === 0) return <p className="fxd-empty">No squad data.</p>
+
   return (
-    <table className="fxd-table">
-      <thead>
-        <tr>
-          <th>Bowler</th>
-          <th>Overs</th>
-          <th>Econ</th>
-          <th title="Model expected wickets this game">Exp. wkts</th>
-          <th>Avg</th>
-          <th>Career wkts</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.id}>
-            <td>{r.name}</td>
-            <td className="fxd-num">{r.overs.toFixed(1)}</td>
-            <td className="fxd-num">{r.econ.toFixed(1)}</td>
-            <td className="fxd-num fxd-num--hi">{r.expectedWkts.toFixed(1)}</td>
-            <td className="fxd-num">{r.bowlAvg > 0 ? r.bowlAvg.toFixed(2) : '—'}</td>
-            <td className="fxd-num">{r.careerWkts > 0 ? r.careerWkts : '—'}</td>
+    <>
+      <div className="fxd-table-controls">
+        <div className="fxd-seg" role="tablist" aria-label="Batting metric">
+          {BAT_METRICS.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              role="tab"
+              aria-selected={metric === m.key}
+              className={'fxd-seg-btn' + (metric === m.key ? ' fxd-seg-btn--active' : '')}
+              onClick={() => setMetric(m.key)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {metric !== 'sr' ? (
+          <>
+            <div className="fxd-seg" role="tablist" aria-label="Recent window">
+              {BAT_WINDOWS.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  role="tab"
+                  aria-selected={window === w}
+                  className={'fxd-seg-btn' + (window === w ? ' fxd-seg-btn--active' : '')}
+                  onClick={() => setWindow(w)}
+                >
+                  L{w}
+                </button>
+              ))}
+            </div>
+            <div className="fxd-seg" role="tablist" aria-label="Average or median">
+              {(
+                [
+                  { key: 'avg', label: 'Avg' },
+                  { key: 'med', label: 'Med' },
+                ] as const
+              ).map((o) => (
+                <button
+                  key={o.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={stat === o.key}
+                  className={'fxd-seg-btn' + (stat === o.key ? ' fxd-seg-btn--active' : '')}
+                  onClick={() => setStat(o.key)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
+      {metric === 'runs' ? (
+        <table className="fxd-table">
+          <thead>
+            <tr>
+              <th>Batter</th>
+              <th title="Batting CAZ input">bat.caz</th>
+              <th title="Prep expected × order deduction, over/under .5">Line</th>
+              {Array.from({ length: window }, (_, i) => (
+                <th key={i} title={i === 0 ? 'Most recent innings' : `${i + 1} games ago`}>G{i + 1}</th>
+              ))}
+              <th title={`Average or median of last ${window}`}>{stat === 'avg' ? `Avg L${window}` : `Med L${window}`}</th>
+              <th title={`Games in last ${window} clearing the sent line`}>Hit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((r) => {
+              const scores = r.recentScores.slice(0, window)
+              const lines = r.histLines.slice(0, window)
+              const mean = window === 5 ? r.avgLast5 : window === 10 ? r.avgLast10 : r.avgLast15
+              const ref = stat === 'avg' ? mean : medianOf(scores)
+              const hits = scores.filter((s, i) => s >= (lines[i] ?? r.lineRuns)).length
+              return (
+                <tr key={r.id}>
+                  <td>
+                    {r.name}{' '}
+                    <span className={teamChipClass(r.teamId, homeTeamId)} title={`${r.teamName} · batting #${r.position}`}>
+                      {r.teamName.slice(0, 3).toUpperCase()} #{r.position}
+                    </span>
+                  </td>
+                  <td className="fxd-num">{r.batCaz.toFixed(1)}</td>
+                  <td
+                    className={'fxd-num fxd-num--hi' + lineWarnClass(r.lineRuns, ref)}
+                    title={`Prep ${r.expectedRuns.toFixed(1)} × order ${(r.orderFactor * 100).toFixed(0)}% — ${diffLabel(r.lineRuns, ref)} ${stat === 'avg' ? 'avg' : 'median'}`}
+                  >
+                    {r.lineRuns.toFixed(1)}
+                  </td>
+                  {Array.from({ length: window }, (_, i) => {
+                    const s = scores[i]
+                    const sent = lines[i] ?? r.lineRuns
+                    if (s === undefined) return <td key={i} className="fxd-muted">—</td>
+                    const over = s >= sent
+                    return (
+                      <td
+                        key={i}
+                        className={'fxd-num ' + (over ? 'fxd-cell--over' : 'fxd-cell--under')}
+                        style={formCellStyle(s, sent)}
+                        title={`${s} vs sent line ${sent.toFixed(1)}`}
+                      >
+                        <span className="fxd-cell-line">{sent.toFixed(1)}</span>
+                        {s}
+                      </td>
+                    )
+                  })}
+                  <td className="fxd-num">{ref != null ? ref.toFixed(1) : '—'}</td>
+                  <td className="fxd-num" title={`${hits} of last ${window} cleared the sent line`}>
+                    {hits}/{scores.length}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      ) : metric === 'sr' ? (
+        <table className="fxd-table">
+          <thead>
+            <tr>
+              <th>Batter</th>
+              <th title="Batting CAZ input">bat.caz</th>
+              <th title="Prep expectation">Prep</th>
+              <th title="Over/under line ending in .5">Line</th>
+              <th title="Career average — no per-innings history for this metric">Career</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((r) => (
+              <tr key={r.id}>
+                <td>
+                  {r.name}{' '}
+                  <span className={teamChipClass(r.teamId, homeTeamId)} title={`${r.teamName} · batting #${r.position}`}>
+                    {r.teamName.slice(0, 3).toUpperCase()} #{r.position}
+                  </span>
+                </td>
+                <td className="fxd-num">{r.batCaz.toFixed(1)}</td>
+                <td className="fxd-num">{r.expSr100.toFixed(1)}</td>
+                <td
+                  className={'fxd-num fxd-num--hi' + lineWarnClass(r.lineSr100, r.careerSr100)}
+                  title={diffLabel(r.lineSr100, r.careerSr100)}
+                >
+                  {r.lineSr100.toFixed(1)}
+                </td>
+                <td className="fxd-num">{r.careerSr100 != null ? r.careerSr100.toFixed(1) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <BoundaryGamesTable rows={ordered} window={window} stat={stat} metric={metric} homeTeamId={homeTeamId} />
+      )}
+      {metric === 'runs' ? (
+        <p className="fxd-card-hint">Line = prep expected × order deduction (openers face more balls) → nearest .5. Red line = 20%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.</p>
+      ) : metric === 'sr' ? (
+        <p className="fxd-card-hint">No per-innings balls history for strike rate — prep expectation vs career average.</p>
+      ) : (
+        <p className="fxd-card-hint">Boundaries always fit inside the scored runs — hover a cell for the knock total. Red line = 20%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.</p>
+      )}
+    </>
+  )
+}
+
+function CombinedBowlingTable({ rows, homeTeamId }: { rows: FixtureBowlerRow[]; homeTeamId: string }) {
+  const [window, setWindow] = useState<BatWindow>(5)
+  const [stat, setStat] = useState<BatStat>('avg')
+  const ordered = useMemo(() => [...rows].sort((a, b) => b.expectedWkts - a.expectedWkts), [rows])
+  if (ordered.length === 0) return <p className="fxd-empty">No squad data.</p>
+  return (
+    <>
+      <div className="fxd-table-controls">
+        <div className="fxd-seg" role="tablist" aria-label="Recent window">
+          {BAT_WINDOWS.map((w) => (
+            <button
+              key={w}
+              type="button"
+              role="tab"
+              aria-selected={window === w}
+              className={'fxd-seg-btn' + (window === w ? ' fxd-seg-btn--active' : '')}
+              onClick={() => setWindow(w)}
+            >
+              L{w}
+            </button>
+          ))}
+        </div>
+        <div className="fxd-seg" role="tablist" aria-label="Average or median">
+          {(
+            [
+              { key: 'avg', label: 'Avg' },
+              { key: 'med', label: 'Med' },
+            ] as const
+          ).map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              role="tab"
+              aria-selected={stat === o.key}
+              className={'fxd-seg-btn' + (stat === o.key ? ' fxd-seg-btn--active' : '')}
+              onClick={() => setStat(o.key)}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <table className="fxd-table">
+        <thead>
+          <tr>
+            <th>Bowler</th>
+            <th title="Over/under wickets line ending in .5">Line</th>
+            {Array.from({ length: window }, (_, i) => (
+              <th key={i} title={i === 0 ? 'Most recent game: wickets over sent line' : `${i + 1} games ago`}>G{i + 1}</th>
+            ))}
+            <th title={`${stat === 'avg' ? 'Average' : 'Median'} wickets, last ${window}`}>{stat === 'avg' ? `Avg L${window}` : `Med L${window}`}</th>
+            <th title={`Games in last ${window} clearing the sent line`}>Hit</th>
+            <th title="Potential overs">Overs</th>
+            <th title="Potential runs conceded = overs × economy">R conc.</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {ordered.map((r) => {
+            const games = r.recentBowling.slice(0, window)
+            const lines = r.sentWktsLines.slice(0, window)
+            const wkts = games.map((g) => g.wickets)
+            const mean = window === 5 ? r.avgWktsLast5 : window === 10 ? r.avgWktsLast10 : r.avgWktsLast15
+            const ref = stat === 'avg' ? mean : medianOf(wkts)
+            const hits = games.filter((g, i) => g.wickets >= (lines[i] ?? r.wktsLine)).length
+            return (
+              <tr key={r.id}>
+                <td>
+                  {r.name}{' '}
+                  <span className={teamChipClass(r.teamId, homeTeamId)} title={r.teamName}>
+                    {r.teamName.slice(0, 3).toUpperCase()}
+                  </span>
+                </td>
+                <td
+                  className={'fxd-num fxd-num--hi' + lineWarnClass(r.wktsLine, ref, 0.25)}
+                  title={`Exp ${r.expectedWkts.toFixed(1)} · career ${r.careerWktsPerInn != null ? r.careerWktsPerInn.toFixed(2) + '/inn' : 'n/a'} — ${diffLabel(r.wktsLine, ref)} L${window} ${stat === 'avg' ? 'avg' : 'med'}`}
+                >
+                  {r.wktsLine.toFixed(1)}
+                </td>
+                {Array.from({ length: window }, (_, i) => {
+                  const g = games[i]
+                  const sent = lines[i] ?? r.wktsLine
+                  if (!g) return <td key={i} className="fxd-muted">—</td>
+                  const over = g.wickets >= sent
+                  return (
+                    <td
+                      key={i}
+                      className={'fxd-num ' + (over ? 'fxd-cell--over' : 'fxd-cell--under')}
+                      style={formCellStyle(g.wickets, sent)}
+                      title={`${g.wickets}/${g.runsConceded} off ${g.oversBowled} ov vs sent line ${sent.toFixed(1)}`}
+                    >
+                      <span className="fxd-cell-line">{sent.toFixed(1)}</span>
+                      {g.wickets}
+                    </td>
+                  )
+                })}
+                <td className="fxd-num">{ref != null ? ref.toFixed(2) : '—'}</td>
+                <td className="fxd-num" title={`${hits} of last ${window} cleared the sent line`}>
+                  {hits}/{games.length}
+                </td>
+                <td className="fxd-num">{r.overs.toFixed(1)}</td>
+                <td className="fxd-num" title={`${r.overs.toFixed(1)} ov × ${r.econ.toFixed(1)} econ`}>
+                  {r.runsConceded.toFixed(1)}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <p className="fxd-card-hint">Per-game figures are stand-ins (no bowling history feed yet) — wickets/runs/overs shaped by expectation. Red line = 25%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.</p>
+    </>
+  )
+}
+
+const TEAM_MARKET_KEYS = ['innings', 'r6', 'r12', '4s', '6s', '1st'] as const
+
+function refOf(values: number[], stat: BatStat): number | null {
+  const v = values
+  if (v.length === 0) return null
+  return stat === 'avg' ? meanOf(v) : medianOf(v)
+}
+
+function MarketGraphsCard({
+  rows,
+  window,
+  stat,
+}: {
+  rows: MatchMarketRow[]
+  window: BatWindow
+  stat: BatStat
+}) {
+  const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows])
+  const refName = stat === 'avg' ? 'average' : 'median'
+  return (
+    <div className="fxd-mkt-graphs">
+      <div className="fxd-mkt-legend" aria-hidden>
+        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-bar--home" /> Home line</span>
+        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-bar--away" /> Away line</span>
+        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-swatch--ground" /> Ground {refName}</span>
+        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-swatch--comp" /> Tournament {refName}</span>
+      </div>
+      {TEAM_MARKET_KEYS.map((key) => {
+        const h = byId.get(`home-${key}`)
+        const a = byId.get(`away-${key}`)
+        if (!h || !a) return null
+        const hRef = refOf(h.actuals.slice(0, window), stat)
+        const aRef = refOf(a.actuals.slice(0, window), stat)
+        const cRef = refOf(h.compActuals.slice(0, window), stat)
+        const gRef = refOf(h.groundActuals.slice(0, window), stat)
+        const max = Math.max(h.line, a.line, cRef ?? 0, gRef ?? 0, 1e-9)
+        const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`
+        return (
+          <div key={key} className="fxd-mkt-graph">
+            <div className="fxd-mkt-graph-head">
+              <span className="fxd-mkt-graph-label">{h.label}</span>
+              <span className="fxd-mkt-graph-vals">
+                H {h.line.toFixed(1)} · A {a.line.toFixed(1)} · Comp {cRef != null ? cRef.toFixed(1) : '—'} · Grd {gRef != null ? gRef.toFixed(1) : '—'}
+              </span>
+            </div>
+            <div
+              className="fxd-mkt-garea"
+              title={`${h.teamName} line ${h.line.toFixed(1)} (L${window} ${refName} ${hRef != null ? hRef.toFixed(1) : '—'}) · ${a.teamName} line ${a.line.toFixed(1)} (L${window} ${refName} ${aRef != null ? aRef.toFixed(1) : '—'}) · ground ${gRef != null ? gRef.toFixed(1) : '—'} · tournament ${cRef != null ? cRef.toFixed(1) : '—'}`}
+            >
+              <div className="fxd-mkt-grow">
+                <i className="fxd-mkt-bar fxd-mkt-bar--home" style={{ width: pct(h.line) }} />
+              </div>
+              <div className="fxd-mkt-grow">
+                <i className="fxd-mkt-bar fxd-mkt-bar--away" style={{ width: pct(a.line) }} />
+              </div>
+              {gRef != null ? <span className="fxd-mkt-marker fxd-mkt-marker--ground" style={{ left: pct(gRef) }} /> : null}
+              {cRef != null ? <span className="fxd-mkt-marker fxd-mkt-marker--comp" style={{ left: pct(cRef) }} /> : null}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function MatchMarketsTable({
+  rows,
+  homeTeamId,
+  window,
+  stat,
+  onWindow,
+  onStat,
+}: {
+  rows: MatchMarketRow[]
+  homeTeamId: string
+  window: BatWindow
+  stat: BatStat
+  onWindow: (w: BatWindow) => void
+  onStat: (s: BatStat) => void
+}) {
+  const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows])
+  const matchRows = useMemo(() => rows.filter((r) => r.scope === 'match'), [rows])
+  if (rows.length === 0) return <p className="fxd-empty">No market data.</p>
+  const refLabel = stat === 'avg' ? 'Avg' : 'Med'
+  const windowSeg = (
+    <div className="fxd-seg" role="tablist" aria-label="Recent window">
+      {BAT_WINDOWS.map((w) => (
+        <button
+          key={w}
+          type="button"
+          role="tab"
+          aria-selected={window === w}
+          className={'fxd-seg-btn' + (window === w ? ' fxd-seg-btn--active' : '')}
+          onClick={() => onWindow(w)}
+        >
+          L{w}
+        </button>
+      ))}
+    </div>
+  )
+  const statSeg = (
+    <div className="fxd-seg" role="tablist" aria-label="Average or median">
+      {(
+        [
+          { key: 'avg', label: 'Avg' },
+          { key: 'med', label: 'Med' },
+        ] as const
+      ).map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          role="tab"
+          aria-selected={stat === o.key}
+          className={'fxd-seg-btn' + (stat === o.key ? ' fxd-seg-btn--active' : '')}
+          onClick={() => onStat(o.key)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+  return (
+    <>
+      <div className="fxd-table-controls">
+        {windowSeg}
+        {statSeg}
+      </div>
+      <table className="fxd-table fxd-table--markets-merged">
+        <thead>
+          <tr>
+            <th>Team</th>
+            <th title="Over/under line ending in .5">Line</th>
+            {Array.from({ length: window }, (_, i) => (
+              <th key={i} title={i === 0 ? 'Most recent game: result over sent line' : `${i + 1} games ago`}>G{i + 1}</th>
+            ))}
+            <th title={`${refLabel} over last ${window}`}>{refLabel} L{window}</th>
+            <th title={`Games in last ${window} clearing the sent line`}>Hit</th>
+            <th title={`Competition ${refLabel} over last ${window}`}>Comp</th>
+            <th title={`Ground ${refLabel} over last ${window}`}>Ground</th>
+          </tr>
+        </thead>
+        <tbody>
+          {TEAM_MARKET_KEYS.map((key) => {
+            const h = byId.get(`home-${key}`)
+            const a = byId.get(`away-${key}`)
+            if (!h || !a) return null
+            const cRef = refOf(h.compActuals.slice(0, window), stat)
+            const gRef = refOf(h.groundActuals.slice(0, window), stat)
+            const subRow = (
+              side: MatchMarketRow,
+              tone: 'home' | 'away',
+            ) => {
+              const actuals = side.actuals.slice(0, window)
+              const sent = side.sentLines.slice(0, window)
+              const ref = refOf(actuals, stat)
+              const hits = actuals.filter((v, i) => v >= (sent[i] ?? side.line)).length
+              return (
+                <tr key={side.id} className="fxd-mkt-subrow">
+                  <td>
+                    <span className={teamChipClass(tone === 'home' ? homeTeamId : 'away', homeTeamId)} title={side.teamName}>
+                      {side.teamName.slice(0, 3).toUpperCase()}
+                    </span>
+                  </td>
+                  <td
+                    className={'fxd-num fxd-num--hi' + lineWarnClass(side.line, ref)}
+                    title={diffLabel(side.line, ref) + ` L${window} ${stat === 'avg' ? 'avg' : 'med'}`}
+                  >
+                    {side.line.toFixed(1)}
+                  </td>
+                  {Array.from({ length: window }, (_, i) => {
+                    const v = actuals[i]
+                    const s = sent[i] ?? side.line
+                    if (v === undefined) return <td key={i} className="fxd-muted">—</td>
+                    const over = v >= s
+                    return (
+                      <td
+                        key={i}
+                        className={'fxd-num ' + (over ? 'fxd-cell--over' : 'fxd-cell--under')}
+                        style={formCellStyle(v, s)}
+                        title={`${v} vs sent ${s.toFixed(1)}`}
+                      >
+                        <span className="fxd-cell-line">{s.toFixed(1)}</span>
+                        {v}
+                      </td>
+                    )
+                  })}
+                  <td className="fxd-num">{ref != null ? ref.toFixed(1) : '—'}</td>
+                  <td className="fxd-num" title={`${hits} of last ${window} cleared the sent line`}>
+                    {hits}/{actuals.length}
+                  </td>
+                  <td className="fxd-num fxd-muted">{cRef != null ? cRef.toFixed(1) : '—'}</td>
+                  <td className="fxd-num fxd-muted">{gRef != null ? gRef.toFixed(1) : '—'}</td>
+                </tr>
+              )
+            }
+            return (
+              <Fragment key={key}>
+                <tr className="fxd-mkt-grouprow">
+                  <td colSpan={6 + window}>{h.label}</td>
+                </tr>
+                {subRow(h, 'home')}
+                {subRow(a, 'away')}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+      {matchRows.length > 0 ? (
+        <>
+          <h3 className="fxd-subhead">Whole-match markets</h3>
+          <table className="fxd-table">
+            <thead>
+              <tr>
+                <th>Market</th>
+                <th title="Over/under line ending in .5">Line</th>
+                {Array.from({ length: window }, (_, i) => (
+                  <th key={i} title={i === 0 ? 'Most recent game: result over sent line' : `${i + 1} games ago`}>G{i + 1}</th>
+                ))}
+                <th title={`${refLabel}, last ${window}`}>{refLabel} L{window}</th>
+                <th title={`Games in last ${window} clearing the sent line`}>Hit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {matchRows.map((r) => {
+                const actuals = r.actuals.slice(0, window)
+                const sent = r.sentLines.slice(0, window)
+                const ref = refOf(actuals, stat)
+                const hits = actuals.filter((a, i) => a >= (sent[i] ?? r.line)).length
+                return (
+                  <tr key={r.id}>
+                    <td>
+                      {r.label}{' '}
+                      <span className="fxd-team-chip fxd-team-chip--match" title="Whole-match market">MATCH</span>
+                    </td>
+                    <td
+                      className={'fxd-num fxd-num--hi' + lineWarnClass(r.line, ref)}
+                      title={diffLabel(r.line, ref) + ` L${window} ${stat === 'avg' ? 'avg' : 'med'}`}
+                    >
+                      {r.line.toFixed(1)}
+                    </td>
+                    {Array.from({ length: window }, (_, i) => {
+                      const a = actuals[i]
+                      const s = sent[i] ?? r.line
+                      if (a === undefined) return <td key={i} className="fxd-muted">—</td>
+                      const over = a >= s
+                      return (
+                        <td
+                          key={i}
+                          className={'fxd-num ' + (over ? 'fxd-cell--over' : 'fxd-cell--under')}
+                          style={formCellStyle(a, s)}
+                          title={`${a} vs sent ${s.toFixed(1)}`}
+                        >
+                          <span className="fxd-cell-line">{s.toFixed(1)}</span>
+                          {a}
+                        </td>
+                      )
+                    })}
+                    <td className="fxd-num">{ref != null ? ref.toFixed(1) : '—'}</td>
+                    <td className="fxd-num" title={`${hits} of last ${window} cleared the sent line`}>
+                      {hits}/{actuals.length}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </>
+      ) : null}
+      <p className="fxd-card-hint">Stand-in histories shaped by model numbers until real results feed in. Red line = 20%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.</p>
+    </>
+  )
+}
+
+function BatterMatchupsCard({ matchups, homeTeamId }: { matchups: TeamBatterMatchups[]; homeTeamId: string }) {
+  const [idx, setIdx] = useState(0)
+  const m = matchups[Math.min(idx, Math.max(0, matchups.length - 1))]
+  if (!m) return <p className="fxd-empty">No matchup data.</p>
+  return (
+    <>
+      <div className="fxd-table-controls">
+        <div className="fxd-seg" role="tablist" aria-label="Batting team">
+          {matchups.map((t, i) => (
+            <button
+              key={t.teamId}
+              type="button"
+              role="tab"
+              aria-selected={i === idx}
+              className={'fxd-seg-btn' + (i === idx ? ' fxd-seg-btn--active' : '')}
+              onClick={() => setIdx(i)}
+            >
+              {t.teamName} batters
+            </button>
+          ))}
+        </div>
+      </div>
+      <table className="fxd-table">
+        <thead>
+          <tr>
+            <th>Batter</th>
+            <th title="Expected strike rate (prep)">Exp SR</th>
+            {m.bowlers.map((b) => (
+              <th key={b.id} title={`vs ${b.name}`}>{b.name}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {m.rows.map((r) => (
+            <tr key={r.batterId}>
+              <td>
+                {r.batterName}{' '}
+                <span className={teamChipClass(m.teamId, homeTeamId)} title={`${m.teamName} · batting #${r.position}`}>
+                  #{r.position}
+                </span>
+              </td>
+              <td className="fxd-num">{r.expSr100.toFixed(0)}</td>
+              {r.cells.map((c, ci) => {
+                const small = c.balls < 12
+                const expected = r.expSr100 > 0 ? r.expSr100 : 130
+                const dev = Math.abs(c.strikeRate - expected) / expected
+                const flagged = !small && dev > 0.25
+                const over = c.strikeRate >= expected
+                return (
+                  <td
+                    key={m.bowlers[ci]?.id ?? ci}
+                    className={
+                      'fxd-num ' +
+                      (small ? 'fxd-cell--small' : flagged ? (over ? 'fxd-cell--over' : 'fxd-cell--under') : '')
+                    }
+                    style={flagged ? formCellStyle(c.strikeRate, expected) : undefined}
+                    title={`${r.batterName} vs ${m.bowlers[ci]?.name ?? ''}: ${c.runs} runs off ${c.balls} balls, ${c.dismissals} dismissal${c.dismissals === 1 ? '' : 's'} · SR ${c.strikeRate.toFixed(1)} · Avg ${c.average != null ? c.average.toFixed(1) : '—'} (expected SR ${expected.toFixed(0)}${small ? ' — small sample' : ''})`}
+                  >
+                    <span className="fxd-cell-line">{c.balls} balls</span>
+                    {c.runs}
+                    <span className="fxd-cell-sub">SR {c.strikeRate.toFixed(0)}</span>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="fxd-card-hint">Stand-in matchup histories until ball-by-ball feeds in. Green/red = SR 25%+ off expected (min 12 balls, faded below). Hover a cell for dismissals and average.</p>
+    </>
   )
 }
 
@@ -252,6 +954,8 @@ export default function FixtureDetailView({
   const [showBooks, setShowBooks] = useState(false)
   const [chartOpen, setChartOpen] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
+  const [mktWindow, setMktWindow] = useState<BatWindow>(5)
+  const [mktStat, setMktStat] = useState<BatStat>('avg')
 
   const simulatorVersion = useSyncExternalStore(
     subscribeSimulatorStore,
@@ -351,6 +1055,39 @@ export default function FixtureDetailView({
                 <circle cx="12" cy="10" r="2.5" />
               </svg>
               <span>{detail.ground?.name ?? detail.venue}{detail.ground ? `, ${detail.ground.city}` : ''}</span>
+              <span className="fxd-cond-stepper" title="Base conditions for this game — applies to both teams">
+                <button
+                  type="button"
+                  className="fxd-cond-btn"
+                  aria-label="Decrease conditions"
+                  onClick={() => {
+                    const cur = getSimulatorConfig(tournamentId).conditions ?? 1
+                    saveSimulatorConfig(tournamentId, {
+                      conditions: Math.round(Math.max(0.5, cur - 0.01) * 100) / 100,
+                    })
+                  }}
+                >
+                  −
+                </button>
+                <span
+                  className={`fxd-factor-box ${(getSimulatorConfig(tournamentId).conditions ?? 1) >= 1 ? 'fxd-factor-box--up' : 'fxd-factor-box--down'}`}
+                >
+                  {(getSimulatorConfig(tournamentId).conditions ?? 1).toFixed(2)}
+                </span>
+                <button
+                  type="button"
+                  className="fxd-cond-btn"
+                  aria-label="Increase conditions"
+                  onClick={() => {
+                    const cur = getSimulatorConfig(tournamentId).conditions ?? 1
+                    saveSimulatorConfig(tournamentId, {
+                      conditions: Math.round(Math.min(1.5, cur + 0.01) * 100) / 100,
+                    })
+                  }}
+                >
+                  +
+                </button>
+              </span>
             </p>
             <p className="fxd-info-row fxd-info-row--dim">
               <svg className="fxd-info-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -379,73 +1116,26 @@ export default function FixtureDetailView({
             </button>
           </div>
 
-          {/* Middle: conditions + factor ladder */}
-          <div className="fxd-tpanel-factors">
-            <div className="fxd-tpanel-cond fxd-tpanel-cond--single">
-              <span className="fxd-tpanel-condlabel">Conditions</span>
-              <span className="fxd-cond-stepper">
-                <button
-                  type="button"
-                  className="fxd-cond-btn"
-                  aria-label="Decrease conditions"
-                  onClick={() => {
-                    const cur = getSimulatorConfig(tournamentId).conditions ?? 1
-                    saveSimulatorConfig(tournamentId, {
-                      conditions: Math.round(Math.max(0.5, cur - 0.01) * 100) / 100,
-                    })
-                  }}
-                >
-                  −
-                </button>
-                <span
-                  className={`fxd-factor-box ${(getSimulatorConfig(tournamentId).conditions ?? 1) >= 1 ? 'fxd-factor-box--up' : 'fxd-factor-box--down'}`}
-                  title="Base conditions for this game — applies to both teams"
-                >
-                  {(getSimulatorConfig(tournamentId).conditions ?? 1).toFixed(2)}
-                </span>
-                <button
-                  type="button"
-                  className="fxd-cond-btn"
-                  aria-label="Increase conditions"
-                  onClick={() => {
-                    const cur = getSimulatorConfig(tournamentId).conditions ?? 1
-                    saveSimulatorConfig(tournamentId, {
-                      conditions: Math.round(Math.min(1.5, cur + 0.01) * 100) / 100,
-                    })
-                  }}
-                >
-                  +
-                </button>
-              </span>
+          {/* Right: condensed win-prob track (click to expand) */}
+          <div className="fxd-tpanel-track">
+            <div className="fxd-card-headrow">
+              <h2 className="fxd-card-title">
+                <span className="fxd-card-icon" aria-hidden>↗</span>
+                Win probability
+              </h2>
+              <span className="fxd-muted">click to expand</span>
             </div>
-            {(
-              [
-                { label: 'Batting', h: home.battingRating, a: away.battingRating, invert: false },
-                { label: 'Bowling', h: home.bowlingRating, a: away.bowlingRating, invert: true },
-                { label: 'Total factor', h: home.matchFactor, a: away.matchFactor, invert: false },
-              ] as const
-            ).map((row) => {
-              // Bowling above 1 is bad (concedes more) — inverted vs batting.
-              const tone = (v: number) => {
-                const good = row.invert ? v <= 1 : v >= 1
-                return good ? 'fxd-factor-box--up' : 'fxd-factor-box--down'
-              }
-              return (
-                <div key={row.label} className="fxd-tpanel-factorrow">
-                  <span className={`fxd-factor-box ${tone(row.h)}`} title={row.invert && row.h > 1 ? 'Above 1 — expensive bowling' : undefined}>
-                    {row.h.toFixed(2)}
-                  </span>
-                  <span className="fxd-tpanel-factorlabel">{row.label}</span>
-                  <span className={`fxd-factor-box ${tone(row.a)}`} title={row.invert && row.a > 1 ? 'Above 1 — expensive bowling' : undefined}>
-                    {row.a.toFixed(2)}
-                  </span>
-                </div>
-              )
-            })}
-            <p className="fxd-card-hint">Tournament Manager trader inputs · ≥1.00 green, &lt;1.00 red.</p>
+            <button type="button" className="fxd-track-btn" onClick={() => setChartOpen(true)} aria-label="Expand win probability chart">
+              <WinProbChart
+                history={detail.priceHistory}
+                tracks={detail.competitorTracks}
+                homeName={home.name}
+                awayName={away.name}
+              />
+            </button>
           </div>
 
-          {/* Right: match market */}
+          {/* Middle: match market (prob + price + avg) */}
           <div className="fxd-tpanel-market">
             <div className="fxd-tpanel-markethead">
               <h2 className="fxd-tpanel-markettitle">MATCH MARKET</h2>
@@ -560,25 +1250,70 @@ export default function FixtureDetailView({
         </div>
       </section>
 
-      {/* Win track + head-to-head side by side, both compact */}
-      <div className="fxd-duo">
-      <section className="fxd-card fxd-card--track">
-        <div className="fxd-card-headrow">
-          <h2 className="fxd-card-title">
-            <span className="fxd-card-icon" aria-hidden>↗</span>
-            Win probability track
-          </h2>
-          <span className="fxd-muted">click to expand</span>
+      {/* Modelled totals + ground record strip, full width */}
+      <section className="fxd-card fxd-headline-card" aria-label="Modelled totals and ground record">
+        <div className="fxd-headline-strip">
+          <div className="fxd-headline">
+            <span className="fxd-headline-cap">{home.flag} {home.name}</span>
+            <span className="fxd-headline-val fxd-headline-val--home">{detail.homeBattingFirst.avgScoreBattingFirst}</span>
+            <span className="fxd-headline-sub">Modelled batting first</span>
+          </div>
+          <div className="fxd-headline">
+            <span className="fxd-headline-cap">🏟 {detail.ground?.name ?? detail.venue}</span>
+            <span className="fxd-headline-val">{detail.homeBattingFirst.parScoreAtGround}</span>
+            <span className="fxd-headline-sub">Par score at ground</span>
+          </div>
+          <div className="fxd-headline">
+            <span className="fxd-headline-cap">{away.flag} {away.name}</span>
+            <span className="fxd-headline-val fxd-headline-val--away">{detail.awayBattingFirst.avgScoreBattingFirst}</span>
+            <span className="fxd-headline-sub">Modelled batting first</span>
+          </div>
+          <div className="fxd-headline">
+            <span className="fxd-headline-cap">Innings (sample)</span>
+            <span className="fxd-headline-val">{detail.groundRecord.inningsPlayed}</span>
+            <span className="fxd-headline-sub">Record at ground</span>
+          </div>
+          <div className="fxd-headline">
+            <span className="fxd-headline-cap">Avg 1st innings</span>
+            <span className="fxd-headline-val">{detail.groundRecord.avgFirstInnings}</span>
+            <span className="fxd-headline-sub">Record at ground</span>
+          </div>
+          <div className="fxd-headline">
+            <span className="fxd-headline-cap">Avg sixes</span>
+            <span className="fxd-headline-val">{detail.groundRecord.avgSixes}</span>
+            <span className="fxd-headline-sub">Record at ground</span>
+          </div>
+          <div className="fxd-headline">
+            <span className="fxd-headline-cap">Win batting first</span>
+            <span className="fxd-headline-val">{detail.groundRecord.winBatFirstPct}%</span>
+            <span className="fxd-headline-sub">Record at ground</span>
+          </div>
+          <div className="fxd-headline">
+            <span className="fxd-headline-cap">Home side wins</span>
+            <span className="fxd-headline-val">{detail.groundRecord.homeTeamWinsPct}%</span>
+            <span className="fxd-headline-sub">Record at ground</span>
+          </div>
         </div>
-        <button type="button" className="fxd-track-btn" onClick={() => setChartOpen(true)} aria-label="Expand win probability chart">
-          <WinProbChart
-            history={detail.priceHistory}
-            tracks={detail.competitorTracks}
-            homeName={home.name}
-            awayName={away.name}
-          />
-        </button>
       </section>
+
+      {/* Match markets + modelled totals side by side */}
+      <div className="fxd-duo">
+        <section className="fxd-card">
+          <h2 className="fxd-card-title">
+            <span className="fxd-card-icon" aria-hidden>▤</span>
+            Match markets · {home.name} & {away.name}
+          </h2>
+          <div className="fxd-table-wrap">
+            <MatchMarketsTable
+              rows={detail.matchMarkets}
+              homeTeamId={detail.home.teamId}
+              window={mktWindow}
+              stat={mktStat}
+              onWindow={setMktWindow}
+              onStat={setMktStat}
+            />
+          </div>
+        </section>
 
       {chartOpen ? (
         <div className="fxd-modal" role="dialog" aria-label="Win probability track" onClick={() => setChartOpen(false)}>
@@ -598,13 +1333,16 @@ export default function FixtureDetailView({
         </div>
       ) : null}
 
-      {/* Head-to-head phase scoring — direct comparison bars */}
+      {/* Modelled totals + head-to-head phase scoring */}
       <section className="fxd-card">
         <h2 className="fxd-card-title">
           <span className="fxd-card-icon" aria-hidden>⚔</span>
           Head-to-head · runs by phase
         </h2>
         <p className="fxd-h2h-names"><span className="fxd-h2h-home">{home.name}</span> vs <span className="fxd-h2h-away">{away.name}</span></p>
+        <h3 className="fxd-subhead">Market lines vs competition & ground</h3>
+        <MarketGraphsCard rows={detail.matchMarkets} window={mktWindow} stat={mktStat} />
+        <h3 className="fxd-subhead">Phase scoring</h3>
         <div className="fxd-phase-legend">
           {(() => {
             const h2hMax = Math.max(
@@ -629,66 +1367,40 @@ export default function FixtureDetailView({
       </section>
       </div>
 
-      {/* Batting first + par */}
+      {/* Players: batting + bowling side by side */}
+      <div className="fxd-duo fxd-duo--players">
+        <section className="fxd-card">
+          <h2 className="fxd-card-title">
+            <span className="fxd-card-icon" aria-hidden>★</span>
+            Batting · {home.name} & {away.name}
+          </h2>
+          <div className="fxd-table-wrap">
+            <CombinedBattingTable rows={[...detail.homeBatters, ...detail.awayBatters]} homeTeamId={detail.home.teamId} />
+          </div>
+        </section>
+        <section className="fxd-card">
+          <h2 className="fxd-card-title">
+            <span className="fxd-card-icon" aria-hidden>●</span>
+            Bowling · {home.name} & {away.name}
+          </h2>
+          <div className="fxd-table-wrap">
+            <CombinedBowlingTable rows={[...detail.homeBowlers, ...detail.awayBowlers]} homeTeamId={detail.home.teamId} />
+          </div>
+        </section>
+      </div>
+
+      {/* Batter v bowler head-to-head matrix */}
       <section className="fxd-card">
         <h2 className="fxd-card-title">
-          <span className="fxd-card-icon" aria-hidden>🏏</span>
-          Batting first & par at ground
+          <span className="fxd-card-icon" aria-hidden>✕</span>
+          Batter v bowler · head-to-head
         </h2>
-        <div className="fxd-first-boxes">
-          <div className="fxd-first-box">
-            <span className="fxd-first-team">{home.flag} {home.name}</span>
-            <span className="fxd-first-score">{detail.homeBattingFirst.avgScoreBattingFirst}</span>
-            <span className="fxd-first-cap">Avg batting first</span>
-          </div>
-          <div className="fxd-first-box fxd-first-box--par">
-            <span className="fxd-first-team">🏟 {detail.ground?.name ?? detail.venue}</span>
-            <span className="fxd-first-score">{detail.homeBattingFirst.parScoreAtGround}</span>
-            <span className="fxd-first-cap">Par score at ground</span>
-          </div>
-          <div className="fxd-first-box">
-            <span className="fxd-first-team">{away.flag} {away.name}</span>
-            <span className="fxd-first-score">{detail.awayBattingFirst.avgScoreBattingFirst}</span>
-            <span className="fxd-first-cap">Avg batting first</span>
-          </div>
+        <div className="fxd-table-wrap">
+          <BatterMatchupsCard matchups={detail.batterMatchups} homeTeamId={detail.home.teamId} />
         </div>
       </section>
 
-      {/* Players: batting + bowling side by side per team */}
-      <div className="fxd-duo fxd-duo--players">
-        <section className="fxd-card">
-          <h2 className="fxd-card-title">
-            <span className="fxd-card-icon" aria-hidden>★</span>
-            {home.name} · Batting
-          </h2>
-          <div className="fxd-table-wrap"><BattersTable rows={detail.homeBatters} teamName={home.name} /></div>
-        </section>
-        <section className="fxd-card">
-          <h2 className="fxd-card-title">
-            <span className="fxd-card-icon" aria-hidden>●</span>
-            {home.name} · Bowling
-          </h2>
-          <div className="fxd-table-wrap"><BowlersTable rows={detail.homeBowlers} teamName={home.name} /></div>
-        </section>
-      </div>
-      <div className="fxd-duo fxd-duo--players">
-        <section className="fxd-card">
-          <h2 className="fxd-card-title">
-            <span className="fxd-card-icon" aria-hidden>★</span>
-            {away.name} · Batting
-          </h2>
-          <div className="fxd-table-wrap"><BattersTable rows={detail.awayBatters} teamName={away.name} /></div>
-        </section>
-        <section className="fxd-card">
-          <h2 className="fxd-card-title">
-            <span className="fxd-card-icon" aria-hidden>●</span>
-            {away.name} · Bowling
-          </h2>
-          <div className="fxd-table-wrap"><BowlersTable rows={detail.awayBowlers} teamName={away.name} /></div>
-        </section>
-      </div>
-
-      {/* Markets + ground record */}
+      {/* Markets */}
       <div className="fxd-grid">
         <section className="fxd-card">
           <h2 className="fxd-card-title">
@@ -715,20 +1427,6 @@ export default function FixtureDetailView({
               ))}
             </tbody>
           </table>
-        </section>
-
-        <section className="fxd-card">
-          <h2 className="fxd-card-title">
-            <span className="fxd-card-icon" aria-hidden>🏟</span>
-            Record at ground
-          </h2>
-          <dl className="fxd-ground-stats">
-            <div><dt>Innings (sample)</dt><dd>{detail.groundRecord.inningsPlayed}</dd></div>
-            <div><dt>Avg 1st innings</dt><dd>{detail.groundRecord.avgFirstInnings}</dd></div>
-            <div><dt>Avg sixes</dt><dd>{detail.groundRecord.avgSixes}</dd></div>
-            <div><dt>Win batting first</dt><dd>{detail.groundRecord.winBatFirstPct}%</dd></div>
-            <div><dt>Home side wins</dt><dd>{detail.groundRecord.homeTeamWinsPct}%</dd></div>
-          </dl>
         </section>
       </div>
     </div>

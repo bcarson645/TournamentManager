@@ -24,6 +24,9 @@ export interface CareerBowling {
 export interface RecentInnings {
   score: number
   notOut: boolean
+  balls: number
+  fours: number
+  sixes: number
 }
 
 export interface TournamentRecord {
@@ -60,6 +63,75 @@ export function makeDefaultProfile(): PlayerProfile {
     recentInnings: [],
     tournamentHistory: [],
   }
+}
+
+function hashNameSeed(s: string): number {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function mulberry32(seed: number): () => number {
+  let a = seed
+  return () => {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/**
+ * Boundaries that always fit inside the runs: 4s and 6s can never add up to
+ * more than the score (a 12-run knock caps at ~1–2 fours, no sixes).
+ */
+function synthBoundaries(score: number, rand: () => number): { fours: number; sixes: number } {
+  if (score <= 0) return { fours: 0, sixes: 0 }
+  const maxSixes = score < 12 ? 0 : score < 30 ? 1 : score < 50 ? 3 : 6
+  let sixes = 0
+  for (let i = 1; i <= maxSixes; i++) {
+    if (rand() < 0.35) sixes = i
+    else break
+  }
+  const remainder = score - sixes * 6
+  const cap = score < 12 ? 2 : score < 30 ? 4 : 8
+  const fours = Math.max(0, Math.min(Math.floor(remainder / 4), Math.floor(rand() * (cap + 1))))
+  return { fours, sixes }
+}
+
+/**
+ * Stand-in 15-game T20 history, deterministic per player name and shaped by
+ * career average (tailenders score low, guns go big occasionally). Replace
+ * with real feed data when available — explicit `recentInnings` always wins.
+ */
+function synthRecentInnings(name: string, average: number): RecentInnings[] {
+  const mean = average > 0 ? average : 20
+  const scale = mean / 30
+  const rand = mulberry32(hashNameSeed(name))
+  const out: RecentInnings[] = []
+  for (let i = 0; i < 15; i++) {
+    const r = rand()
+    let score: number
+    if (r < 0.1) {
+      score = Math.floor(rand() * 6)
+    } else if (r < 0.5) {
+      score = Math.round((6 + rand() * 20) * scale)
+    } else if (r < 0.78) {
+      score = Math.round((26 + rand() * 24) * scale)
+    } else if (r < 0.92) {
+      score = Math.round((50 + rand() * 25) * Math.min(scale, 1.3))
+    } else {
+      score = Math.round((75 + rand() * 45) * Math.min(scale + 0.3, 1))
+    }
+    score = Math.max(0, Math.min(130, score))
+    const { fours, sixes } = synthBoundaries(score, rand)
+    out.push({ score, notOut: score < 50 && rand() < 0.14, balls: 0, fours, sixes })
+  }
+  return out
 }
 
 const KNOWN_STATS: Record<string, Partial<PlayerProfile>> = {
@@ -824,11 +896,15 @@ export function hasKnownStatsForPlayer(name: string): boolean {
 export function getProfileForPlayer(name: string): PlayerProfile {
   const base = makeDefaultProfile()
   const known = KNOWN_STATS[name]
-  if (!known) return base
+  if (!known) return { ...base, recentInnings: synthRecentInnings(name, 0) }
   return {
     ...base,
     ...known,
     careerBatting: known.careerBatting ? { ...base.careerBatting, ...known.careerBatting } : base.careerBatting,
     careerBowling: known.careerBowling ? { ...base.careerBowling, ...known.careerBowling } : base.careerBowling,
+    recentInnings:
+      known.recentInnings && known.recentInnings.length > 0
+        ? known.recentInnings
+        : synthRecentInnings(name, known.careerBatting?.average ?? 0),
   }
 }

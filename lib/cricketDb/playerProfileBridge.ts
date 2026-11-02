@@ -126,6 +126,9 @@ export function aggregateToPlayerProfile(agg: PlayerT20Aggregate): Partial<Playe
   const recentInnings: RecentInnings[] = agg.recentInnings.map((r) => ({
     score: r.runs,
     notOut: r.notOut,
+    balls: r.balls,
+    fours: r.fours,
+    sixes: r.sixes,
   }))
 
   const careerBatting: CareerBatting = {
