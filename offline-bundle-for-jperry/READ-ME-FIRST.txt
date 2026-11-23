@@ -1,0 +1,24 @@
+Tournament Manager — offline install (for J. Perry)
+Built by Ben on Windows with Node v24.13.1 (matches Node 24 on your laptop).
+
+WHAT YOU ALREADY NEED
+- Git clone of: https://github.com/bcarson645/TournamentManager.git
+- Folder example: C:\Users\j.perry\Projects\TournamentManager
+- Node.js 24 installed (node -v shows v24.x)
+
+STEPS
+1. Download node_modules.zip from the link Ben sent.
+2. Copy node_modules.zip into your TournamentManager folder (next to package.json).
+3. Right-click node_modules.zip → Extract All → extract here.
+4. You must see: TournamentManager\node_modules  (folder) beside package.json.
+5. Open PowerShell in that folder:
+   cd C:\Users\j.perry\Projects\TournamentManager
+   npm run dev
+6. Browser: http://localhost:3000
+
+You do NOT need to run npm install.
+
+If npm run dev fails, send Ben the full error text (screenshot is fine).
+
+WHEN YOU CHANGE CODE
+- New branch → push → Pull Request into main → Ben merges → live site updates.

@@ -1,8 +1,11 @@
 import type { SquadPlayer } from './squad'
-import { type PlayerProfile, type TournamentRecord } from './playerProfile'
+import { type PlayerProfile, type RecentInnings, type TournamentRecord } from './playerProfile'
 import { profileForSquadPlayer as profileForSquadPlayerBase } from './squadProfileFallback'
 
 export type SquadStatsScope = 'recent' | 'tournament' | 'career'
+
+/** Where a displayed number came from: collected data, squad (trader) values, or built-in static records. */
+export type SquadStatSource = 'data' | 'squad' | 'static'
 
 export interface SquadPlayerBatDisplay {
   average: number
@@ -16,6 +19,39 @@ export interface SquadPlayerBowlDisplay {
   oversPerInnings: number
   economy: number
   bowlingAverage: number
+}
+
+export interface RecentWindowAggregates {
+  innings: RecentInnings[]
+  /** Simple mean of scores in the window (what the Form column shows). */
+  mean: number | null
+  /** Proper batting average: runs / dismissals (runs when never dismissed). */
+  average: number | null
+  /** Strike rate per 100 balls (null when no balls faced). */
+  strikeRate100: number | null
+  /** True when at least one innings carries real balls-faced data. */
+  hasRealBalls: boolean
+}
+
+/** Aggregates over the most recent N innings (newest first). */
+export function recentWindowAggregates<T extends RecentInnings>(
+  innings: readonly T[] | undefined,
+  window: number,
+): RecentWindowAggregates & { innings: T[] } {
+  const list = ((innings ?? []) as T[]).slice(0, Math.max(1, window))
+  if (list.length === 0) {
+    return { innings: [], mean: null, average: null, strikeRate100: null, hasRealBalls: false }
+  }
+  const runs = list.reduce((s, r) => s + r.score, 0)
+  const balls = list.reduce((s, r) => s + (r.balls ?? 0), 0)
+  const dismissals = list.filter((r) => !r.notOut).length
+  return {
+    innings: list,
+    mean: Math.round((runs / list.length) * 100) / 100,
+    average: Math.round((dismissals > 0 ? runs / dismissals : runs) * 100) / 100,
+    strikeRate100: balls > 0 ? Math.round((runs / balls) * 10000) / 100 : null,
+    hasRealBalls: list.some((r) => (r.balls ?? 0) > 0),
+  }
 }
 
 function pickTournamentRecord(

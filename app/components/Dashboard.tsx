@@ -297,6 +297,9 @@ export default function Dashboard({
             teams={teams}
             tournamentName={tournament?.name ?? 'Tournament'}
             seasonYear={selectedYear}
+            tournamentId={tournamentId}
+            format={format}
+            gender={gender}
             onBack={() => setRankingsExpanded(false)}
             onOpenPlayerInTeam={(focus: TournamentRankingsFocus) => {
               handleSelectTeam(focus.teamId, focus.playerId)

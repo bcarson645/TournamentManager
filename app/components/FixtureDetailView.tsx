@@ -1,11 +1,14 @@
 'use client'
 
-import { Fragment, useMemo, useState, useSyncExternalStore, type CSSProperties } from 'react'
+import { Fragment, useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import type { CricketFormat, Gender, Tournament } from '../data/tournaments'
 import {
   buildFixtureDetail,
+  type DbRecentBowling,
+  type DbRecentInnings,
   type FixtureBatterRow,
   type FixtureBowlerRow,
+  type HubTeamData,
   type MatchMarketRow,
   type TeamBatterMatchups,
 } from '../data/fixtureDetail'
@@ -303,6 +306,8 @@ function CombinedBattingTable({ rows, homeTeamId }: { rows: FixtureBatterRow[]; 
   const [window, setWindow] = useState<BatWindow>(5)
   const [stat, setStat] = useState<BatStat>('avg')
   const ordered = useMemo(() => [...rows].sort((a, b) => b.batCaz - a.batCaz), [rows])
+  const hasSrHistory = useMemo(() => rows.some((r) => r.recentSrs.some((s) => s != null)), [rows])
+  const dbCount = useMemo(() => rows.filter((r) => r.recentSource === 'db').length, [rows])
   if (ordered.length === 0) return <p className="fxd-empty">No squad data.</p>
 
   return (
@@ -322,7 +327,7 @@ function CombinedBattingTable({ rows, homeTeamId }: { rows: FixtureBatterRow[]; 
             </button>
           ))}
         </div>
-        {metric !== 'sr' ? (
+        {metric !== 'sr' || hasSrHistory ? (
           <>
             <div className="fxd-seg" role="tablist" aria-label="Recent window">
               {BAT_WINDOWS.map((w) => (
@@ -401,12 +406,19 @@ function CombinedBattingTable({ rows, homeTeamId }: { rows: FixtureBatterRow[]; 
                     const sent = lines[i] ?? r.lineRuns
                     if (s === undefined) return <td key={i} className="fxd-muted">—</td>
                     const over = s >= sent
+                    const balls = r.recentBalls[i]
+                    const fours = r.recentFours[i]
+                    const sixes = r.recentSixes[i]
+                    const detailBits =
+                      r.recentSource === 'db' && balls !== undefined
+                        ? `${s} off ${balls} balls · ${fours ?? 0}×4 ${sixes ?? 0}×6 · `
+                        : `${s} · `
                     return (
                       <td
                         key={i}
                         className={'fxd-num ' + (over ? 'fxd-cell--over' : 'fxd-cell--under')}
                         style={formCellStyle(s, sent)}
-                        title={`${s} vs sent line ${sent.toFixed(1)}`}
+                        title={`${detailBits}vs sent line ${sent.toFixed(1)}`}
                       >
                         <span className="fxd-cell-line">{sent.toFixed(1)}</span>
                         {s}
@@ -423,17 +435,90 @@ function CombinedBattingTable({ rows, homeTeamId }: { rows: FixtureBatterRow[]; 
           </tbody>
         </table>
       ) : metric === 'sr' ? (
-        <table className="fxd-table">
-          <thead>
-            <tr>
-              <th>Batter</th>
-              <th title="Batting CAZ input">bat.caz</th>
-              <th title="Prep expectation">Prep</th>
-              <th title="Over/under line ending in .5">Line</th>
-              <th title="Career average — no per-innings history for this metric">Career</th>
-            </tr>
-          </thead>
-          <tbody>
+        hasSrHistory ? (
+          <table className="fxd-table">
+            <thead>
+              <tr>
+                <th>Batter</th>
+                <th title="Batting CAZ input">bat.caz</th>
+                <th title="Prep strike-rate expectation, over/under .5">Line</th>
+                {Array.from({ length: window }, (_, i) => (
+                  <th key={i} title={i === 0 ? 'Most recent innings' : `${i + 1} games ago`}>G{i + 1}</th>
+                ))}
+                <th title={`Average or median strike rate of last ${window}`}>{stat === 'avg' ? `Avg L${window}` : `Med L${window}`}</th>
+                <th title={`Games in last ${window} clearing the sent line`}>Hit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ordered.map((r) => {
+                const srs = r.recentSrs.slice(0, window)
+                const sent = r.sentSrLines.slice(0, window)
+                const played = srs.filter((s): s is number => s != null)
+                const mean =
+                  played.length > 0
+                    ? Math.round((played.reduce((s, v) => s + v, 0) / played.length) * 10) / 10
+                    : null
+                const ref = stat === 'avg' ? mean : medianOf(played)
+                const hits = srs.filter((s, i) => s != null && s >= (sent[i] ?? r.lineSr100)).length
+                return (
+                  <tr key={r.id}>
+                    <td>
+                      {r.name}{' '}
+                      <span className={teamChipClass(r.teamId, homeTeamId)} title={`${r.teamName} · batting #${r.position}`}>
+                        {r.teamName.slice(0, 3).toUpperCase()} #{r.position}
+                      </span>
+                    </td>
+                    <td className="fxd-num">{r.batCaz.toFixed(1)}</td>
+                    <td
+                      className={'fxd-num fxd-num--hi' + lineWarnClass(r.lineSr100, ref)}
+                      title={diffLabel(r.lineSr100, ref)}
+                    >
+                      {r.lineSr100.toFixed(1)}
+                    </td>
+                    {Array.from({ length: window }, (_, i) => {
+                      const s = srs[i]
+                      const line = sent[i] ?? r.lineSr100
+                      if (s == null) return <td key={i} className="fxd-muted">—</td>
+                      const over = s >= line
+                      const balls = r.recentBalls[i]
+                      const runs = r.recentScores[i]
+                      return (
+                        <td
+                          key={i}
+                          className={'fxd-num ' + (over ? 'fxd-cell--over' : 'fxd-cell--under')}
+                          style={formCellStyle(s, line)}
+                          title={
+                            runs !== undefined && balls !== undefined
+                              ? `${runs} off ${balls} balls (SR ${s.toFixed(1)}) · vs sent line ${line.toFixed(1)}`
+                              : `${s.toFixed(1)} vs sent line ${line.toFixed(1)}`
+                          }
+                        >
+                          <span className="fxd-cell-line">{line.toFixed(1)}</span>
+                          {s.toFixed(1)}
+                        </td>
+                      )
+                    })}
+                    <td className="fxd-num">{ref != null ? ref.toFixed(1) : '—'}</td>
+                    <td className="fxd-num" title={`${hits} of last ${window} cleared the sent line`}>
+                      {hits}/{played.length}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <table className="fxd-table">
+            <thead>
+              <tr>
+                <th>Batter</th>
+                <th title="Batting CAZ input">bat.caz</th>
+                <th title="Prep expectation">Prep</th>
+                <th title="Over/under line ending in .5">Line</th>
+                <th title="Career average — no per-innings history for this metric">Career</th>
+              </tr>
+            </thead>
+            <tbody>
             {ordered.map((r) => (
               <tr key={r.id}>
                 <td>
@@ -453,15 +538,25 @@ function CombinedBattingTable({ rows, homeTeamId }: { rows: FixtureBatterRow[]; 
                 <td className="fxd-num">{r.careerSr100 != null ? r.careerSr100.toFixed(1) : '—'}</td>
               </tr>
             ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        )
       ) : (
         <BoundaryGamesTable rows={ordered} window={window} stat={stat} metric={metric} homeTeamId={homeTeamId} />
       )}
       {metric === 'runs' ? (
-        <p className="fxd-card-hint">Line = prep expected × order deduction (openers face more balls) → nearest .5. Red line = 20%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.</p>
+        <p className="fxd-card-hint">
+          {dbCount > 0
+            ? `Real tournament history for ${dbCount}/${ordered.length} batters — last-5 scores, 4s, 6s and SR from the database. Hover a cell for balls faced. `
+            : null}
+          Line = prep expected × order deduction (openers face more balls) → nearest .5. Red line = 20%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.
+        </p>
       ) : metric === 'sr' ? (
-        <p className="fxd-card-hint">No per-innings balls history for strike rate — prep expectation vs career average.</p>
+        <p className="fxd-card-hint">
+          {hasSrHistory
+            ? `Real per-innings strike rates from the database — hover a cell for runs and balls. Red line = 20%+ off the L${window} ${stat === 'avg' ? 'average' : 'median'}.`
+            : 'No per-innings balls history for strike rate — prep expectation vs career average.'}
+        </p>
       ) : (
         <p className="fxd-card-hint">Boundaries always fit inside the scored runs — hover a cell for the knock total. Red line = 20%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.</p>
       )}
@@ -473,6 +568,7 @@ function CombinedBowlingTable({ rows, homeTeamId }: { rows: FixtureBowlerRow[]; 
   const [window, setWindow] = useState<BatWindow>(5)
   const [stat, setStat] = useState<BatStat>('avg')
   const ordered = useMemo(() => [...rows].sort((a, b) => b.expectedWkts - a.expectedWkts), [rows])
+  const dbCount = useMemo(() => rows.filter((r) => r.recentSource === 'db').length, [rows])
   if (ordered.length === 0) return <p className="fxd-empty">No squad data.</p>
   return (
     <>
@@ -577,7 +673,12 @@ function CombinedBowlingTable({ rows, homeTeamId }: { rows: FixtureBowlerRow[]; 
           })}
         </tbody>
       </table>
-      <p className="fxd-card-hint">Per-game figures are stand-ins (no bowling history feed yet) — wickets/runs/overs shaped by expectation. Red line = 25%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.</p>
+      <p className="fxd-card-hint">
+        {dbCount > 0
+          ? `Real spells for ${dbCount}/${ordered.length} bowlers from the database — hover a cell for runs and overs. `
+          : 'Per-game figures are stand-ins (no bowling history feed yet) — wickets/runs/overs shaped by expectation. '}
+        Red line = 25%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.
+      </p>
     </>
   )
 }
@@ -604,10 +705,11 @@ function MarketGraphsCard({
   return (
     <div className="fxd-mkt-graphs">
       <div className="fxd-mkt-legend" aria-hidden>
-        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-bar--home" /> Home line</span>
-        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-bar--away" /> Away line</span>
-        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-swatch--ground" /> Ground {refName}</span>
-        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-swatch--comp" /> Tournament {refName}</span>
+        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-bar--home" /> Home avg</span>
+        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-bar--away" /> Away avg</span>
+        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-swatch--groundbar" /> Ground avg</span>
+        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-swatch--homeline" /> Home line</span>
+        <span className="fxd-mkt-legend-item"><i className="fxd-mkt-swatch fxd-mkt-swatch--awayline" /> Away line</span>
       </div>
       {TEAM_MARKET_KEYS.map((key) => {
         const h = byId.get(`home-${key}`)
@@ -617,28 +719,31 @@ function MarketGraphsCard({
         const aRef = refOf(a.actuals.slice(0, window), stat)
         const cRef = refOf(h.compActuals.slice(0, window), stat)
         const gRef = refOf(h.groundActuals.slice(0, window), stat)
-        const max = Math.max(h.line, a.line, cRef ?? 0, gRef ?? 0, 1e-9)
+        const max = Math.max(h.line, a.line, hRef ?? 0, aRef ?? 0, cRef ?? 0, gRef ?? 0, 1e-9)
         const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`
         return (
           <div key={key} className="fxd-mkt-graph">
             <div className="fxd-mkt-graph-head">
               <span className="fxd-mkt-graph-label">{h.label}</span>
               <span className="fxd-mkt-graph-vals">
-                H {h.line.toFixed(1)} · A {a.line.toFixed(1)} · Comp {cRef != null ? cRef.toFixed(1) : '—'} · Grd {gRef != null ? gRef.toFixed(1) : '—'}
+                H {h.line.toFixed(1)} ({hRef != null ? hRef.toFixed(1) : '—'}) · A {a.line.toFixed(1)} ({aRef != null ? aRef.toFixed(1) : '—'}) · Comp {cRef != null ? cRef.toFixed(1) : '—'} · Grd {gRef != null ? gRef.toFixed(1) : '—'}
               </span>
             </div>
             <div
               className="fxd-mkt-garea"
               title={`${h.teamName} line ${h.line.toFixed(1)} (L${window} ${refName} ${hRef != null ? hRef.toFixed(1) : '—'}) · ${a.teamName} line ${a.line.toFixed(1)} (L${window} ${refName} ${aRef != null ? aRef.toFixed(1) : '—'}) · ground ${gRef != null ? gRef.toFixed(1) : '—'} · tournament ${cRef != null ? cRef.toFixed(1) : '—'}`}
             >
-              <div className="fxd-mkt-grow">
-                <i className="fxd-mkt-bar fxd-mkt-bar--home" style={{ width: pct(h.line) }} />
+              <div className="fxd-mkt-grow" title={`${h.teamName} L${window} ${refName}`}>
+                <i className="fxd-mkt-bar fxd-mkt-bar--home" style={{ width: hRef != null ? pct(hRef) : '0%' }} />
               </div>
-              <div className="fxd-mkt-grow">
-                <i className="fxd-mkt-bar fxd-mkt-bar--away" style={{ width: pct(a.line) }} />
+              <div className="fxd-mkt-grow" title={`${a.teamName} L${window} ${refName}`}>
+                <i className="fxd-mkt-bar fxd-mkt-bar--away" style={{ width: aRef != null ? pct(aRef) : '0%' }} />
               </div>
-              {gRef != null ? <span className="fxd-mkt-marker fxd-mkt-marker--ground" style={{ left: pct(gRef) }} /> : null}
-              {cRef != null ? <span className="fxd-mkt-marker fxd-mkt-marker--comp" style={{ left: pct(cRef) }} /> : null}
+              <div className="fxd-mkt-grow" title={`Ground L${window} ${refName}`}>
+                <i className="fxd-mkt-bar fxd-mkt-bar--ground" style={{ width: gRef != null ? pct(gRef) : '0%' }} />
+              </div>
+              <span className="fxd-mkt-marker fxd-mkt-marker--homeline" style={{ left: pct(h.line) }} />
+              <span className="fxd-mkt-marker fxd-mkt-marker--awayline" style={{ left: pct(a.line) }} />
             </div>
           </div>
         )
@@ -850,7 +955,7 @@ function MatchMarketsTable({
           </table>
         </>
       ) : null}
-      <p className="fxd-card-hint">Stand-in histories shaped by model numbers until real results feed in. Red line = 20%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.</p>
+      <p className="fxd-card-hint">Innings runs / 4s / 6s / match wickets chains are real history (lines stay model — Hit = cleared our line). Powerplay splits, 1st-over, partnerships and max-over rows are still stand-ins. Red line = 20%+ off the L{window} {stat === 'avg' ? 'average' : 'median'}.</p>
     </>
   )
 }
@@ -964,9 +1069,113 @@ export default function FixtureDetailView({
   )
   const squadVersion = useSyncExternalStore(subscribeSquadStore, getSquadStoreVersion, getSquadStoreVersion)
 
+  // Base bundle (profile stand-ins) gives us the squad names for the history fetch.
+  const baseNamesKey = useMemo(() => {
+    const base = buildFixtureDetail(tournamentId, fixtureId, format, gender, tournament)
+    if (!base) return ''
+    return [...base.homeBatters, ...base.awayBatters, ...base.homeBowlers, ...base.awayBowlers]
+      .map((r) => r.name)
+      .join('|')
+  }, [tournamentId, fixtureId, format, gender, tournament, simulatorVersion, squadVersion])
+
+  // Base team ids + venue for the team-history fetch.
+  const baseTeamsKey = useMemo(() => {
+    const base = buildFixtureDetail(tournamentId, fixtureId, format, gender, tournament)
+    if (!base) return ''
+    return `${base.home.teamId}|${base.away.teamId}|${base.venue}`
+  }, [tournamentId, fixtureId, format, gender, tournament, simulatorVersion, squadVersion])
+
+  // Real tournament history per player (e.g. IPL-only for t20-m-ipl). Absence (or
+  // unmapped names) falls back to the prep-profile stand-ins in the builder.
+  const [recentByName, setRecentByName] = useState<Map<string, DbRecentInnings[]> | undefined>(
+    undefined,
+  )
+  const [recentBowlingByName, setRecentBowlingByName] = useState<
+    Map<string, DbRecentBowling[]> | undefined
+  >(undefined)
+  const [teamData, setTeamData] = useState<HubTeamData | null | undefined>(undefined)
+  useEffect(() => {
+    let cancelled = false
+    setRecentByName(undefined)
+    setRecentBowlingByName(undefined)
+    if (!baseNamesKey) return
+    const names = [...new Set(baseNamesKey.split('|').filter(Boolean))]
+    fetch(
+      `/api/cricket/hub-recent?tournamentId=${encodeURIComponent(tournamentId)}&names=${encodeURIComponent(names.join(','))}&limit=15`,
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (
+          json: {
+            players?: Record<string, DbRecentInnings[]>
+            bowling?: Record<string, DbRecentBowling[]>
+          } | null,
+        ) => {
+          if (cancelled || !json) return
+          const map = new Map<string, DbRecentInnings[]>()
+          for (const [name, innings] of Object.entries(json.players ?? {})) {
+            if (Array.isArray(innings) && innings.length > 0) map.set(name, innings)
+          }
+          setRecentByName(map)
+          const bowlMap = new Map<string, DbRecentBowling[]>()
+          for (const [name, spells] of Object.entries(json.bowling ?? {})) {
+            if (Array.isArray(spells) && spells.length > 0) bowlMap.set(name, spells)
+          }
+          setRecentBowlingByName(bowlMap)
+        },
+      )
+      .catch(() => {
+        if (!cancelled) {
+          setRecentByName(undefined)
+          setRecentBowlingByName(undefined)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tournamentId, fixtureId, baseNamesKey])
+
+  // Real team-level history: recent innings, head-to-head, ground record.
+  useEffect(() => {
+    let cancelled = false
+    setTeamData(undefined)
+    if (!baseTeamsKey) return
+    const [homeId, awayId, venue] = baseTeamsKey.split('|')
+    fetch(
+      `/api/cricket/hub-teams?tournamentId=${encodeURIComponent(tournamentId)}&home=${encodeURIComponent(homeId ?? '')}&away=${encodeURIComponent(awayId ?? '')}&venue=${encodeURIComponent(venue ?? '')}&limit=15`,
+    )
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: HubTeamData | null) => {
+        if (cancelled || !json) return
+        setTeamData(json)
+      })
+      .catch(() => {
+        if (!cancelled) setTeamData(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [tournamentId, fixtureId, baseTeamsKey])
+
   const detail = useMemo(
-    () => buildFixtureDetail(tournamentId, fixtureId, format, gender, tournament),
-    [tournamentId, fixtureId, format, gender, tournament, simulatorVersion, squadVersion],
+    () =>
+      buildFixtureDetail(tournamentId, fixtureId, format, gender, tournament, {
+        recentByName,
+        recentBowlingByName,
+        teamData: teamData ?? null,
+      }),
+    [
+      tournamentId,
+      fixtureId,
+      format,
+      gender,
+      tournament,
+      simulatorVersion,
+      squadVersion,
+      recentByName,
+      recentBowlingByName,
+      teamData,
+    ],
   )
 
   function toggleTheme() {
@@ -987,6 +1196,18 @@ export default function FixtureDetailView({
   }
 
   const { fixture, home, away } = detail
+  const groundTitle =
+    detail.groundRecord.source === 'db-venue'
+      ? `Real: ${detail.groundRecord.inningsPlayed} innings at ${detail.groundRecord.venue}`
+      : detail.groundRecord.source === 'db-competition'
+        ? 'Tournament-wide average — this venue has too few games in the data'
+        : 'Seeded estimate — no tournament data mapped'
+  const groundSub =
+    detail.groundRecord.source === 'db-venue'
+      ? 'Real record at ground'
+      : detail.groundRecord.source === 'db-competition'
+        ? 'Tournament average'
+        : 'Record at ground (est.)'
 
   return (
     <div className="fixture-detail-shell" data-theme={theme}>
@@ -1256,42 +1477,76 @@ export default function FixtureDetailView({
           <div className="fxd-headline">
             <span className="fxd-headline-cap">{home.flag} {home.name}</span>
             <span className="fxd-headline-val fxd-headline-val--home">{detail.homeBattingFirst.avgScoreBattingFirst}</span>
-            <span className="fxd-headline-sub">Modelled batting first</span>
+            <span className="fxd-headline-sub">
+              {detail.homeBattingFirst.source === 'db'
+                ? `Avg batting first · last ${detail.homeBattingFirst.games}`
+                : 'Modelled batting first'}
+            </span>
           </div>
           <div className="fxd-headline">
             <span className="fxd-headline-cap">🏟 {detail.ground?.name ?? detail.venue}</span>
-            <span className="fxd-headline-val">{detail.homeBattingFirst.parScoreAtGround}</span>
-            <span className="fxd-headline-sub">Par score at ground</span>
+            <span
+              className="fxd-headline-val"
+              title={
+                detail.homeBattingFirst.parSource === 'db'
+                  ? `Average 1st-innings score across ${detail.homeBattingFirst.parGames} ${home.name} home games (${detail.homeBattingFirst.parVenues.join(' / ')})`
+                  : 'Seeded estimate — no home-game data mapped'
+              }
+            >
+              {detail.homeBattingFirst.parScoreAtGround}
+            </span>
+            <span className="fxd-headline-sub">
+              {detail.homeBattingFirst.parSource === 'db'
+                ? `Par · ${home.name} at home (${detail.homeBattingFirst.parGames})`
+                : 'Par score at ground'}
+            </span>
           </div>
           <div className="fxd-headline">
             <span className="fxd-headline-cap">{away.flag} {away.name}</span>
             <span className="fxd-headline-val fxd-headline-val--away">{detail.awayBattingFirst.avgScoreBattingFirst}</span>
-            <span className="fxd-headline-sub">Modelled batting first</span>
+            <span className="fxd-headline-sub">
+              {detail.awayBattingFirst.source === 'db'
+                ? `Avg batting first · last ${detail.awayBattingFirst.games}`
+                : 'Modelled batting first'}
+            </span>
           </div>
           <div className="fxd-headline">
-            <span className="fxd-headline-cap">Innings (sample)</span>
-            <span className="fxd-headline-val">{detail.groundRecord.inningsPlayed}</span>
-            <span className="fxd-headline-sub">Record at ground</span>
+            <span className="fxd-headline-cap">Innings ({detail.groundRecord.source === 'model' ? 'sample' : 'real'})</span>
+            <span className="fxd-headline-val" title={groundTitle}>{detail.groundRecord.inningsPlayed}</span>
+            <span className="fxd-headline-sub">{groundSub}</span>
           </div>
           <div className="fxd-headline">
             <span className="fxd-headline-cap">Avg 1st innings</span>
-            <span className="fxd-headline-val">{detail.groundRecord.avgFirstInnings}</span>
-            <span className="fxd-headline-sub">Record at ground</span>
+            <span className="fxd-headline-val" title={groundTitle}>{detail.groundRecord.avgFirstInnings}</span>
+            <span className="fxd-headline-sub">{groundSub}</span>
           </div>
           <div className="fxd-headline">
             <span className="fxd-headline-cap">Avg sixes</span>
-            <span className="fxd-headline-val">{detail.groundRecord.avgSixes}</span>
-            <span className="fxd-headline-sub">Record at ground</span>
+            <span className="fxd-headline-val" title={groundTitle}>{detail.groundRecord.avgSixes}</span>
+            <span className="fxd-headline-sub">{groundSub}</span>
           </div>
           <div className="fxd-headline">
             <span className="fxd-headline-cap">Win batting first</span>
-            <span className="fxd-headline-val">{detail.groundRecord.winBatFirstPct}%</span>
-            <span className="fxd-headline-sub">Record at ground</span>
+            <span className="fxd-headline-val" title={groundTitle}>{detail.groundRecord.winBatFirstPct}%</span>
+            <span className="fxd-headline-sub">{groundSub}</span>
           </div>
           <div className="fxd-headline">
             <span className="fxd-headline-cap">Home side wins</span>
-            <span className="fxd-headline-val">{detail.groundRecord.homeTeamWinsPct}%</span>
-            <span className="fxd-headline-sub">Record at ground</span>
+            <span
+              className="fxd-headline-val"
+              title={
+                detail.groundRecord.homeWinsSource === 'db'
+                  ? `${detail.groundRecord.homeTeamName ?? 'Home side'} won ${detail.groundRecord.homeWinsGames} home games at this ground`
+                  : 'Seeded estimate — no clear home team in the data'
+              }
+            >
+              {detail.groundRecord.homeTeamWinsPct}%
+            </span>
+            <span className="fxd-headline-sub">
+              {detail.groundRecord.homeWinsSource === 'db'
+                ? `${detail.groundRecord.homeTeamName ?? 'Home side'} at home (${detail.groundRecord.homeWinsGames})`
+                : 'Record at ground (est.)'}
+            </span>
           </div>
         </div>
       </section>
@@ -1340,6 +1595,33 @@ export default function FixtureDetailView({
           Head-to-head · runs by phase
         </h2>
         <p className="fxd-h2h-names"><span className="fxd-h2h-home">{home.name}</span> vs <span className="fxd-h2h-away">{away.name}</span></p>
+        {detail.h2hMeetings.length > 0 ? (
+          <>
+            <h3 className="fxd-subhead">Last meetings · real results</h3>
+            <table className="fxd-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Batted first</th>
+                  <th>Chased</th>
+                  <th>Winner</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.h2hMeetings.slice(0, 8).map((m, i) => (
+                  <tr key={`${m.date}-${i}`}>
+                    <td className="fxd-muted">{m.date}</td>
+                    <td className="fxd-num">{m.first.teamName ?? '—'} {m.first.total}/{m.first.wickets}</td>
+                    <td className="fxd-num">{m.second.teamName ?? '—'} {m.second.total}/{m.second.wickets}</td>
+                    <td>{m.winnerName ?? 'Tie'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : (
+          <p className="fxd-card-hint">No head-to-head meetings in the mapped tournament data yet.</p>
+        )}
         <h3 className="fxd-subhead">Market lines vs competition & ground</h3>
         <MarketGraphsCard rows={detail.matchMarkets} window={mktWindow} stat={mktStat} />
         <h3 className="fxd-subhead">Phase scoring</h3>
@@ -1363,7 +1645,7 @@ export default function FixtureDetailView({
             )
           })()}
         </div>
-        <p className="fxd-card-hint">Model estimates from squad Raw totals × conditions.</p>
+        <p className="fxd-card-hint">Phase split estimated from the real innings average above.</p>
       </section>
       </div>
 

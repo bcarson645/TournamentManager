@@ -62,6 +62,108 @@ export interface PhaseScoring {
 export interface BattingFirstLine {
   avgScoreBattingFirst: number
   parScoreAtGround: number
+  /** 'db' = average of real batting-first innings (games = innings counted). */
+  source: 'db' | 'model'
+  games: number
+  /** 'db' = average 1st-innings score in the home side's home games. */
+  parSource: 'db' | 'model'
+  parGames: number
+  parVenues: string[]
+}
+
+/** Real recent innings fed in from the performances table (same shape as the API payload). */
+export interface DbRecentInnings {
+  date: string
+  runs: number
+  balls: number
+  fours: number
+  sixes: number
+  notOut: boolean
+  opponent: string | null
+}
+
+/** Real recent bowling spell fed in from the performances table. */
+export interface DbRecentBowling {
+  date: string
+  oversText: string
+  balls: number
+  runs: number
+  wickets: number
+  opponent: string | null
+}
+
+/** One real completed team innings (tournament-filtered). */
+export interface DbTeamInnings {
+  date: string
+  opponent: string | null
+  venue: string | null
+  inningsNo: 1 | 2
+  total: number
+  wickets: number
+  fours: number
+  sixes: number
+  competitionId: string | null
+}
+
+export interface DbTeamHistory {
+  appTeamId: string
+  innings: DbTeamInnings[]
+  avgBatFirst: number | null
+  batFirstGames: number
+  avgAll: number | null
+  avgFours: number | null
+  avgSixes: number | null
+  games: number
+}
+
+export interface DbH2HSide {
+  teamName: string | null
+  inningsNo: 1 | 2
+  total: number
+  wickets: number
+}
+
+export interface DbH2HMeeting {
+  date: string
+  venue: string | null
+  first: DbH2HSide
+  second: DbH2HSide
+  winnerName: string | null
+}
+
+export interface DbGroundRecord {
+  venue: string
+  innings: number
+  avgFirstInnings: number | null
+  avgSixes: number | null
+  winBatFirstPct: number | null
+  source: 'venue' | 'competition'
+  homeTeamId: string | null
+  homeTeamName: string | null
+  homeWinsPct: number | null
+  homeWinsGames: number
+}
+
+/** Total wickets fallen in a completed match (both innings). */
+export interface DbMatchWickets {
+  date: string
+  wickets: number
+}
+
+/** Real team-level data for a fixture (null when the tournament is unmapped). */
+export interface HubTeamData {
+  home: DbTeamHistory | null
+  away: DbTeamHistory | null
+  h2h: DbH2HMeeting[]
+  ground: DbGroundRecord | null
+  /** Par: average 1st-innings score in the home side's home games. */
+  par: { avg: number | null; games: number; venues: string[] } | null
+  /** Tournament-wide recent innings (for competition chains in the market graphs). */
+  compInnings: DbTeamInnings[]
+  /** Recent innings at the matched venue (for ground chains; may be empty). */
+  groundInnings: DbTeamInnings[]
+  /** Total wickets per completed match (for the match-wickets market). */
+  matchWickets: { home: DbMatchWickets[]; away: DbMatchWickets[]; comp: DbMatchWickets[]; ground: DbMatchWickets[] }
 }
 
 export interface FixtureBatterRow {
@@ -85,6 +187,14 @@ export interface FixtureBatterRow {
   recentSixes: number[]
   sentFoursLines: number[]
   sentSixesLines: number[]
+  /** Balls faced per past game (real DB history; empty when on profile stand-ins). */
+  recentBalls: number[]
+  /** Per-game strike rate (runs/balls×100, null when no balls faced). */
+  recentSrs: (number | null)[]
+  /** Plausible SR line we would have sent each past game — current line ±8, 1dp. */
+  sentSrLines: number[]
+  /** 'db' = real tournament history from the performances table; 'profile' = prep profile stand-ins. */
+  recentSource: 'db' | 'profile'
   avgLast5: number | null
   avgLast10: number | null
   avgLast15: number | null
@@ -121,6 +231,8 @@ export interface FixtureBowlerRow {
   recentBowling: BowlingGame[]
   /** Plausible wickets line we would have sent each past game — current ±1, snapped to .5. */
   sentWktsLines: number[]
+  /** 'db' = real spells from the performances table; 'profile' = shaped stand-ins. */
+  recentSource: 'db' | 'profile'
   avgWktsLast5: number | null
   avgWktsLast10: number | null
   avgWktsLast15: number | null
@@ -139,6 +251,13 @@ export interface GroundRecord {
   avgSixes: number
   winBatFirstPct: number
   homeTeamWinsPct: number
+  /** Designated home team at this venue (primary tenant), when one is clear. */
+  homeTeamName: string | null
+  /** 'db-venue' = real results at this ground; 'db-competition' = tournament-wide fallback; 'model' = seeded. */
+  source: 'db-venue' | 'db-competition' | 'model'
+  /** Source of the home-side-wins figure specifically. */
+  homeWinsSource: 'db' | 'model'
+  homeWinsGames: number
 }
 
 export interface CompetitorTrack {
@@ -257,9 +376,18 @@ function buildMatchMarkets(
   awayPhases: PhaseScoring,
   avgSixesMatch: number,
   avgFirstInnings: number,
+  real?: {
+    home: DbTeamInnings[]
+    away: DbTeamInnings[]
+    comp: DbTeamInnings[]
+    ground: DbTeamInnings[]
+    matchWkts: { home: DbMatchWickets[]; away: DbMatchWickets[]; comp: DbMatchWickets[]; ground: DbMatchWickets[] }
+  },
 ): MatchMarketRow[] {
   const N = 15
   const rows: MatchMarketRow[] = []
+  const chain = (list: DbTeamInnings[], pick: (r: DbTeamInnings) => number): number[] =>
+    list.slice(0, N).map(pick)
   const push = (
     id: string,
     label: string,
@@ -271,38 +399,96 @@ function buildMatchMarkets(
     sentJitter: number,
     compBase: number,
     groundBase: number,
+    realActuals?: number[],
+    realComp?: number[],
+    realGround?: number[],
+    forceLine?: number,
   ) => {
-    const line = whole ? toHalfLineFrom(base) : Math.round(base * 2) / 2
+    const line = forceLine ?? (whole ? toHalfLineFrom(base) : Math.round(base * 2) / 2)
     rows.push({
       id,
       label,
       scope,
       teamName,
       line,
-      actuals: marketActuals(`${fixtureId}:${id}`, base, N, spread, whole),
+      actuals: realActuals ?? marketActuals(`${fixtureId}:${id}`, base, N, spread, whole),
       sentLines: marketSentLines(`${fixtureId}:${id}`, line, N, sentJitter),
-      compActuals: marketActuals(`${fixtureId}:${id}:comp`, compBase, N, spread, whole),
-      groundActuals: marketActuals(`${fixtureId}:${id}:ground`, groundBase, N, spread, whole),
+      compActuals: realComp ?? marketActuals(`${fixtureId}:${id}:comp`, compBase, N, spread, whole),
+      groundActuals:
+        realGround ?? marketActuals(`${fixtureId}:${id}:ground`, groundBase, N, spread, whole),
     })
   }
+  const homeInn = real?.home ?? []
+  const awayInn = real?.away ?? []
+  const compInn = real && real.comp.length > 0 ? real.comp : [...homeInn, ...awayInn]
+  const groundInn = real && real.ground.length > 0 ? real.ground : compInn
+  const snapHalf = (x: number): number => Math.max(0.5, Math.round(x * 2) / 2)
+  const compAvgOf = (pick: (r: DbTeamInnings) => number): number | null =>
+    compInn.length > 0
+      ? compInn.reduce((s, r) => s + pick(r), 0) / compInn.length
+      : null
+  // Review lines: flat 179.5 innings for every team; 4s/6s from the
+  // competition-wide average (same for all teams).
+  const reviewInningsLine = compInn.length > 0 ? 179.5 : null
+  const compFoursAvg = compAvgOf((r) => r.fours)
+  const compSixesAvg = compAvgOf((r) => r.sixes)
+  const reviewFoursLine = compFoursAvg != null ? snapHalf(compFoursAvg) : null
+  const reviewSixesLine = compSixesAvg != null ? snapHalf(compSixesAvg) : null
+  const wktsChain = (list: DbMatchWickets[]): number[] => list.slice(0, N).map((r) => r.wickets)
+  const mw = real?.matchWkts
+  const matchWktsActuals = mw ? mergeWkts(mw.home, mw.away) : undefined
+  const matchWktsComp = mw && mw.comp.length > 0 ? wktsChain(mw.comp) : undefined
+  const matchWktsGround =
+    mw && mw.ground.length > 0 ? wktsChain(mw.ground) : matchWktsComp
   const team4s = (innings: number) => innings * 0.11
   const team6s = (innings: number) => Math.max(2, innings * 0.045)
-  for (const side of [
-    { scope: 'home' as const, name: homeName, innings: homeBatFirst, phases: homePhases },
-    { scope: 'away' as const, name: awayName, innings: awayBatFirst, phases: awayPhases },
-  ]) {
+  const sides = [
+    { scope: 'home' as const, name: homeName, innings: homeBatFirst, phases: homePhases, real: homeInn },
+    { scope: 'away' as const, name: awayName, innings: awayBatFirst, phases: awayPhases, real: awayInn },
+  ]
+  for (const side of sides) {
     const runs12 = side.phases.powerplay + side.phases.middle * 0.5
-    push(`${side.scope}-innings`, 'Innings runs', side.scope, side.name, side.innings, 0.12, true, 4, 166, avgFirstInnings)
+    const inningsLine = reviewInningsLine ?? side.innings
+    const foursLine = reviewFoursLine ?? team4s(side.innings)
+    const sixesLine = reviewSixesLine ?? team6s(side.innings)
+    push(`${side.scope}-innings`, 'Innings runs', side.scope, side.name, inningsLine, 0.12, true, 4, 166, avgFirstInnings,
+      chain(side.real, (r) => r.total), chain(compInn, (r) => r.total), chain(groundInn, (r) => r.total),
+      reviewInningsLine ?? undefined)
     push(`${side.scope}-r6`, 'Runs @ 6 overs', side.scope, side.name, side.phases.powerplay, 0.15, true, 3, 47, Math.round(avgFirstInnings * 0.28))
     push(`${side.scope}-r12`, 'Runs @ 12 overs', side.scope, side.name, runs12, 0.13, true, 3, 96, Math.round(avgFirstInnings * 0.57))
-    push(`${side.scope}-4s`, 'Total 4s', side.scope, side.name, team4s(side.innings), 0.18, true, 1.5, 17, Math.round(avgFirstInnings * 0.11))
-    push(`${side.scope}-6s`, 'Total 6s', side.scope, side.name, team6s(side.innings), 0.2, true, 1, 7, Math.max(2, Math.round(avgSixesMatch / 2)))
+    push(`${side.scope}-4s`, 'Total 4s', side.scope, side.name, foursLine, 0.18, true, 1.5, 17, Math.round(avgFirstInnings * 0.11),
+      chain(side.real, (r) => r.fours), chain(compInn, (r) => r.fours), chain(groundInn, (r) => r.fours),
+      reviewFoursLine ?? undefined)
+    push(`${side.scope}-6s`, 'Total 6s', side.scope, side.name, sixesLine, 0.2, true, 1, 7, Math.max(2, Math.round(avgSixesMatch / 2)),
+      chain(side.real, (r) => r.sixes), chain(compInn, (r) => r.sixes), chain(groundInn, (r) => r.sixes),
+      reviewSixesLine ?? undefined)
     push(`${side.scope}-1st`, '1st over runs', side.scope, side.name, 7.5, 0.3, true, 1, 7.5, 7.5)
   }
   push('match-partnership', 'Top partnership', 'match', 'Match', 52.5, 0.2, true, 3, 50, 54)
-  push('match-wickets', 'Match wickets', 'match', 'Match', 12.5, 0.15, true, 1, 12, 12)
+  push('match-wickets', 'Match wickets', 'match', 'Match', 12.5, 0.15, true, 1, 12, 12,
+    matchWktsActuals, matchWktsComp, matchWktsGround)
   push('match-maxover', 'Max runs in over', 'match', 'Match', 20.5, 0.18, true, 1.5, 20, 21)
   return rows
+}
+
+/** Newest-first merge of both sides' recent matches, deduped by date. */
+function mergeWkts(home: DbMatchWickets[], away: DbMatchWickets[]): number[] {
+  const toTime = (d: string): number => {
+    const m = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+    if (m) return new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2])).getTime()
+    const t = Date.parse(d)
+    return Number.isNaN(t) ? -1 : t
+  }
+  const seen = new Set<string>()
+  const merged: DbMatchWickets[] = []
+  for (const r of [...home, ...away].sort((a, b) => toTime(b.date) - toTime(a.date))) {
+    const key = `${r.date}:${r.wickets}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(r)
+    if (merged.length >= 15) break
+  }
+  return merged.map((r) => r.wickets)
 }
 
 export interface FixtureDetailBundle {
@@ -344,6 +530,17 @@ export interface FixtureDetailBundle {
   /** Batter-vs-opposition-bowler matrices, one per team. */
   batterMatchups: TeamBatterMatchups[]
   matchMarkets: MatchMarketRow[]
+  /** Real team-level history (null sides when the tournament is unmapped). */
+  teamHistories: { home: DbTeamHistory | null; away: DbTeamHistory | null }
+  /** Recent completed meetings between the two sides, newest first. */
+  h2hMeetings: DbH2HMeeting[]
+}
+
+/** Optional real-data feeds for the fixture hub (all fetched client-side via API). */
+export interface FixtureDetailOptions {
+  recentByName?: Map<string, DbRecentInnings[]>
+  recentBowlingByName?: Map<string, DbRecentBowling[]>
+  teamData?: HubTeamData | null
 }
 
 export function findFixtureInTournament(
@@ -511,6 +708,10 @@ function buildGroundRecord(venue: string, homeTeamId: string, fixtureId: string)
     avgSixes: 11 + (seed % 9),
     winBatFirstPct: 42 + (seed % 18),
     homeTeamWinsPct: 48 + (seed % 22),
+    homeTeamName: null,
+    source: 'model',
+    homeWinsSource: 'model',
+    homeWinsGames: 0,
   }
 }
 
@@ -582,6 +783,7 @@ function batterRows(
   opponentBowlingRating: number,
   conditions: number,
   format: CricketFormat,
+  recentByName?: Map<string, DbRecentInnings[]>,
 ): FixtureBatterRow[] {
   const { startingXI } = getSquadForTeam(teamId)
   const prep = getMatchPrepSettings(tournamentId)
@@ -600,10 +802,24 @@ function batterRows(
       rawAdj: p.rawAdj ?? 0,
     })
     const profile = getProfileForPlayer(p.name)
-    const innings = (profile.recentInnings ?? []).slice(0, 15)
+    const dbInnings = recentByName?.get(p.name)?.filter((r) => r.balls > 0 || r.runs > 0).slice(0, 15)
+    const useDb = (dbInnings?.length ?? 0) > 0
+    const innings = useDb
+      ? dbInnings!.map((r) => ({
+          score: r.runs,
+          notOut: r.notOut,
+          balls: r.balls,
+          fours: r.fours,
+          sixes: r.sixes,
+        }))
+      : (profile.recentInnings ?? []).slice(0, 15)
     const recentScores = innings.map((r) => r.score)
     const recentFours = innings.map((r) => r.fours)
     const recentSixes = innings.map((r) => r.sixes)
+    const recentBalls = innings.map((r) => r.balls)
+    const recentSrs = innings.map((r) =>
+      r.balls > 0 ? Math.round((r.score / r.balls) * 1000) / 10 : null,
+    )
     const orderFactor = orderFactorFor(position)
     const lineRuns = toHalfLine(raw * orderFactor)
     const histLines = recentScores.map((_, gi) => {
@@ -621,6 +837,11 @@ function batterRows(
       return Math.max(0.5, Math.round((toHalfLine(expSixes) + (h - 0.5) * 2) * 2) / 2)
     })
     const expSr100 = Math.round(p.sr * 1000) / 10
+    const lineSr100 = toHalfLine(expSr100)
+    const sentSrLines = recentScores.map((_, gi) => {
+      const h = (hashSeed(`${p.id}:sr:${gi}`) % 100) / 100
+      return Math.max(0.5, Math.round((lineSr100 + (h - 0.5) * 16) * 10) / 10)
+    })
     const careerSr100 =
       profile.careerBatting?.strikeRate > 0
         ? Math.round(profile.careerBatting.strikeRate * 1000) / 10
@@ -642,6 +863,10 @@ function batterRows(
       recentSixes,
       sentFoursLines,
       sentSixesLines,
+      recentBalls,
+      recentSrs,
+      sentSrLines,
+      recentSource: useDb ? 'db' : 'profile',
       avgLast5: avgOfScores(recentScores.slice(0, 5)),
       avgLast10: avgOfScores(recentScores.slice(0, 10)),
       avgLast15: avgOfScores(recentScores),
@@ -650,7 +875,7 @@ function batterRows(
       expSr100,
       lineFours: toHalfLine(p.fours),
       lineSixes: toHalfLine(p.sixes),
-      lineSr100: toHalfLine(expSr100),
+      lineSr100,
       careerBatAvg: profile.careerBatting?.average > 0 ? profile.careerBatting.average : null,
       careerSr100,
     }
@@ -688,9 +913,18 @@ function avgOfNumbers(values: number[]): number | null {
   return Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100) / 100
 }
 
-function bowlerRows(teamId: string, teamName: string, format: CricketFormat): FixtureBowlerRow[] {
+function bowlerRows(
+  teamId: string,
+  teamName: string,
+  format: CricketFormat,
+  recentBowlingByName?: Map<string, DbRecentBowling[]>,
+): FixtureBowlerRow[] {
   const { startingXI } = getSquadForTeam(teamId)
   const maxOvers = format === 't20' ? 4 : 10
+  const ballsToDecimal = (balls: number): number => {
+    if (balls <= 0) return 0
+    return Math.round((Math.floor(balls / 6) + (balls % 6) / 10) * 10) / 10
+  }
   return [...startingXI]
     .sort((a, b) => (b.wkts ?? 0) - (a.wkts ?? 0))
     .slice(0, 6)
@@ -700,9 +934,20 @@ function bowlerRows(teamId: string, teamName: string, format: CricketFormat): Fi
       const careerWkts = profile.careerBowling?.wickets ?? 0
       const expWkts = p.wkts ?? 0
       const wktsLine = toHalfLine(expWkts)
-      const recentBowling = Array.from({ length: 15 }, (_, gi) =>
-        synthBowlingGame(p.id, gi, expWkts, p.overs, p.econ, maxOvers),
-      )
+      const dbSpells = recentBowlingByName
+        ?.get(p.name)
+        ?.filter((r) => r.balls > 0 || r.wickets > 0)
+        .slice(0, 15)
+      const useDb = (dbSpells?.length ?? 0) > 0
+      const recentBowling: BowlingGame[] = useDb
+        ? dbSpells!.map((r) => ({
+            wickets: r.wickets,
+            runsConceded: r.runs,
+            oversBowled: Math.min(maxOvers, ballsToDecimal(r.balls)),
+          }))
+        : Array.from({ length: 15 }, (_, gi) =>
+            synthBowlingGame(p.id, gi, expWkts, p.overs, p.econ, maxOvers),
+          )
       const sentWktsLines = recentBowling.map((_, gi) => {
         const h = hash01(`${p.id}:s:${gi}`)
         return Math.max(0.5, Math.round((wktsLine + (h - 0.5) * 2) * 2) / 2)
@@ -719,6 +964,7 @@ function bowlerRows(teamId: string, teamName: string, format: CricketFormat): Fi
         wktsLine,
         runsConceded: Math.round(p.overs * p.econ * 10) / 10,
         recentBowling,
+        recentSource: useDb ? 'db' : 'profile',
         sentWktsLines,
         avgWktsLast5: avgOfNumbers(wkts.slice(0, 5)),
         avgWktsLast10: avgOfNumbers(wkts.slice(0, 10)),
@@ -739,6 +985,7 @@ export function buildFixtureDetail(
   format: CricketFormat,
   gender: 'men' | 'women',
   tournament: Tournament | undefined,
+  opts?: FixtureDetailOptions,
 ): FixtureDetailBundle | null {
   const fixture = findFixtureInTournament(tournamentId, fixtureId)
   if (!fixture) return null
@@ -780,13 +1027,36 @@ export function buildFixtureDetail(
   const nav = fixtureNavIds(tournamentId, fixture.id)
   const homeFactors = teamFactors(homeTeam, tournamentId, true, ground)
   const awayFactors = teamFactors(awayTeam, tournamentId, false, ground)
-  const groundRecord = buildGroundRecord(venue, fixture.homeTeamId, fixture.id)
+  const recentByName = opts?.recentByName
+  const recentBowlingByName = opts?.recentBowlingByName
+  const teamData = opts?.teamData ?? null
+  const seededGround = buildGroundRecord(venue, fixture.homeTeamId, fixture.id)
+  const dbGround = teamData?.ground ?? null
+  const groundRecord: GroundRecord = dbGround
+    ? {
+        venue: dbGround.source === 'venue' ? dbGround.venue : venue,
+        inningsPlayed: dbGround.innings,
+        avgFirstInnings: dbGround.avgFirstInnings ?? seededGround.avgFirstInnings,
+        avgSixes: dbGround.avgSixes ?? seededGround.avgSixes,
+        winBatFirstPct: dbGround.winBatFirstPct ?? seededGround.winBatFirstPct,
+        homeTeamWinsPct: dbGround.homeWinsPct ?? seededGround.homeTeamWinsPct,
+        homeTeamName: dbGround.homeTeamName,
+        source: dbGround.source === 'venue' ? 'db-venue' : 'db-competition',
+        homeWinsSource: dbGround.homeWinsPct != null ? 'db' : 'model',
+        homeWinsGames: dbGround.homeWinsGames,
+      }
+    : { ...seededGround, source: 'model' as const }
   const par = groundRecord.avgFirstInnings
 
   const homeTotal = getSquadForTeam(fixture.homeTeamId).startingXI.reduce((s, p) => s + (p.raw ?? 0), 0)
   const awayTotal = getSquadForTeam(fixture.awayTeamId).startingXI.reduce((s, p) => s + (p.raw ?? 0), 0)
-  const homeBatFirst = Math.round(homeTotal * homeFactors.homeConditions)
-  const awayBatFirst = Math.round(awayTotal * awayFactors.homeConditions)
+  const homeModelBatFirst = Math.round(homeTotal * homeFactors.homeConditions)
+  const awayModelBatFirst = Math.round(awayTotal * awayFactors.homeConditions)
+  const homeBatFirst = teamData?.home?.avgBatFirst ?? homeModelBatFirst
+  const awayBatFirst = teamData?.away?.avgBatFirst ?? awayModelBatFirst
+  const homePar = teamData?.par?.avg ?? par
+  const homeParSource = teamData?.par?.avg != null ? 'db' : 'model'
+  const homeParGames = teamData?.par?.games ?? 0
   const homePhases = phaseSplit(homeBatFirst, `${fixture.id}-home`)
   const awayPhases = phaseSplit(awayBatFirst, `${fixture.id}-away`)
   const homeBattersRows = batterRows(
@@ -796,6 +1066,7 @@ export function buildFixtureDetail(
     awayFactors.bowlingRating,
     homeFactors.homeConditions,
     format,
+    recentByName,
   )
   const awayBattersRows = batterRows(
     tournamentId,
@@ -804,9 +1075,10 @@ export function buildFixtureDetail(
     homeFactors.bowlingRating,
     awayFactors.homeConditions,
     format,
+    recentByName,
   )
-  const homeBowlersRows = bowlerRows(fixture.homeTeamId, homeTeam.name, format)
-  const awayBowlersRows = bowlerRows(fixture.awayTeamId, awayTeam.name, format)
+  const homeBowlersRows = bowlerRows(fixture.homeTeamId, homeTeam.name, format, recentBowlingByName)
+  const awayBowlersRows = bowlerRows(fixture.awayTeamId, awayTeam.name, format, recentBowlingByName)
 
   return {
     fixture,
@@ -839,8 +1111,24 @@ export function buildFixtureDetail(
     relativeDayLabel: relativeDayLabelFor(fixture.dateLabel),
     homePhases,
     awayPhases,
-    homeBattingFirst: { avgScoreBattingFirst: homeBatFirst, parScoreAtGround: par },
-    awayBattingFirst: { avgScoreBattingFirst: awayBatFirst, parScoreAtGround: par },
+    homeBattingFirst: {
+      avgScoreBattingFirst: homeBatFirst,
+      parScoreAtGround: homePar,
+      source: teamData?.home?.avgBatFirst != null ? 'db' : 'model',
+      games: teamData?.home?.batFirstGames ?? 0,
+      parSource: homeParSource,
+      parGames: homeParGames,
+      parVenues: teamData?.par?.venues ?? [],
+    },
+    awayBattingFirst: {
+      avgScoreBattingFirst: awayBatFirst,
+      parScoreAtGround: homePar,
+      source: teamData?.away?.avgBatFirst != null ? 'db' : 'model',
+      games: teamData?.away?.batFirstGames ?? 0,
+      parSource: homeParSource,
+      parGames: homeParGames,
+      parVenues: teamData?.par?.venues ?? [],
+    },
     homeBatters: homeBattersRows,
     awayBatters: awayBattersRows,
     homeBowlers: homeBowlersRows,
@@ -853,12 +1141,23 @@ export function buildFixtureDetail(
       fixture.id,
       homeTeam.name,
       awayTeam.name,
-      homeBatFirst,
-      awayBatFirst,
+      homeModelBatFirst,
+      awayModelBatFirst,
       homePhases,
       awayPhases,
       groundRecord.avgSixes,
       groundRecord.avgFirstInnings,
+      teamData
+        ? {
+            home: teamData.home?.innings ?? [],
+            away: teamData.away?.innings ?? [],
+            comp: teamData.compInnings ?? [],
+            ground: teamData.groundInnings ?? [],
+            matchWkts: teamData.matchWickets ?? { home: [], away: [], comp: [], ground: [] },
+          }
+        : undefined,
     ),
+    teamHistories: { home: teamData?.home ?? null, away: teamData?.away ?? null },
+    h2hMeetings: teamData?.h2h ?? [],
   }
 }
