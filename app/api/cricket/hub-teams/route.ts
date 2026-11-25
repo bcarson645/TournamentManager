@@ -6,6 +6,8 @@ import {
   getHeadToHeadMeetings,
   getRecentMatchWickets,
   getTeamHomePar,
+  getTeamHomeRecentInnings,
+  getTeamHomeVenues,
   getTeamRecentInnings,
   getTournamentCompetitionIds,
   getVenueRecentInnings,
@@ -21,6 +23,8 @@ export const runtime = 'nodejs'
 export interface HubTeamHistory {
   appTeamId: string
   innings: DbTeamInnings[]
+  /** First-innings only (for 1st-innings market chains) — newest first. */
+  firstInnings: DbTeamInnings[]
   /** Average total batting first (innings 1), null when no data. */
   avgBatFirst: number | null
   batFirstGames: number
@@ -31,13 +35,18 @@ export interface HubTeamHistory {
   games: number
 }
 
-function summarize(appTeamId: string, innings: DbTeamInnings[]): HubTeamHistory {
+function summarize(
+  appTeamId: string,
+  innings: DbTeamInnings[],
+  firstInnings: DbTeamInnings[],
+): HubTeamHistory {
   const avg = (xs: number[]): number | null =>
     xs.length > 0 ? Math.round((xs.reduce((s, v) => s + v, 0) / xs.length) * 10) / 10 : null
   const first = innings.filter((r) => r.inningsNo === 1)
   return {
     appTeamId,
     innings,
+    firstInnings,
     avgBatFirst: avg(first.map((r) => r.total)),
     batFirstGames: first.length,
     avgAll: avg(innings.map((r) => r.total)),
@@ -69,8 +78,12 @@ export async function GET(req: Request) {
     const homeExt = getExternalTeamIdsForAppTeam(tournamentId, homeAppTeamId)
     const awayExt = getExternalTeamIdsForAppTeam(tournamentId, awayAppTeamId)
 
-    const home = summarize(homeAppTeamId, getTeamRecentInnings(homeExt, competitionIds, 60).slice(0, limit))
-    const away = summarize(awayAppTeamId, getTeamRecentInnings(awayExt, competitionIds, 60).slice(0, limit))
+    const homeFull = getTeamRecentInnings(homeExt, competitionIds, 60)
+    const awayFull = getTeamRecentInnings(awayExt, competitionIds, 60)
+    const firstOnly = (list: DbTeamInnings[]): DbTeamInnings[] =>
+      list.filter((r) => r.inningsNo === 1).slice(0, 30)
+    const home = summarize(homeAppTeamId, homeFull.slice(0, limit), firstOnly(homeFull))
+    const away = summarize(awayAppTeamId, awayFull.slice(0, limit), firstOnly(awayFull))
 
     const h2h: DbH2HMeeting[] =
       homeExt.length > 0 && awayExt.length > 0
@@ -89,6 +102,18 @@ export async function GET(req: Request) {
     }
     const ground: DbVenueRecord | null = getVenueRecord(matchedVenue, competitionIds)
 
+    // Ground chains: matched fixture venue when we can, else the home side's
+    // home games (matches where the home team played at home).
+    const homeVenues = getTeamHomeVenues(homeExt, competitionIds)
+    const groundInnings = matchedVenue
+      ? getVenueRecentInnings(matchedVenue, competitionIds, 30)
+      : getTeamHomeRecentInnings(homeExt, competitionIds, 30)
+    const groundSource: 'venue' | 'home' | 'none' = matchedVenue
+      ? 'venue'
+      : groundInnings.length > 0
+        ? 'home'
+        : 'none'
+
     return NextResponse.json({
       home,
       away,
@@ -97,14 +122,18 @@ export async function GET(req: Request) {
       matchedVenue,
       par: homeExt.length > 0 ? getTeamHomePar(homeExt, competitionIds) : null,
       compInnings: getCompetitionRecentInnings(competitionIds, 30),
-      groundInnings: matchedVenue ? getVenueRecentInnings(matchedVenue, competitionIds, 30) : [],
+      groundInnings,
+      groundSource,
+      groundVenues: matchedVenue ? [matchedVenue] : homeVenues,
       matchWickets: {
         home: getRecentMatchWickets({ competitionIds, teamIds: homeExt, limit: 30 }),
         away: getRecentMatchWickets({ competitionIds, teamIds: awayExt, limit: 30 }),
         comp: getRecentMatchWickets({ competitionIds, limit: 30 }),
         ground: matchedVenue
           ? getRecentMatchWickets({ competitionIds, venue: matchedVenue, limit: 30 })
-          : [],
+          : homeVenues.length > 0
+            ? getRecentMatchWickets({ competitionIds, teamIds: homeExt, venues: homeVenues, limit: 30 })
+            : [],
       },
       competitions: competitionIds,
     })

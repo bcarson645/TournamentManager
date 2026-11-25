@@ -1,8 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Team } from '../data/teams'
-import { getSquadForTeam, getStoredSquad, storeSquad, subscribeSquadStore } from '../data/squadStore'
+import {
+  findSquadPlayerOnTeam,
+  getSquadForTeam,
+  getStoredSquad,
+  storeSquad,
+  subscribeSquadStore,
+  xiSlotMatchesBattingFilter,
+  type BattingPositionFilter,
+} from '../data/squadStore'
 import { calcWktsAndBowlAvg, ratingParPosForBatCalc, type SquadPlayer } from '../data/squad'
 import { recomputePlayerPrepRaw } from '../data/prepRawFormula'
 import { calculateBatRating, calculateBowlRating } from '../data/ratingBenchmarks'
@@ -44,7 +52,7 @@ interface RankCell {
   kind: CellKind
   title?: string
   /** Squad field edited by this cell — set only for trader-input boxes. */
-  field?: 'btCaz' | 'sr' | 'overs' | 'econ'
+  field?: 'btCaz' | 'sr' | 'overs' | 'econ' | 'bowlSr'
   /** Dodgy-area alert — tooltip text; the marker glyph comes from flagDir. */
   flag?: string
   /** Marker direction: trader value above/below the data, or 'neq' for a categorical mismatch. */
@@ -52,6 +60,55 @@ interface RankCell {
   /** Subtle Form-vs-Hist wash: green above, red below. Alpha scales with distance. */
   tintDir?: 'up' | 'down'
   tintAlpha?: number
+}
+
+/** A staged trader-input edit — held locally until the save bar commits it. */
+interface PendingEdit {
+  teamId: string
+  playerId: string
+  field: NonNullable<RankCell['field']>
+  value: string
+}
+
+function pendKey(teamId: string, playerId: string, field: NonNullable<RankCell['field']>): string {
+  return teamId + '|' + playerId + '|' + field
+}
+
+/** Nudge a staged value (used by the external steppers). Keeps up to 2dp. */
+function stepText(cur: string, delta: number): string {
+  const base = parseFloat(cur)
+  const next = (Number.isFinite(base) ? base : 0) + delta
+  return String(Math.round(next * 100) / 100)
+}
+
+/** Stepper increment per trader field — wickets-per-over needs a fine step. */
+const FIELD_STEP: Record<NonNullable<RankCell['field']>, number> = {
+  btCaz: 1,
+  sr: 1,
+  overs: 1,
+  econ: 1,
+  bowlSr: 0.05,
+}
+
+/** Functional stepper — always resolves against the latest staged (or saved) value. */
+function stepPending(
+  prev: Record<string, PendingEdit>,
+  teamId: string,
+  playerId: string,
+  field: NonNullable<RankCell['field']>,
+  committed: string,
+  delta: number,
+): Record<string, PendingEdit> {
+  const k = pendKey(teamId, playerId, field)
+  const next = stepText(prev[k]?.value ?? committed, delta)
+  if (next === committed) {
+    if (!(k in prev)) return prev
+    const copy = { ...prev }
+    delete copy[k]
+    return copy
+  }
+  if (prev[k]?.value === next) return prev
+  return { ...prev, [k]: { teamId, playerId, field, value: next } }
 }
 
 interface FullRow {
@@ -74,12 +131,14 @@ interface FullRow {
   batPosSet?: RankCell
   /** Bowling only: wickets per match [derived calc, Hist (career), Form (tournament)]. */
   bowlWkts?: [RankCell, RankCell, RankCell]
-  bowlOvers?: [RankCell, RankCell, RankCell]
+  /** Bowling only: strike rate (wickets per over) [prep input, Hist (career), Form (tournament)]. */
+  bowlSr?: [RankCell, RankCell, RankCell]
   bowlEcon?: [RankCell, RankCell, RankCell]
   bowlBavg?: RankCell
-  bowlBsr?: RankCell
   recent: string[]
   recentTitle: (string | undefined)[]
+  /** Batting only: window Avg/SR tint vs career (same wash as Form-vs-Hist). */
+  recentTint?: ({ tintDir: 'up' | 'down'; tintAlpha: number; note: string } | undefined)[]
   /** Batting only: career average anchoring the rolling-form strip. */
   trendAnchor: number | null
 }
@@ -94,21 +153,46 @@ function RankCellView({
   cell,
   teamId,
   playerId,
-  onCommit,
+  pending,
+  onStage,
+  onStepEdit,
   divider,
 }: {
   cell: RankCell
   teamId: string
   playerId: string
-  onCommit: (teamId: string, playerId: string, field: 'btCaz' | 'sr' | 'overs' | 'econ', v: string) => void
+  /** Staged edits by pendKey — input boxes show the staged value until saved. */
+  pending: Record<string, PendingEdit>
+  onStage: (
+    teamId: string,
+    playerId: string,
+    field: NonNullable<RankCell['field']>,
+    committed: string,
+    next: string,
+  ) => void
+  onStepEdit: (
+    teamId: string,
+    playerId: string,
+    field: NonNullable<RankCell['field']>,
+    committed: string,
+    dir: 1 | -1,
+  ) => void
   /** First cell of a section — draws a vertical divider rule. */
   divider?: boolean
 }) {
   const div = divider ? ' tm-rk-div' : ''
   if (cell.field) {
+    const key = pendKey(teamId, playerId, cell.field)
+    const draft = pending[key]?.value
     return (
       <td className={'td-num tm-rk-cell' + div + (cell.flag ? ' tm-rk-cell--flag' : '')} title={cell.title}>
-        <RankEditCell value={cell.text} onCommit={(v) => onCommit(teamId, playerId, cell.field!, v)} />
+        <RankEditCell
+          value={cell.text}
+          draft={draft}
+          dirty={draft !== undefined && draft !== cell.text}
+          onDraft={(next) => onStage(teamId, playerId, cell.field!, cell.text, next)}
+          onStep={(dir) => onStepEdit(teamId, playerId, cell.field!, cell.text, dir)}
+        />
         {cell.flag ? <FlagGlyph dir={cell.flagDir} text={cell.flag} /> : null}
       </td>
     )
@@ -183,6 +267,16 @@ function formTint(
   }
 }
 
+/** Inline wash for a tinted recent cell — same greens/reds as the Form-vs-Hist wash. */
+function recentTintStyle(
+  t: { tintDir: 'up' | 'down'; tintAlpha: number } | undefined,
+): CSSProperties | undefined {
+  if (!t) return undefined
+  return {
+    background: `rgba(${t.tintDir === 'up' ? '74, 222, 128' : '248, 113, 113'}, ${t.tintAlpha ?? 0.08})`,
+  }
+}
+
 /**
  * Subtle dodgy-area check: CAZ ≥10% off BOTH Hist and Form, and outside the Hist–Form range.
  * Sitting between the two is the trader splitting the difference — never flagged.
@@ -209,47 +303,68 @@ function cazFlagReasons(
   const hi = Math.max(hist!, form!)
   if (caz > lo && caz < hi) return undefined
   const text =
-    `${label} CAZ ${fmt(caz)} is ${h.p}% ${h.above ? 'above' : 'below'} Hist ${fmt(hist!)}. ` +
-    `${label} CAZ ${fmt(caz)} is ${f.p}% ${f.above ? 'above' : 'below'} Form ${fmt(form!)}.`
+    `${label} ${fmt(caz)} is ${h.p}% ${h.above ? 'above' : 'below'} Hist ${fmt(hist!)}. ` +
+    `${label} ${fmt(caz)} is ${f.p}% ${f.above ? 'above' : 'below'} Form ${fmt(form!)}.`
   const big = h.p >= f.p ? h : f
   return { text, dir: big.above ? 'up' : 'down' }
 }
 
-function RankEditCell({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
-  const [draft, setDraft] = useState(value)
-  const [focused, setFocused] = useState(false)
-  // Set on Escape so the ensuing blur (same tick, stale closure) can't commit.
-  const cancelRef = useRef(false)
-  useEffect(() => {
-    if (!focused) setDraft(value)
-  }, [value, focused])
+function RankEditCell({
+  value,
+  draft,
+  dirty,
+  onDraft,
+  onStep,
+}: {
+  /** Last saved text. */
+  value: string
+  /** Staged text, if the trader has touched this box since the last save. */
+  draft: string | undefined
+  dirty: boolean
+  onDraft: (next: string) => void
+  /** Nudge up/down — resolved against the latest staged value, so rapid clicks stack. */
+  onStep: (dir: 1 | -1) => void
+}) {
+  const shown = draft ?? value
   return (
-    <input
-      type="number"
-      className="tm-rk-box"
-      value={draft}
-      min={0}
-      step="any"
-      aria-label="Edit prepped value"
-      onChange={(e) => setDraft(e.target.value)}
-      onFocus={(e) => {
-        setFocused(true)
-        e.target.select()
-      }}
-      onBlur={() => {
-        setFocused(false)
-        if (!cancelRef.current && draft !== value) onCommit(draft)
-        cancelRef.current = false
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-        else if (e.key === 'Escape') {
-          cancelRef.current = true
-          setDraft(value)
-          ;(e.target as HTMLInputElement).blur()
-        }
-      }}
-    />
+    <span className="tm-rk-stepwrap">
+      <button
+        type="button"
+        tabIndex={-1}
+        className="tm-rk-step"
+        aria-label="Step value down"
+        title="Step down by 1 (stages an edit — save to apply)"
+        onClick={() => onStep(-1)}
+      >
+        −
+      </button>
+      <input
+        type="text"
+        inputMode="decimal"
+        className={'tm-rk-box' + (dirty ? ' tm-rk-box--dirty' : '')}
+        value={shown}
+        aria-label="Edit prepped value"
+        onChange={(e) => onDraft(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          else if (e.key === 'Escape') {
+            onDraft(value)
+            ;(e.target as HTMLInputElement).blur()
+          }
+        }}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        className="tm-rk-step"
+        aria-label="Step value up"
+        title="Step up (stages an edit — save to apply)"
+        onClick={() => onStep(1)}
+      >
+        +
+      </button>
+    </span>
   )
 }
 
@@ -269,14 +384,13 @@ type SortKey =
   | 'wkts'
   | 'wk-hist'
   | 'wk-form'
-  | 'ov-caz'
-  | 'ov-hist'
-  | 'ov-form'
-  | 'ec-caz'
+  | 'bsr-prep'
+  | 'bsr-hist'
+  | 'bsr-form'
+  | 'ec-prep'
   | 'ec-hist'
   | 'ec-form'
   | 'bavg'
-  | 'bsr'
   | `rec${number}`
 
 const RECENT_WINDOWS = [5, 10] as const
@@ -305,17 +419,108 @@ export default function TournamentRankingsFullView({
 }: TournamentRankingsFullViewProps) {
   const [mode, setMode] = useState<'batting' | 'bowling'>('batting')
   const [teamFilter, setTeamFilter] = useState<string>('all')
+  /** Starting-XI batting slot filter (batting only) — mirrors the dashboard Line-up control. */
+  const [posFilter, setPosFilter] = useState<BattingPositionFilter>('all')
+  /** Staged trader-input edits, keyed by pendKey — nothing saves until the save bar commits. */
+  const [pending, setPending] = useState<Record<string, PendingEdit>>({})
+  function stageEdit(
+    teamId: string,
+    playerId: string,
+    field: NonNullable<RankCell['field']>,
+    committed: string,
+    next: string,
+  ) {
+    const k = pendKey(teamId, playerId, field)
+    setPending((prev) => {
+      if (next === committed) {
+        if (!(k in prev)) return prev
+        const copy = { ...prev }
+        delete copy[k]
+        return copy
+      }
+      if (prev[k]?.value === next) return prev
+      return { ...prev, [k]: { teamId, playerId, field, value: next } }
+    })
+  }
+  function stepEdit(
+    teamId: string,
+    playerId: string,
+    field: NonNullable<RankCell['field']>,
+    committed: string,
+    dir: 1 | -1,
+  ) {
+    setPending((prev) =>
+      stepPending(prev, teamId, playerId, field, committed, dir * (FIELD_STEP[field] ?? 1)),
+    )
+  }
+  function savePending() {
+    const kept: Record<string, PendingEdit> = {}
+    for (const [k, e] of Object.entries(pending)) {
+      const n = parseFloat(e.value)
+      if (Number.isFinite(n) && n >= 0) commitEdit(e.teamId, e.playerId, e.field, e.value)
+      else kept[k] = e
+    }
+    setPending(kept)
+  }
+  function discardPending() {
+    setPending({})
+  }
+  const pendingCount = Object.keys(pending).length
   const [sortKey, setSortKey] = useState<SortKey>('rating')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [recentWindow, setRecentWindow] = useState<5 | 10>(5)
-  /** Expands the recent strip from Avg/SR/Trend to show every innings score. */
+  /** Expands the recent strip from Avg/Trend/SR to show every innings score. */
   const [showGames, setShowGames] = useState(false)
+  /** Which matches feed Hist, Form, the recent strip, confidence and the trend anchor. */
+  type RankingsScope = 'tournament' | 't20' | 'majors'
+  const [scope, setScope] = useState<RankingsScope>('tournament')
+  /** Human wording for the active stats scope (Hist titles, confidence, tooltips). */
+  const scopeBatAvgTitle =
+    scope === 'tournament'
+      ? `${tournamentName} batting average (runs per dismissal).`
+      : scope === 't20'
+        ? 'All-T20 batting average — every T20 in the collected dataset (runs per dismissal).'
+        : 'Major-league batting average — IPL, BBL, Blast, SA20, PSL, CPL, BPL, ILT20, LPL, MLC (runs per dismissal).'
+  const scopeBatSrTitle =
+    scope === 'tournament'
+      ? `${tournamentName} strike rate (runs per 100 balls).`
+      : scope === 't20'
+        ? 'All-T20 strike rate — every T20 in the collected dataset (runs per 100 balls).'
+        : 'Major-league strike rate — IPL, BBL, Blast, SA20, PSL, CPL, BPL, ILT20, LPL, MLC (runs per 100 balls).'
+  const scopeBowlSrTitle =
+    scope === 'tournament'
+      ? `${tournamentName} strike rate (wickets per over).`
+      : scope === 't20'
+        ? 'All-T20 strike rate — every T20 in the collected dataset (wickets per over).'
+        : 'Major-league strike rate — IPL, BBL, Blast, SA20, PSL, CPL, BPL, ILT20, LPL, MLC (wickets per over).'
+  const scopeOrderTitle =
+    scope === 'tournament'
+      ? `Average batting order across ${tournamentName} competitions in the collected dataset.`
+      : scope === 't20'
+        ? 'Average batting order across every T20 in the collected dataset.'
+        : 'Average batting order across major franchise leagues in the collected dataset.'
+  const scopeConfNoun =
+    scope === 'tournament'
+      ? `${tournamentName} innings`
+      : scope === 't20'
+        ? 'T20 innings'
+        : 'major-league innings'
+  const scopeBowlNoun =
+    scope === 'tournament'
+      ? `${tournamentName} bowling matches`
+      : scope === 't20'
+        ? 'T20 bowling matches'
+        : 'major-league bowling matches'
+  const scopeFormNoun =
+    scope === 'tournament' ? 'Tournament' : scope === 't20' ? 'All-T20' : 'Major-league'
+  const scopeStripWhere =
+    scope === 'tournament' ? `${tournamentName} matches` : scope === 't20' ? 'all T20' : 'major leagues'
+
   /** Bumps whenever squads change (including our own edits) so rows refresh. */
   const [squadVersion, setSquadVersion] = useState(0)
   useEffect(() => subscribeSquadStore(() => setSquadVersion((v) => v + 1)), [])
   /** Draggable width of the recent-scores side panel (null = default). */
   const splitRef = useRef<HTMLDivElement | null>(null)
-  const recentScrollRef = useRef<HTMLDivElement | null>(null)
   const [recentW, setRecentW] = useState<number | null>(readRecentW)
   const dragRef = useRef<{ startX: number; startW: number } | null>(null)
   useEffect(() => {
@@ -326,24 +531,9 @@ export default function TournamentRankingsFullView({
       /* storage unavailable — drag still works for the session */
     }
   }, [recentW])
-  // Wheel over the recent strip scrolls the games sideways; at either end the
-  // page keeps scrolling vertically as normal. (Native, non-passive — React's
-  // onWheel is passive and can't preventDefault.)
-  useEffect(() => {
-    const el = recentScrollRef.current
-    if (!el) return
-    const onWheel = (e: WheelEvent) => {
-      if (e.shiftKey || e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return
-      const canLeft = el.scrollLeft > 0
-      const canRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
-      const down = e.deltaY > 0
-      if ((down && !canRight) || (!down && !canLeft)) return
-      e.preventDefault()
-      el.scrollLeft += e.deltaY
-    }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
-  })
+  // (No wheel hijack: sideways scrolling belongs to the shared outer scroller —
+  // native shift+wheel / touch / the bottom scrollbar. Stealing vertical wheel
+  // over a 195-row strip would trap page scrolling.)
   function recentMaxW(): number {
     const el = splitRef.current
     if (!el) return 640
@@ -380,7 +570,7 @@ export default function TournamentRankingsFullView({
   function commitEdit(
     teamId: string,
     playerId: string,
-    field: 'btCaz' | 'sr' | 'overs' | 'econ',
+    field: 'btCaz' | 'sr' | 'overs' | 'econ' | 'bowlSr',
     displayValue: string,
   ) {
     const num = parseFloat(displayValue)
@@ -397,7 +587,10 @@ export default function TournamentRankingsFullView({
       const prev = list[index]!
       let updated: SquadPlayer = { ...prev }
       if (field === 'sr') updated.sr = Math.round((num / 100) * 10000) / 10000
-      else updated[field] = num
+      else if (field === 'bowlSr') {
+        // Prepped strike rate is wickets per over — stored directly.
+        updated.bowlWpo = num
+      } else updated[field] = num
       const matchPrep = getMatchPrepSettings(tournamentId)
       if (field === 'btCaz' || field === 'sr') {
         updated = recomputePlayerPrepRaw(updated, section, index, format, matchPrep, true)
@@ -439,7 +632,7 @@ export default function TournamentRankingsFullView({
     }
   }
 
-  /** Collected-data backing (tournament-scoped innings + career aggregates), keyed by squad name. */
+  /** Collected-data backing (scope-filtered innings + aggregates), keyed by squad name. */
   const [dbMap, setDbMap] = useState<Record<string, RankingsPlayerData>>({})
   const namesKey = useMemo(() => {
     const names: string[] = []
@@ -460,7 +653,7 @@ export default function TournamentRankingsFullView({
     fetch('/api/cricket/rankings-recent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tournamentId, names: namesKey.split('|'), limit: 60 }),
+      body: JSON.stringify({ tournamentId, scope, names: namesKey.split('|'), limit: 60 }),
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((json: { players?: Record<string, RankingsPlayerData> } | null) => {
@@ -470,7 +663,7 @@ export default function TournamentRankingsFullView({
     return () => {
       cancelled = true
     }
-  }, [tournamentId, namesKey])
+  }, [tournamentId, namesKey, scope])
 
   const ratingDp = readSquadRatingDp()
 
@@ -510,10 +703,13 @@ export default function TournamentRankingsFullView({
           const flagForm = cf.mapped ? cf.form : null
           const flagHistSr = cf.mapped ? cf.sr : null
           const flagFormSr = cf.mapped ? cf.formSr : null
-          const cazRuns = cazFlagReasons(p.btCaz, flagHist, flagForm, 'Runs')
-          const cazSr = cazFlagReasons(p.sr * 100, flagHistSr, flagFormSr, 'SR')
+          const cazRuns = cazFlagReasons(p.btCaz, flagHist, flagForm, 'Runs CAZ')
+          const cazSr = cazFlagReasons(p.sr * 100, flagHistSr, flagFormSr, 'SR CAZ')
           const runsFormTint = formTint(flagForm, flagHist)
           const srFormTint = formTint(flagFormSr, flagHistSr)
+          // Window Avg/SR tinted vs career (Hist) — same wash as Form-vs-Hist.
+          const avgTint = cf.mapped ? formTint(recentCells.avgNum, cf.avg) : undefined
+          const srTint = cf.mapped ? formTint(recentCells.srNum, cf.sr) : undefined
           // Position context: career-wide average order vs the set sheet slot.
           const orderDb = db
           const avgPos = orderDb?.careerAvgBatOrder ?? null
@@ -551,23 +747,23 @@ export default function TournamentRankingsFullView({
             rating: formatSquadRatingDisplay(p.batRating, ratingDp),
             ratingNum: Number.isFinite(p.batRating) ? p.batRating : null,
             confN: db?.careerInnings ?? 0,
-            confWhat: 'career innings',
+            confWhat: scopeConfNoun,
             batRuns: [
               {
-                text: fmt(p.btCaz),
+                text: fmt0(p.btCaz),
                 kind: 'input',
                 field: 'btCaz',
                 flag: cazRuns?.text,
                 flagDir: cazRuns?.dir,
                 title:
-                  'Trader input — your prepped batting average. Type to edit; Enter or click away saves.',
+                  'Trader input — your prepped batting average. Type or step to edit, then Save to apply.',
               },
               {
                 text: cf.avg != null ? fmt(cf.avg) : '—',
                 kind: cf.avgKind,
                 title:
                   cf.avgKind === 'data'
-                    ? 'Whole-career batting average (runs per dismissal) — collected data.'
+                    ? scopeBatAvgTitle
                     : 'Built-in static record — career average (this player is not mapped to collected data).',
               },
               {
@@ -581,7 +777,7 @@ export default function TournamentRankingsFullView({
             ],
             batSr: [
               {
-                text: fmt(p.sr * 100),
+                text: fmt0(p.sr * 100),
                 kind: 'input',
                 field: 'sr',
                 flag: cazSr?.text,
@@ -593,7 +789,7 @@ export default function TournamentRankingsFullView({
                 kind: cf.srKind,
                 title:
                   cf.srKind === 'data'
-                    ? 'Whole-career strike rate (runs per 100 balls) — collected data.'
+                    ? scopeBatSrTitle
                     : 'Built-in static record — career strike rate (this player is not mapped to collected data).',
               },
               {
@@ -608,7 +804,7 @@ export default function TournamentRankingsFullView({
               kind: avgPos != null ? 'data' : 'static',
               title:
                 avgPos != null
-                  ? 'Historical average batting order across the whole collected dataset.'
+                  ? scopeOrderTitle
                   : 'No collected batting-order data — this player is not mapped to the dataset.',
             },
             batPosSet: {
@@ -619,7 +815,12 @@ export default function TournamentRankingsFullView({
               title: 'Set position from the squad sheet (par slot used for the rating).',
             },
             recent: [recentCells.avg, recentCells.sr, ...recentCells.cells],
-            recentTitle: [recentCells.avgTitle, recentCells.srTitle, ...recentCells.titles],
+            recentTitle: [
+              recentCells.avgTitle + (avgTint ? ` ${avgTint.note}` : ''),
+              recentCells.srTitle + (srTint ? ` ${srTint.note}` : ''),
+              ...recentCells.titles,
+            ],
+            recentTint: [avgTint ?? undefined, srTint ?? undefined],
             trendAnchor: cf.avg,
           })
         } else {
@@ -627,8 +828,6 @@ export default function TournamentRankingsFullView({
           const bowlDb = dbMap[p.name]
           const bc = bowlDb?.bowlCareer ?? null
           const bt = bowlDb?.bowlTourn ?? null
-          const ovHist = bc?.oversPerMatch ?? null
-          const ovForm = bt?.oversPerMatch ?? null
           const ecHist = bc?.economy ?? (s.economy > 0 ? s.economy : null)
           const ecHistKind: CellKind = bc?.economy != null ? 'data' : 'static'
           const ecForm = bt?.economy ?? null
@@ -637,15 +836,23 @@ export default function TournamentRankingsFullView({
           const wkHist = bc != null && bc.matches > 0 ? bc.wickets / bc.matches : null
           const wkForm = bt != null && bt.matches > 0 ? bt.wickets / bt.matches : null
           const wkFormTint = formTint(wkForm, wkHist)
-          const ovFormTint = formTint(ovForm, ovHist)
           const ecFormTint = formTint(ecForm, ecHistFlag, true)
-          const cazOvers = cazFlagReasons(p.overs, ovHist, ovForm, 'Overs')
-          const cazEcon = cazFlagReasons(p.econ, ecHistFlag, ecForm, 'Econ')
-          const bowlSrCareer =
+          const cazEcon = cazFlagReasons(p.econ, ecHistFlag, ecForm, 'Econ prep')
+          const wpoHist =
             bc?.oversPerMatch != null && bc.wickets > 0 && bc.matches > 0
-              ? Math.round(((bc.oversPerMatch * 6 * bc.matches) / bc.wickets) * 100) / 100
+              ? Math.round((bc.wickets / (bc.oversPerMatch * bc.matches)) * 100) / 100
               : null
-          const bowlSrStatic = profile.careerBowling.strikeRate > 0 ? profile.careerBowling.strikeRate : null
+          const wpoStatic =
+            profile.careerBowling.strikeRate > 0
+              ? Math.round((6 / profile.careerBowling.strikeRate) * 100) / 100
+              : null
+          const wpoForm =
+            bt?.oversPerMatch != null && bt.wickets > 0 && bt.matches > 0
+              ? Math.round((bt.wickets / (bt.oversPerMatch * bt.matches)) * 100) / 100
+              : null
+          // Higher wickets-per-over is better — no inversion.
+          const wpoFormTint = formTint(wpoForm, wpoHist)
+          const cazWpo = cazFlagReasons(p.bowlWpo, wpoHist, wpoForm, 'SR prep')
           out.push({
             playerId: p.id,
             name: p.name,
@@ -658,7 +865,7 @@ export default function TournamentRankingsFullView({
             ratingNum:
               Number.isNaN(p.bowlRating) || !Number.isFinite(p.bowlRating) ? null : p.bowlRating,
             confN: bc?.matches ?? 0,
-            confWhat: 'career bowling matches',
+            confWhat: scopeBowlNoun,
             bowlWkts: [
               {
                 text: fmt(p.wkts),
@@ -670,7 +877,7 @@ export default function TournamentRankingsFullView({
                 kind: bc ? 'data' : 'static',
                 title:
                   bc != null
-                    ? `Career wickets per match across ${bc.matches} collected matches.`
+                    ? `${scopeFormNoun} wickets per match across ${bc.matches} collected matches.`
                     : 'No collected bowling data — this player is not mapped to the dataset.',
               },
               {
@@ -678,38 +885,39 @@ export default function TournamentRankingsFullView({
                 kind: bt ? 'data' : 'static',
                 title:
                   (bt != null
-                    ? `Tournament wickets per match across ${bt.matches} collected spells.`
-                    : 'No tournament bowling figures collected yet.') +
+                    ? `${scopeFormNoun} wickets per match across ${bt.matches} collected spells.`
+                    : 'No bowling figures collected yet in this scope.') +
                   (wkFormTint ? ` ${wkFormTint.note}` : ''),
                 ...(wkFormTint ? { tintDir: wkFormTint.tintDir, tintAlpha: wkFormTint.tintAlpha } : null),
               },
             ],
-            bowlOvers: [
+            bowlSr: [
               {
-                text: fmt(p.overs),
+                text: fmt(p.bowlWpo),
                 kind: 'input',
-                field: 'overs',
-                flag: cazOvers?.text,
-                flagDir: cazOvers?.dir,
-                title: 'Trader input — prepped overs. Type to edit.',
-              },
-              {
-                text: ovHist != null ? fmt(ovHist) : '—',
-                kind: bc ? 'data' : 'static',
+                field: 'bowlSr',
+                flag: cazWpo?.text,
+                flagDir: cazWpo?.dir,
                 title:
-                  bc != null
-                    ? `Career overs per match across ${bc.matches} collected matches.`
-                    : 'No collected bowling data — this player is not mapped to the dataset.',
+                  'Prep value — your prepped strike rate (wickets per over). Stage an edit, then Save to apply.',
               },
               {
-                text: ovForm != null ? fmt(ovForm) : '—',
+                text: wpoHist != null ? fmt(wpoHist) : wpoStatic != null ? fmt(wpoStatic) : '—',
+                kind: wpoHist != null ? 'data' : 'static',
+                title:
+                  wpoHist != null
+                    ? scopeBowlSrTitle
+                    : 'Built-in static record — career strike rate.',
+              },
+              {
+                text: wpoForm != null ? fmt(wpoForm) : '—',
                 kind: bt ? 'data' : 'static',
                 title:
                   (bt != null
-                    ? `Tournament overs per match across ${bt.matches} collected spells.`
-                    : 'No tournament bowling figures collected yet.') +
-                  (ovFormTint ? ` ${ovFormTint.note}` : ''),
-                ...(ovFormTint ? { tintDir: ovFormTint.tintDir, tintAlpha: ovFormTint.tintAlpha } : null),
+                    ? `${scopeFormNoun} strike rate across ${bt.matches} collected spells.`
+                    : 'No bowling figures collected yet in this scope.') +
+                  (wpoFormTint ? ` ${wpoFormTint.note}` : ''),
+                ...(wpoFormTint ? { tintDir: wpoFormTint.tintDir, tintAlpha: wpoFormTint.tintAlpha } : null),
               },
             ],
             bowlEcon: [
@@ -719,14 +927,14 @@ export default function TournamentRankingsFullView({
                 field: 'econ',
                 flag: cazEcon?.text,
                 flagDir: cazEcon?.dir,
-                title: 'Trader input — prepped economy. Type to edit.',
+                title: 'Prep value — prepped economy. Stage an edit, then Save to apply.',
               },
               {
                 text: ecHist != null ? fmt(ecHist) : '—',
                 kind: ecHistKind,
                 title:
                   ecHistKind === 'data'
-                    ? 'Career economy across the whole collected dataset.'
+                    ? `${scopeFormNoun} economy (runs per over) — collected data.`
                     : 'Built-in static record — career economy (this player is not mapped to collected data).',
               },
               {
@@ -734,8 +942,8 @@ export default function TournamentRankingsFullView({
                 kind: bt ? 'data' : 'static',
                 title:
                   (bt != null
-                    ? `Tournament economy across ${bt.matches} collected spells.`
-                    : 'No tournament bowling figures collected yet.') +
+                    ? `${scopeFormNoun} economy across ${bt.matches} collected spells.`
+                    : 'No bowling figures collected yet in this scope.') +
                   (ecFormTint ? ` ${ecFormTint.note}` : ''),
                 ...(ecFormTint ? { tintDir: ecFormTint.tintDir, tintAlpha: ecFormTint.tintAlpha } : null),
               },
@@ -750,21 +958,8 @@ export default function TournamentRankingsFullView({
               kind: bc?.average != null ? 'data' : 'static',
               title:
                 bc?.average != null
-                  ? 'Career bowling average (runs per wicket) — collected data.'
+                  ? `${scopeFormNoun} bowling average (runs per wicket) — collected data.`
                   : 'Built-in static record — bowling average.',
-            },
-            bowlBsr: {
-              text:
-                bowlSrCareer != null
-                  ? fmt(bowlSrCareer)
-                  : bowlSrStatic != null
-                    ? fmt(bowlSrStatic)
-                    : '—',
-              kind: bowlSrCareer != null ? 'data' : 'static',
-              title:
-                bowlSrCareer != null
-                  ? 'Career strike rate (balls per wicket) — collected data.'
-                  : 'Built-in static record — career strike rate.',
             },
             recent: ['—', '—', '—', '—', '—'],
             recentTitle: [undefined, undefined, undefined, undefined, undefined],
@@ -810,13 +1005,13 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
       return r.bowlWkts?.[1].text ?? ''
     case 'wk-form':
       return r.bowlWkts?.[2].text ?? ''
-    case 'ov-caz':
-      return r.bowlOvers?.[0].text ?? ''
-    case 'ov-hist':
-      return r.bowlOvers?.[1].text ?? ''
-    case 'ov-form':
-      return r.bowlOvers?.[2].text ?? ''
-    case 'ec-caz':
+    case 'bsr-prep':
+      return r.bowlSr?.[0].text ?? ''
+    case 'bsr-hist':
+      return r.bowlSr?.[1].text ?? ''
+    case 'bsr-form':
+      return r.bowlSr?.[2].text ?? ''
+    case 'ec-prep':
       return r.bowlEcon?.[0].text ?? ''
     case 'ec-hist':
       return r.bowlEcon?.[1].text ?? ''
@@ -824,8 +1019,6 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
       return r.bowlEcon?.[2].text ?? ''
     case 'bavg':
       return r.bowlBavg?.text ?? ''
-    case 'bsr':
-      return r.bowlBsr?.text ?? ''
     default:
       if (key.startsWith('rec')) {
         const i = Number(key.slice(3))
@@ -853,9 +1046,40 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
   }, [rows, sortKey, sortDir])
 
   const visibleRows = useMemo(() => {
-    if (teamFilter === 'all') return sorted
-    return sorted.filter((r) => r.teamId === teamFilter)
-  }, [sorted, teamFilter])
+    return sorted.filter(
+      (r) =>
+        (teamFilter === 'all' || r.teamId === teamFilter) &&
+        (mode !== 'batting' ||
+          posFilter === 'all' ||
+          (r.section === 'starting' && xiSlotMatchesBattingFilter(r.idx + 1, posFilter))),
+    )
+  }, [sorted, teamFilter, mode, posFilter])
+
+  /** Player note being viewed (null = closed). Notes live on the squad draft. */
+  const [noteView, setNoteView] = useState<{
+    teamId: string
+    playerId: string
+    name: string
+    teamName: string
+    note: string
+  } | null>(null)
+  /** Trimmed squad note per visible row — refreshes with the squad store. */
+  const noteByKey = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of visibleRows) {
+      const note = findSquadPlayerOnTeam(r.teamId, r.playerId, r.name)?.note?.trim()
+      if (note) m.set(r.playerId + r.teamId, note)
+    }
+    return m
+  }, [visibleRows, squadVersion])
+  useEffect(() => {
+    if (!noteView) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNoteView(null)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [noteView])
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -873,7 +1097,7 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
     setTeamFilter('all')
   }
 
-  /** Column plan for the recent strip: compact Avg/SR/Trend, games only when expanded. */
+  /** Column plan for the recent strip: compact Avg/Trend/SR, games only when expanded. */
   const gameOrdinals = [
     'Most recent innings',
     '2nd most recent',
@@ -914,14 +1138,14 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
           key: `rec${i}` as SortKey,
           title: 'No recent bowling figures in dataset (* = not out)',
         }))
-  /** Batting strip columns: Avg + SR + Trend, plus one per game when expanded. */
+  /** Batting strip columns: Avg + Trend + SR, plus one per game when expanded. */
   const recentColCount = mode === 'batting' ? recentHeads.length + 1 : recentCount
 
   return (
     <div className="tm-rankings-full dashboard-content">
       <div className="tournament-section-panel tm-rankings-full-panel">
         <div className="squad-section-header-row tm-rankings-full-toolbar">
-          <button type="button" className="tm-btn tm-rankings-full-back" onClick={onBack}>
+          <button type="button" className="tm-btn tm-btn--ghost tm-rankings-full-back" onClick={onBack}>
             ← Back to tournament
           </button>
           <h2 className="squad-section-title tm-rankings-full-title">Tournament player rankings</h2>
@@ -942,6 +1166,44 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                 ))}
               </select>
             </label>
+            <label
+              className="squad-hide-raw-control tm-rankings-team-filter"
+              title="Stats scope — which matches feed Hist, Form, the recent strip, confidence and the trend anchor"
+            >
+              <span>Stats</span>
+              <select
+                className="squad-rating-dp-select"
+                value={scope}
+                onChange={(e) => setScope(e.target.value as RankingsScope)}
+                aria-label="Stats scope"
+              >
+                <option value="tournament">This tournament ({tournamentName})</option>
+                <option value="t20">All T20</option>
+                <option value="majors">Major leagues</option>
+              </select>
+            </label>
+            {mode === 'batting' ? (
+              <label
+                className="squad-hide-raw-control tm-rankings-team-filter"
+                title="Line-up — show only batters picked in these starting-XI slots"
+              >
+                <span>Line-up</span>
+                <select
+                  className="squad-rating-dp-select"
+                  value={posFilter}
+                  onChange={(e) => setPosFilter(parsePosFilter(e.target.value))}
+                  aria-label="Filter rankings by starting XI position"
+                >
+                  <option value="all">All positions</option>
+                  <option value="openers">Openers (1–2)</option>
+                  {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const).map((n) => (
+                    <option key={n} value={String(n)}>
+                      Position {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <div
               className="rankings-metric-bar squad-perf-metric-bar"
               role="tablist"
@@ -998,7 +1260,7 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                   }
                   aria-pressed={showGames}
                   onClick={() => setShowGames((v) => !v)}
-                  title="Show every innings score beside the trend — expands the recent panel"
+                  title="Show every innings score after the averages — expands the recent panel"
                 >
                   Scores
                 </button>
@@ -1067,20 +1329,20 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                       </span>
                     </th>
                     <th colSpan={3} className="tm-rk-grp">
-                      <span title="Overs section — your CAZ input beside career and tournament overs per match.">
-                        Overs
+                      <span title="Strike-rate section — your prep value beside career and tournament strike rate (wickets per over).">
+                        Strike rate
                       </span>
                     </th>
                     <th colSpan={3} className="tm-rk-grp">
-                      <span title="Economy section — your CAZ input beside career and tournament economy.">
+                      <span title="Economy section — your prep value beside career and tournament economy.">
                         Econ
                       </span>
                     </th>
                     <th className="tm-rk-grp">
                       <span title="Calculated rating, styled as in the team setup.">Rating</span>
                     </th>
-                    <th colSpan={2} className="tm-rk-grp">
-                      <span title="Career context — average and strike rate.">Career</span>
+                    <th className="tm-rk-grp">
+                      <span title="Career bowling average — collected data or static record.">Career</span>
                     </th>
                   </>
                 )}
@@ -1199,36 +1461,36 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                       title="Tournament wickets per match — collected data"
                     />
                     <SortSubHead
-                      label="CAZ"
-                      sortKey="ov-caz"
+                      label="Prep"
+                      sortKey="bsr-prep"
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={toggleSort}
-                      title="Trader input — prepped overs"
+                      title="Prep value — your prepped strike rate (wickets per over)"
                     />
                     <SortSubHead
                       label="Hist"
-                      sortKey="ov-hist"
+                      sortKey="bsr-hist"
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={toggleSort}
-                      title="Career overs per match — collected data"
+                      title="Career strike rate (wickets per over) — collected data"
                     />
                     <SortSubHead
                       label="Form"
-                      sortKey="ov-form"
+                      sortKey="bsr-form"
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={toggleSort}
-                      title="Tournament overs per match — collected data"
+                      title="Tournament strike rate — collected data"
                     />
                     <SortSubHead
-                      label="CAZ"
-                      sortKey="ec-caz"
+                      label="Prep"
+                      sortKey="ec-prep"
                       activeKey={sortKey}
                       dir={sortDir}
                       onSort={toggleSort}
-                      title="Trader input — prepped economy"
+                      title="Prep value — prepped economy"
                     />
                     <SortSubHead
                       label="Hist"
@@ -1262,14 +1524,6 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                       onSort={toggleSort}
                       title="Career bowling average (runs per wicket)"
                     />
-                    <SortSubHead
-                      label="SR"
-                      sortKey="bsr"
-                      activeKey={sortKey}
-                      dir={sortDir}
-                      onSort={toggleSort}
-                      title="Career strike rate (balls per wicket)"
-                    />
                   </>
                 )}
               </tr>
@@ -1279,7 +1533,30 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                 return (
                 <tr key={r.playerId + r.teamId}>
                   <td className="td-num tm-rankings-full-rank tm-rankings-sticky tm-rankings-sticky-rank">{i + 1}</td>
-                  <td className="td-name tm-rk-player tm-rankings-sticky tm-rankings-sticky-player" title={r.name}>{r.name}</td>
+                  <td className="td-name tm-rk-player tm-rankings-sticky tm-rankings-sticky-player" title={r.name}>
+                    {r.name}
+                    {noteByKey.get(r.playerId + r.teamId) ? (
+                      <button
+                        type="button"
+                        className="tm-rk-note-dot"
+                        title="View player note"
+                        aria-label={`View player note for ${r.name}`}
+                        onClick={() =>
+                          setNoteView({
+                            teamId: r.teamId,
+                            playerId: r.playerId,
+                            name: r.name,
+                            teamName: r.teamName,
+                            note: noteByKey.get(r.playerId + r.teamId) ?? '',
+                          })
+                        }
+                      >
+                        <span className="sq-note-dot" aria-hidden>
+                          <span className="sq-note-dot-inner" />
+                        </span>
+                      </button>
+                    ) : null}
+                  </td>
                   <td className="tm-rankings-full-team tm-rk-team" title={r.teamName}>
                     {r.teamName}
                   </td>
@@ -1295,7 +1572,9 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                           cell={c}
                           teamId={r.teamId}
                           playerId={r.playerId}
-                          onCommit={commitEdit}
+                          pending={pending}
+                          onStage={stageEdit}
+                          onStepEdit={stepEdit}
                           divider={j === 0}
                         />
                       ))}
@@ -1305,7 +1584,9 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                           cell={c}
                           teamId={r.teamId}
                           playerId={r.playerId}
-                          onCommit={commitEdit}
+                          pending={pending}
+                          onStage={stageEdit}
+                          onStepEdit={stepEdit}
                           divider={j === 0}
                         />
                       ))}
@@ -1319,7 +1600,9 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                           cell={r.batPosAvg}
                           teamId={r.teamId}
                           playerId={r.playerId}
-                          onCommit={commitEdit}
+                          pending={pending}
+                          onStage={stageEdit}
+                          onStepEdit={stepEdit}
                           divider
                         />
                       ) : null}
@@ -1328,7 +1611,9 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                           cell={r.batPosSet}
                           teamId={r.teamId}
                           playerId={r.playerId}
-                          onCommit={commitEdit}
+                          pending={pending}
+                          onStage={stageEdit}
+                          onStepEdit={stepEdit}
                         />
                       ) : null}
                     </>
@@ -1340,17 +1625,21 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                           cell={c}
                           teamId={r.teamId}
                           playerId={r.playerId}
-                          onCommit={commitEdit}
+                          pending={pending}
+                          onStage={stageEdit}
+                          onStepEdit={stepEdit}
                           divider={j === 0}
                         />
                       ))}
-                      {r.bowlOvers?.map((c, j) => (
+                      {r.bowlSr?.map((c, j) => (
                         <RankCellView
-                          key={'ov' + j}
+                          key={'bsr' + j}
                           cell={c}
                           teamId={r.teamId}
                           playerId={r.playerId}
-                          onCommit={commitEdit}
+                          pending={pending}
+                          onStage={stageEdit}
+                          onStepEdit={stepEdit}
                           divider={j === 0}
                         />
                       ))}
@@ -1360,7 +1649,9 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                           cell={c}
                           teamId={r.teamId}
                           playerId={r.playerId}
-                          onCommit={commitEdit}
+                          pending={pending}
+                          onStage={stageEdit}
+                          onStepEdit={stepEdit}
                           divider={j === 0}
                         />
                       ))}
@@ -1374,16 +1665,10 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                           cell={r.bowlBavg}
                           teamId={r.teamId}
                           playerId={r.playerId}
-                          onCommit={commitEdit}
+                          pending={pending}
+                          onStage={stageEdit}
+                          onStepEdit={stepEdit}
                           divider
-                        />
-                      ) : null}
-                      {r.bowlBsr ? (
-                        <RankCellView
-                          cell={r.bowlBsr}
-                          teamId={r.teamId}
-                          playerId={r.playerId}
-                          onCommit={commitEdit}
                         />
                       ) : null}
                     </>
@@ -1411,7 +1696,6 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
           />
           <div
             className="tm-rk-recent-scroll"
-            ref={recentScrollRef}
             style={recentW != null ? { width: recentW } : undefined}
           >
             <table className="teams-table tm-rankings-full-table tm-rk-recent-table">
@@ -1422,7 +1706,7 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                       className="tm-rk-recent-head-label"
                       title={
                         mode === 'batting'
-                          ? 'Window average, strike rate and 3-game rolling trend. Toggle Scores to show each innings.'
+                          ? `Window average, 3-game rolling trend and strike rate within ${scopeStripWhere}. Toggle Scores to show each innings.`
                           : 'Tournament spells, most recent first (no bowling-figures feed yet)'
                       }
                     >
@@ -1437,7 +1721,7 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                   </th>
                 </tr>
                 <tr className="teams-table-subrow">
-                  {recentHeads.map((h) => (
+                  {(mode === 'batting' ? recentHeads.slice(0, 1) : recentHeads).map((h) => (
                     <SortSubHead
                       key={'rech' + h.label}
                       label={h.label}
@@ -1451,12 +1735,38 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                   ))}
                   {mode === 'batting' ? (
                     <th
-                      className="th-num tm-rk-trend-head"
+                      className="th-num tm-rk-trend-head tm-rk-div"
                       title="3-game rolling average vs career — green running hot, red running cold"
                     >
                       Trend
                     </th>
                   ) : null}
+                  {mode === 'batting' ? (
+                    <SortSubHead
+                      key={'rech' + recentHeads[1].label}
+                      label={recentHeads[1].label}
+                      sortKey={recentHeads[1].key}
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={toggleSort}
+                      title={recentHeads[1].title}
+                      divider
+                    />
+                  ) : null}
+                  {mode === 'batting'
+                    ? recentHeads.slice(2).map((h) => (
+                        <SortSubHead
+                          key={'rech' + h.label}
+                          label={h.label}
+                          sortKey={h.key}
+                          activeKey={sortKey}
+                          dir={sortDir}
+                          onSort={toggleSort}
+                          title={h.title}
+                          divider={h.divider}
+                        />
+                      ))
+                    : null}
                   <th className="th-num teams-th-tbd">—</th>
                   <th />
                 </tr>
@@ -1464,25 +1774,32 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
               <tbody>
                 {visibleRows.map((r) => (
                   <tr key={'rc' + r.playerId + r.teamId}>
-                  {(mode === 'batting' && !showGames ? r.recent.slice(0, 2) : r.recent).map((c, j) => (
+                  {mode === 'batting' ? (
                     <td
-                      key={'rec' + j}
-                      className={
-                        'td-num tm-rk-cell tm-rk-recent' +
-                        (j === 0 ? ' tm-rk-div' : '') +
-                        (mode === 'batting' && showGames && j === 2 ? ' tm-rk-div' : '') +
-                        (mode === 'batting' && j > 1 ? ' tm-rk-g' : '')
-                      }
-                      title={mode === 'batting' ? r.recentTitle[j] : undefined}
+                      key="recavg"
+                      className="td-num tm-rk-cell tm-rk-recent tm-rk-div"
+                      title={r.recentTitle[0]}
+                      style={recentTintStyle(r.recentTint?.[0])}
                     >
-                      {c}
+                      {r.recent[0]}
                     </td>
-                  ))}
+                  ) : (
+                    r.recent.map((c, j) => (
+                      <td
+                        key={'rec' + j}
+                        className={
+                          'td-num tm-rk-cell tm-rk-recent' + (j === 0 ? ' tm-rk-div' : '')
+                        }
+                      >
+                        {c}
+                      </td>
+                    ))
+                  )}
                   {mode === 'batting'
                     ? (() => {
                         const trend = trendStrip(r.recent.slice(2), r.trendAnchor)
                         return (
-                          <td className="td-num tm-rk-cell tm-rk-recent" title={trend?.title}>
+                          <td className="td-num tm-rk-cell tm-rk-recent tm-rk-div" title={trend?.title}>
                             {trend ? (
                               <span className="tm-rk-trend" aria-hidden>
                                 {trend.fills.map((f, i) => (
@@ -1496,11 +1813,34 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
                         )
                       })()
                     : null}
+                  {mode === 'batting' ? (
+                    <td
+                      key="recsr"
+                      className="td-num tm-rk-cell tm-rk-recent tm-rk-div"
+                      title={r.recentTitle[1]}
+                      style={recentTintStyle(r.recentTint?.[1])}
+                    >
+                      {r.recent[1]}
+                    </td>
+                  ) : null}
+                  {mode === 'batting' && showGames
+                    ? r.recent.slice(2).map((c, k) => (
+                        <td
+                          key={'recg' + k}
+                          className={
+                            'td-num tm-rk-cell tm-rk-recent tm-rk-g' + (k === 0 ? ' tm-rk-div' : '')
+                          }
+                          title={r.recentTitle[k + 2]}
+                        >
+                          {c}
+                        </td>
+                      ))
+                    : null}
                   <td className="td-num teams-td-tbd">—</td>
                   <td className="tm-rankings-full-action">
                     <button
                       type="button"
-                      className="tm-btn tm-btn-sm tm-btn-icon"
+                      className="tm-btn tm-btn-sm tm-btn-icon tm-btn--ghost"
                       title={'Open ' + r.name + ' in squad (' + r.teamName + ')'}
                       aria-label={'Open ' + r.name + ' in squad'}
                       onClick={() => onOpenPlayerInTeam({ teamId: r.teamId, playerId: r.playerId })}
@@ -1514,11 +1854,82 @@ function cellTextForSort(r: FullRow, key: SortKey): string {
             </table>
           </div>
           </div>
+          {pendingCount > 0 && (
+            <div className="tm-rk-savebar" role="status" aria-live="polite">
+              <span
+                className="tm-rk-savebar-count"
+                title="Staged edits — not saved yet. Save applies them all at once."
+              >
+                ● {pendingCount} unsaved
+              </span>
+              <button
+                type="button"
+                className="tm-btn tm-btn-sm tm-rk-savebar-save"
+                onClick={savePending}
+                title="Apply all staged edits at once"
+              >
+                Save{pendingCount > 1 ? ' all' : ''}
+              </button>
+              <button
+                type="button"
+                className="tm-btn tm-btn-sm tm-btn--ghost"
+                onClick={discardPending}
+                title="Throw away all staged edits"
+              >
+                Discard
+              </button>
+            </div>
+          )}
+          {noteView ? (
+            <div className="tm-rk-note-backdrop" onClick={() => setNoteView(null)}>
+              <div
+                className="tm-rk-note-pop"
+                role="dialog"
+                aria-label={`Player note — ${noteView.name}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="tm-rk-note-head">
+                  <div>
+                    <div className="tm-rk-note-name">{noteView.name}</div>
+                    <div className="tm-rk-note-team">{noteView.teamName} · squad note</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="tm-btn tm-btn-sm tm-btn--ghost"
+                    onClick={() => setNoteView(null)}
+                    aria-label="Close player note"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="tm-rk-note-body">{noteView.note}</p>
+                <div className="tm-rk-note-actions">
+                  <button
+                    type="button"
+                    className="tm-btn tm-btn-sm"
+                    onClick={() => {
+                      onOpenPlayerInTeam({ teamId: noteView.teamId, playerId: noteView.playerId })
+                      setNoteView(null)
+                    }}
+                  >
+                    Open in squad
+                  </button>
+                  <button
+                    type="button"
+                    className="tm-btn tm-btn-sm tm-btn--ghost"
+                    onClick={() => setNoteView(null)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
           {sorted.length === 0 && (
             <p className="rankings-empty">No squad players in this tournament yet.</p>
           )}
           {sorted.length > 0 && visibleRows.length === 0 && (
-            <p className="rankings-empty">No players match this team filter.</p>
+            <p className="rankings-empty">No players match the current filters.</p>
           )}
         </div>
       </div>
@@ -1562,6 +1973,18 @@ function SortSubHead({
 function fmt(n: number): string {
   if (!Number.isFinite(n)) return '—'
   return n.toFixed(2)
+}
+
+/** Whole-number display for the trader-entered CAZ columns. */
+function fmt0(n: number): string {
+  if (!Number.isFinite(n)) return '—'
+  return n.toFixed(0)
+}
+
+function parsePosFilter(raw: string): BattingPositionFilter {
+  if (raw === 'openers') return 'openers'
+  if (/^(10|11|[1-9])$/.test(raw)) return raw as BattingPositionFilter
+  return 'all'
 }
 
 interface BattingCareerForm {
@@ -1654,8 +2077,12 @@ function battingCareerForm(
 interface RecentWindowCells {
   avg: string
   avgTitle: string
+  /** Numeric window average (null when no recent innings) — for tinting vs career. */
+  avgNum: number | null
   sr: string
   srTitle: string
+  /** Numeric window strike rate (null when no balls-faced data) — for tinting vs career. */
+  srNum: number | null
   cells: string[]
   titles: (string | undefined)[]
 }
@@ -1684,11 +2111,13 @@ function recentWindowCells(innings: RankInnings[], window: number, mapped: boole
       agg.average != null
         ? `${mapped ? 'Collected data' : 'Static record'} — batting average over the last ${agg.innings.length} (runs per dismissal; * = not out).`
         : 'No recent innings available.',
+    avgNum: agg.average,
     sr: agg.strikeRate100 != null ? agg.strikeRate100.toFixed(2) : '—',
     srTitle:
       agg.strikeRate100 != null
         ? `${mapped ? 'Collected data' : 'Static record'} — strike rate over the last ${agg.innings.length} shown scores (runs per 100 balls).`
         : 'No recent balls-faced data available.',
+    srNum: agg.strikeRate100,
     cells,
     titles,
   }

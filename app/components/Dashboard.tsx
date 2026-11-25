@@ -349,7 +349,7 @@ export default function Dashboard({
                 <h2 className="tournament-section-head">Player ratings</h2>
                 <button
                   type="button"
-                  className="tm-btn tm-btn-sm tournament-rankings-expand"
+                  className="tm-btn tm-btn-sm tm-btn--ghost tournament-rankings-expand"
                   onClick={() => setRankingsExpanded(true)}
                 >
                   Expand full rankings

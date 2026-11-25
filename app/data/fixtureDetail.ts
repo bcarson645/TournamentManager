@@ -108,6 +108,8 @@ export interface DbTeamInnings {
 export interface DbTeamHistory {
   appTeamId: string
   innings: DbTeamInnings[]
+  /** First-innings only (for 1st-innings market chains) — newest first. */
+  firstInnings: DbTeamInnings[]
   avgBatFirst: number | null
   batFirstGames: number
   avgAll: number | null
@@ -160,8 +162,12 @@ export interface HubTeamData {
   par: { avg: number | null; games: number; venues: string[] } | null
   /** Tournament-wide recent innings (for competition chains in the market graphs). */
   compInnings: DbTeamInnings[]
-  /** Recent innings at the matched venue (for ground chains; may be empty). */
+  /** Recent innings at the matched venue, else the home side's home games (may be empty). */
   groundInnings: DbTeamInnings[]
+  /** Where groundInnings came from: matched fixture venue, home side's home games, or empty. */
+  groundSource: 'venue' | 'home' | 'none'
+  /** Venue(s) behind groundInnings (matched venue or detected home venues). */
+  groundVenues: string[]
   /** Total wickets per completed match (for the match-wickets market). */
   matchWickets: { home: DbMatchWickets[]; away: DbMatchWickets[]; comp: DbMatchWickets[]; ground: DbMatchWickets[] }
 }
@@ -379,6 +385,8 @@ function buildMatchMarkets(
   real?: {
     home: DbTeamInnings[]
     away: DbTeamInnings[]
+    homeFirst: DbTeamInnings[]
+    awayFirst: DbTeamInnings[]
     comp: DbTeamInnings[]
     ground: DbTeamInnings[]
     matchWkts: { home: DbMatchWickets[]; away: DbMatchWickets[]; comp: DbMatchWickets[]; ground: DbMatchWickets[] }
@@ -422,10 +430,17 @@ function buildMatchMarkets(
   const awayInn = real?.away ?? []
   const compInn = real && real.comp.length > 0 ? real.comp : [...homeInn, ...awayInn]
   const groundInn = real && real.ground.length > 0 ? real.ground : compInn
+  // Innings-runs/4s/6s lines are 1st-innings lines: chase totals would drag the
+  // chains down, so all three scopes use first innings only here.
+  const firstInn = (list: DbTeamInnings[]): DbTeamInnings[] => list.filter((r) => r.inningsNo === 1)
+  const homeFirst = real?.homeFirst?.length ? real.homeFirst : firstInn(homeInn)
+  const awayFirst = real?.awayFirst?.length ? real.awayFirst : firstInn(awayInn)
+  const compFirst = firstInn(compInn)
+  const groundFirst = firstInn(groundInn)
   const snapHalf = (x: number): number => Math.max(0.5, Math.round(x * 2) / 2)
   const compAvgOf = (pick: (r: DbTeamInnings) => number): number | null =>
-    compInn.length > 0
-      ? compInn.reduce((s, r) => s + pick(r), 0) / compInn.length
+    compFirst.length > 0
+      ? compFirst.reduce((s, r) => s + pick(r), 0) / compFirst.length
       : null
   // Review lines: flat 179.5 innings for every team; 4s/6s from the
   // competition-wide average (same for all teams).
@@ -443,8 +458,8 @@ function buildMatchMarkets(
   const team4s = (innings: number) => innings * 0.11
   const team6s = (innings: number) => Math.max(2, innings * 0.045)
   const sides = [
-    { scope: 'home' as const, name: homeName, innings: homeBatFirst, phases: homePhases, real: homeInn },
-    { scope: 'away' as const, name: awayName, innings: awayBatFirst, phases: awayPhases, real: awayInn },
+    { scope: 'home' as const, name: homeName, innings: homeBatFirst, phases: homePhases, real: homeInn, realFirst: homeFirst },
+    { scope: 'away' as const, name: awayName, innings: awayBatFirst, phases: awayPhases, real: awayInn, realFirst: awayFirst },
   ]
   for (const side of sides) {
     const runs12 = side.phases.powerplay + side.phases.middle * 0.5
@@ -452,15 +467,15 @@ function buildMatchMarkets(
     const foursLine = reviewFoursLine ?? team4s(side.innings)
     const sixesLine = reviewSixesLine ?? team6s(side.innings)
     push(`${side.scope}-innings`, 'Innings runs', side.scope, side.name, inningsLine, 0.12, true, 4, 166, avgFirstInnings,
-      chain(side.real, (r) => r.total), chain(compInn, (r) => r.total), chain(groundInn, (r) => r.total),
+      chain(side.realFirst, (r) => r.total), chain(compFirst, (r) => r.total), chain(groundFirst, (r) => r.total),
       reviewInningsLine ?? undefined)
     push(`${side.scope}-r6`, 'Runs @ 6 overs', side.scope, side.name, side.phases.powerplay, 0.15, true, 3, 47, Math.round(avgFirstInnings * 0.28))
     push(`${side.scope}-r12`, 'Runs @ 12 overs', side.scope, side.name, runs12, 0.13, true, 3, 96, Math.round(avgFirstInnings * 0.57))
     push(`${side.scope}-4s`, 'Total 4s', side.scope, side.name, foursLine, 0.18, true, 1.5, 17, Math.round(avgFirstInnings * 0.11),
-      chain(side.real, (r) => r.fours), chain(compInn, (r) => r.fours), chain(groundInn, (r) => r.fours),
+      chain(side.realFirst, (r) => r.fours), chain(compFirst, (r) => r.fours), chain(groundFirst, (r) => r.fours),
       reviewFoursLine ?? undefined)
     push(`${side.scope}-6s`, 'Total 6s', side.scope, side.name, sixesLine, 0.2, true, 1, 7, Math.max(2, Math.round(avgSixesMatch / 2)),
-      chain(side.real, (r) => r.sixes), chain(compInn, (r) => r.sixes), chain(groundInn, (r) => r.sixes),
+      chain(side.realFirst, (r) => r.sixes), chain(compFirst, (r) => r.sixes), chain(groundFirst, (r) => r.sixes),
       reviewSixesLine ?? undefined)
     push(`${side.scope}-1st`, '1st over runs', side.scope, side.name, 7.5, 0.3, true, 1, 7.5, 7.5)
   }
@@ -1151,6 +1166,8 @@ export function buildFixtureDetail(
         ? {
             home: teamData.home?.innings ?? [],
             away: teamData.away?.innings ?? [],
+            homeFirst: teamData.home?.firstInnings ?? [],
+            awayFirst: teamData.away?.firstInnings ?? [],
             comp: teamData.compInnings ?? [],
             ground: teamData.groundInnings ?? [],
             matchWkts: teamData.matchWickets ?? { home: [], away: [], comp: [], ground: [] },

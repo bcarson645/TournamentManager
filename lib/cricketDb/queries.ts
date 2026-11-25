@@ -105,7 +105,7 @@ export function isDismissed(dismissal: string | null): boolean {
   return true
 }
 
-export function getPlayerT20Aggregate(playerId: string): PlayerT20Aggregate | null {
+export function getPlayerT20Aggregate(playerId: string, competitionIds?: string[]): PlayerT20Aggregate | null {
   const db = getCricketDb()
   const canonicalId = resolveCanonicalPlayerId(playerId)
   const meta = db
@@ -115,13 +115,18 @@ export function getPlayerT20Aggregate(playerId: string): PlayerT20Aggregate | nu
 
   const ids = allPlayerIdsForCanonical(canonicalId)
   const placeholders = ids.map(() => '?').join(', ')
+  const scopeClause =
+    competitionIds && competitionIds.length > 0
+      ? `AND competition_id IN (${competitionIds.map(() => '?').join(', ')})`
+      : ''
+  const scopeParams = competitionIds && competitionIds.length > 0 ? competitionIds : []
   const rows = db
     .prepare(
       `SELECT source_id, match_date, competition_id, team_id, dismissal,
               bat_runs, bat_balls, bat_order, fours, sixes, bowl_runs, bowl_wickets, bowl_overs
-       FROM performances WHERE player_id IN (${placeholders}) ORDER BY match_date DESC`,
+       FROM performances WHERE player_id IN (${placeholders}) ${scopeClause} ORDER BY match_date DESC`,
     )
-    .all(...ids) as {
+    .all(...ids, ...scopeParams) as {
     source_id: string | null
     match_date: string | null
     competition_id: string | null
@@ -322,6 +327,48 @@ export function getTournamentCompetitionIds(tournamentId: string): string[] {
       .prepare(`SELECT competition_id AS id FROM competition_dim WHERE tournament_id = ?`)
       .all(tournamentId) as { id: string }[]
   ).map((r) => r.id)
+}
+
+/**
+ * Format names counted as major franchise T20 leagues ("major leagues" stats scope).
+ * New leagues using one of these format names are picked up automatically.
+ */
+export const MAJOR_T20_FORMATS = [
+  'Indian Premier League',
+  'Big Bash League',
+  'T20 Blast',
+  'SA20',
+  'Pakistan Super League',
+  'Caribbean Premier League',
+  'Bangladesh Premier League',
+  'International League T20',
+  'Lanka Premier League',
+  'Major League Cricket',
+  'The Hundred',
+]
+
+function distinctCompetitionIds(where: string, params: string[]): string[] {
+  const db = getCricketDb()
+  return (
+    db
+      .prepare(
+        `SELECT DISTINCT competition_id AS id FROM performances
+         WHERE ${where} AND competition_id IS NOT NULL AND competition_id <> 'CompetitionID'`,
+      )
+      .all(...params) as { id: string }[]
+  ).map((r) => r.id)
+}
+
+/** Competition ids holding T20 cricket (the dataset's T20 marker is format_id 6). */
+export function getT20CompetitionIds(): string[] {
+  return distinctCompetitionIds(`format_id = '6'`, [])
+}
+
+/** Competition ids holding major franchise-league T20 (see MAJOR_T20_FORMATS). */
+export function getMajorT20CompetitionIds(): string[] {
+  return distinctCompetitionIds(`format IN (${MAJOR_T20_FORMATS.map(() => '?').join(', ')})`, [
+    ...MAJOR_T20_FORMATS,
+  ])
 }
 
 export interface RecentBattingInnings {
@@ -733,14 +780,14 @@ export interface DbHomePar {
  * the side is the primary tenant (row share >= minShare). This handles ground
  * renames (e.g. Feroz Shah Kotla / Arun Jaitley Stadium) with no name mapping.
  */
-export function getTeamHomePar(
+export function getTeamHomeVenues(
   externalTeamIds: string[],
   competitionIds: string[],
   minShare = 0.25,
   minTeamRows = 44,
-): DbHomePar | null {
+): string[] {
   const db = getCricketDb()
-  if (externalTeamIds.length === 0 || competitionIds.length === 0) return null
+  if (externalTeamIds.length === 0 || competitionIds.length === 0) return []
   const compPlace = competitionIds.map(() => '?').join(', ')
   const teamPlace = externalTeamIds.map(() => '?').join(', ')
   const venues = db
@@ -756,10 +803,22 @@ export function getTeamHomePar(
     total: number
     teamRows: number
   }[]
-  const homeVenues = venues
+  return venues
     .filter((v) => v.teamRows >= minTeamRows && v.teamRows / Math.max(1, v.total) >= minShare)
     .map((v) => v.venue)
+}
+
+export function getTeamHomePar(
+  externalTeamIds: string[],
+  competitionIds: string[],
+  minShare = 0.25,
+  minTeamRows = 44,
+): DbHomePar | null {
+  const homeVenues = getTeamHomeVenues(externalTeamIds, competitionIds, minShare, minTeamRows)
   if (homeVenues.length === 0) return null
+  const db = getCricketDb()
+  const compPlace = competitionIds.map(() => '?').join(', ')
+  const teamPlace = externalTeamIds.map(() => '?').join(', ')
   const venuePlace = homeVenues.map(() => '?').join(', ')
   const matches = db
     .prepare(
@@ -1021,6 +1080,39 @@ export function getVenueRecentInnings(
   return groupRowsToInnings(rows, limit)
 }
 
+/**
+ * Recent innings from matches where the team played at its home venues (both
+ * sides' innings) — newest first. Ground-chain source when the fixture venue
+ * itself can't be matched to the dataset.
+ */
+export function getTeamHomeRecentInnings(
+  externalTeamIds: string[],
+  competitionIds: string[],
+  limit = 30,
+): DbTeamInnings[] {
+  const db = getCricketDb()
+  const homeVenues = getTeamHomeVenues(externalTeamIds, competitionIds)
+  if (homeVenues.length === 0) return []
+  const compPlace = competitionIds.map(() => '?').join(', ')
+  const teamPlace = externalTeamIds.map(() => '?').join(', ')
+  const venuePlace = homeVenues.map(() => '?').join(', ')
+  const rows = db
+    .prepare(
+      `SELECT match_date AS matchDate, innings_label AS inningsLabel,
+              MAX(team_total) AS teamTotal, MAX(team_wkts) AS teamWkts,
+              MAX(opponent) AS opponent, MAX(venue) AS venue,
+              MAX(competition_id) AS competitionId,
+              SUM(COALESCE(fours, 0)) AS fours, SUM(COALESCE(sixes, 0)) AS sixes,
+              source_id AS sourceId
+       FROM performances
+       WHERE competition_id IN (${compPlace}) AND venue IN (${venuePlace})
+         AND source_id IN (SELECT source_id FROM performances WHERE team_id IN (${teamPlace}) AND venue IN (${venuePlace}))
+       GROUP BY source_id, innings_label, match_date`,
+    )
+    .all(...competitionIds, ...homeVenues, ...externalTeamIds, ...homeVenues) as TeamInningsGroupRow[]
+  return groupRowsToInnings(rows, limit)
+}
+
 export interface DbMatchWickets {
   date: string
   wickets: number
@@ -1034,6 +1126,7 @@ export function getRecentMatchWickets(opts: {
   competitionIds: string[]
   teamIds?: string[]
   venue?: string | null
+  venues?: string[]
   limit?: number
 }): DbMatchWickets[] {
   const { competitionIds, teamIds, venue } = opts
@@ -1043,9 +1136,10 @@ export function getRecentMatchWickets(opts: {
   const compPlace = competitionIds.map(() => '?').join(', ')
   const filters: string[] = [`competition_id IN (${compPlace})`]
   const params: string[] = [...competitionIds]
-  if (venue) {
-    filters.push('venue = ?')
-    params.push(venue)
+  const venueList = [...(venue ? [venue] : []), ...(opts.venues ?? [])]
+  if (venueList.length > 0) {
+    filters.push(`venue IN (${venueList.map(() => '?').join(', ')})`)
+    params.push(...venueList)
   }
   if (teamIds && teamIds.length > 0) {
     const teamPlace = teamIds.map(() => '?').join(', ')

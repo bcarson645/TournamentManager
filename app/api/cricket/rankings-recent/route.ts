@@ -3,13 +3,18 @@ import { getDatasetPlayerIdForAppName } from '../../../../lib/cricketDb/playerPr
 import { allPlayerIdsForCanonical } from '../../../../lib/cricketDb/playerMerges'
 import { oversTextToBalls } from '../../../../lib/cricketDb/parseOvers'
 import {
+  getMajorT20CompetitionIds,
   getPlayerT20Aggregate,
   getRecentBattingInnings,
   getRecentBowlingInnings,
+  getT20CompetitionIds,
   getTournamentCompetitionIds,
 } from '../../../../lib/cricketDb/queries'
 
 export const runtime = 'nodejs'
+
+/** Which matches feed the stats: this tournament only, all T20, or the major leagues. */
+export type RankingsScope = 'tournament' | 't20' | 'majors'
 
 export interface RankingsRecentInnings {
   date: string
@@ -31,28 +36,28 @@ export interface RankingsBowlContext {
 }
 
 export interface RankingsPlayerData {
-  /** Tournament-scoped innings, newest first (balls faced included where collected). */
+  /** Scope-filtered innings, newest first (balls faced included where collected). */
   innings: RankingsRecentInnings[]
-  /** Career average / SR per 100 across the whole collected dataset. */
+  /** Scope average / SR per 100 (runs per dismissal; strike rate per 100 balls). */
   careerAvg: number | null
   careerSr: number | null
-  /** Career boundary totals across the whole collected dataset. */
+  /** Scope boundary totals. */
   careerFours: number | null
   careerSixes: number | null
-  /** Career average batting order (1–11) and distinct orders observed. */
+  /** Scope average batting order (1–11) and distinct orders observed. */
   careerAvgBatOrder: number | null
   careerBatOrders: number[]
-  /** Career batting innings across the whole collected dataset — drives the confidence meter. */
+  /** Scope batting innings — drives the confidence meter. */
   careerInnings: number | null
-  /** Career bowling context (whole dataset). Null when the player never bowled. */
+  /** Scope bowling context. Null when the player never bowled in scope. */
   bowlCareer: RankingsBowlContext | null
-  /** Tournament bowling context (this tournament only). Null when no tournament spells. */
+  /** Scope recent bowling context. Null when no spells in scope. */
   bowlTourn: RankingsBowlContext | null
 }
 
 /**
  * Collected-data backing for the expanded tournament rankings batting view.
- * Tournament-scoped recent innings (with balls faced) plus career aggregates,
+ * Scope-filtered recent innings (with balls faced) plus scope aggregates,
  * keyed by squad name. Names that don't resolve are omitted — the caller
  * falls back to its built-in static records and flags the source.
  */
@@ -62,6 +67,7 @@ export async function POST(req: Request) {
       tournamentId?: string
       names?: string[]
       limit?: number
+      scope?: RankingsScope
     }
     const tournamentId = (body.tournamentId ?? '').trim()
     const names = [...new Set((body.names ?? []).map((n) => String(n).trim()).filter(Boolean))].slice(
@@ -69,8 +75,16 @@ export async function POST(req: Request) {
       400,
     )
     const limit = Math.min(60, Math.max(5, Number(body.limit) || 15))
+    const scope: RankingsScope = body.scope === 't20' || body.scope === 'majors' ? body.scope : 'tournament'
 
-    const competitionIds = tournamentId ? getTournamentCompetitionIds(tournamentId) : []
+    const competitionIds =
+      scope === 't20'
+        ? getT20CompetitionIds()
+        : scope === 'majors'
+          ? getMajorT20CompetitionIds()
+          : tournamentId
+            ? getTournamentCompetitionIds(tournamentId)
+            : []
     if (competitionIds.length === 0 || names.length === 0) {
       return NextResponse.json({ players: {} })
     }
@@ -94,7 +108,7 @@ export async function POST(req: Request) {
         let careerInnings: number | null = null
         let bowlCareer: RankingsBowlContext | null = null
         try {
-          const agg = getPlayerT20Aggregate(canonical)
+          const agg = getPlayerT20Aggregate(canonical, competitionIds)
           if (agg) {
             careerAvg = agg.average
             careerSr = agg.strikeRatePerBall != null ? Math.round(agg.strikeRatePerBall * 10000) / 100 : null

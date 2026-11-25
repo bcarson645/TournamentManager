@@ -18648,6 +18648,21 @@ html[data-theme="light"] .mt-medianline {
   line-height: 1;
 }
 
+/* Neutral variant — quiet utility look in line with the wider UI's back
+   buttons (transparent surface, subtle border, secondary text). For
+   navigation chrome; keeps .tm-btn sizing so it still fits the toolbars. */
+.tm-btn.tm-btn--ghost {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: var(--border-strong, var(--border-subtle));
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.tm-btn.tm-btn--ghost:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
 .teams-table-filterrow th {
   padding: 0.3rem 0.5rem;
   background: rgba(0, 0, 0, 0.12);
@@ -18855,9 +18870,13 @@ html[data-theme="light"] .mt-medianline {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 1.45rem;
-  font-weight: 800;
-  letter-spacing: -0.015em;
+  /* Trial heading face — Windows system condensed sans, uppercase + tracked.
+     Falls back to Segoe UI where Bahnschrift is unavailable. */
+  font-family: "Bahnschrift", "Arial Narrow", "Segoe UI", system-ui, sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
   line-height: 1.15;
 }
 
@@ -18923,6 +18942,8 @@ html[data-theme="light"] .mt-medianline {
   overflow: clip;
   display: flex;
   flex-direction: column;
+  /* Anchor for the floating staged-edits save bar. */
+  position: relative;
 }
 
 .tm-rankings-full-scroll {
@@ -18939,21 +18960,28 @@ html[data-theme="light"] .mt-medianline {
   font-size: 0.76rem;
   width: 100%;
 }
-/* Frozen left + scrollable recent: side-by-side tables, rows locked to equal heights. */
+/* Frozen left + scrollable recent: side-by-side tables, rows locked to equal heights.
+   One shared scroll container (the outer .tm-rankings-full-scroll) drives BOTH
+   axes — the recent strip must NOT be a nested scroller, or it traps its thead's
+   sticky positioning and the right header scrolls away. */
 .tm-rk-split {
   display: flex;
   align-items: flex-start;
+  width: max-content;
+  min-width: 100%;
 }
 table.teams-table.tm-rankings-full-table.tm-rk-frozen {
   flex: 1 1 auto;
   width: auto;
   min-width: 0;
 }
-/* Recent strip: a small side panel that scrolls internally — the left stays the focus. */
+/* Recent strip: fixed (draggable) width panel. Overflow stays visible so the outer
+   scroller handles sideways scrolling — a nested scroller here would trap the
+   recent thead's sticky header. Rank/player sticky columns cover the overlap. */
 .tm-rk-recent-scroll {
   flex: 0 0 auto;
   width: clamp(18rem, 30vw, 32rem);
-  overflow-x: auto;
+  overflow: visible;
 }
 /* Drag grip between the frozen table and the recent strip. */
 .tm-rk-grip {
@@ -19032,12 +19060,22 @@ div.tm-rk-recent-scroll > table.teams-table.tm-rankings-full-table.tm-rk-recent-
   text-transform: uppercase;
 }
 
+/* Both header blocks freeze against the single outer scroller (th-level sticky
+   alone does not hold). The frozen header paints above the recent header where
+   the stuck rank/player columns overlap it during sideways scrolling. */
+.tm-rankings-full-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+}
+table.teams-table.tm-rankings-full-table.tm-rk-frozen thead {
+  z-index: 12;
+}
 .tm-rankings-full-table thead tr:first-child th {
   position: sticky;
   top: 0;
   z-index: 8;
-  height: 2.5rem;
-  padding: 0.4rem 0.45rem;
+  height: 2.5rem;  padding: 0.4rem 0.45rem;
   border-bottom: 1px solid var(--border-subtle);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 }
@@ -19175,6 +19213,7 @@ html[data-theme="light"] .tm-rankings-full-table thead th.teams-sortable:active 
 
 .tm-rankings-full-table .tm-rk-cell {
   color: var(--text-primary);
+  white-space: nowrap;
 }
 
 /* Static-record fallback: italic text, no colour. */
@@ -19200,6 +19239,14 @@ html[data-theme="light"] .squad-perf-mode-btn {
 html[data-theme="light"] .tm-btn {
   background: rgba(249, 115, 22, 0.1);
   color: #0f172a;
+}
+html[data-theme="light"] .tm-btn.tm-btn--ghost {
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-primary);
+}
+html[data-theme="light"] .tm-btn.tm-btn--ghost:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.1);
+  color: var(--text-primary);
 }
 
 html[data-theme="light"] .sq-perf-cell {
@@ -19263,7 +19310,41 @@ html[data-theme="light"] .teams-table-subrow th {
   outline: none;
   border-color: var(--accent);
 }
-/* Compact square rating cell (team-setup colours come from .sq-rating). */
+/* Trader stepper: − / + buttons flanking the box (native number spinners are off). */
+.tm-rk-stepwrap {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  max-width: 100%;
+}
+.tm-rk-stepwrap .tm-rk-box {
+  width: 3.4rem;
+  /* Never shrink — a squeezed table must overflow (the outer scroller + sticky
+     rank/player columns cover that) rather than clip the typed value. */
+  flex: 0 0 auto;
+}
+.tm-rk-step {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 0.28rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.tm-rk-step:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong, var(--border-subtle));
+  background: rgba(148, 163, 184, 0.12);
+}
+/* Row action button: slim enough to fit the locked 2.1rem row height. */
+.tm-rankings-full-table .tm-btn-sm.tm-btn-icon {
+  padding: 0.1rem 0.35rem;
+}
+/* Compact square rating cell. */
 .tm-rankings-full-table td.tm-rk-rate {
   min-width: 3.2rem;
   max-width: 3.2rem;
@@ -19366,6 +19447,118 @@ html[data-theme="light"] .tm-rk-flag {
 }
 html[data-theme="light"] .tm-rk-cell--flag .tm-rk-box {
   border-color: rgba(146, 105, 14, 0.6);
+}
+/* Staged (unsaved) edit — amber wash. Placed after the flag rules so it wins ties. */
+.tm-rk-box.tm-rk-box--dirty {
+  border-style: solid;
+  border-color: rgba(250, 204, 21, 0.8);
+  background: rgba(250, 204, 21, 0.1);
+}
+html[data-theme="light"] .tm-rk-box.tm-rk-box--dirty {
+  border-color: rgba(161, 98, 7, 0.7);
+  background: rgba(250, 204, 21, 0.16);
+}
+/* Floating staged-edits bar — pops up bottom-right of the panel until saved. */
+.tm-rk-savebar {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong, var(--border-subtle));
+  border-radius: 0.55rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+.tm-rk-savebar-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #fbbf24;
+}
+html[data-theme="light"] .tm-rk-savebar-count {
+  color: #92690e;
+}
+.tm-btn.tm-rk-savebar-save {
+  background: rgba(148, 163, 184, 0.22);
+  border-color: rgba(148, 163, 184, 0.45);
+  color: var(--text-primary);
+}
+.tm-btn.tm-rk-savebar-save:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.32);
+  border-color: rgba(148, 163, 184, 0.6);
+  color: var(--text-primary);
+}
+html[data-theme="light"] .tm-btn.tm-rk-savebar-save {
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--text-primary);
+}
+/* Player-note indicator + viewing dialog in the expanded rankings. */
+.tm-rk-note-dot {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0 0 0 0.3rem;
+  margin: 0;
+  cursor: pointer;
+  vertical-align: middle;
+  line-height: 0;
+}
+.tm-rk-note-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(2, 6, 23, 0.6);
+}
+.tm-rk-note-pop {
+  width: min(26rem, 100%);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.8rem 0.9rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong, var(--border-subtle));
+  border-radius: 0.65rem;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+.tm-rk-note-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.tm-rk-note-name {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.tm-rk-note-team {
+  font-size: 0.68rem;
+  color: var(--text-muted, var(--text-secondary));
+}
+.tm-rk-note-body {
+  margin: 0;
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+.tm-rk-note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 /* Rolling-form strip: segmented bar, green running hot vs career, red running cold. */
 .tm-rk-trend {
@@ -22241,6 +22434,30 @@ span.fxd-mh-flag {
   color: var(--fxd-muted);
 }
 
+/* Slim side tag before player names — compact solid pill, replaces the big chip there. */
+.fxd-side-tag {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.08rem 0.32rem;
+  border-radius: 0.25rem;
+  color: #fff;
+  margin-right: 0.4rem;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+.fxd-side-tag--home {
+  background: var(--fxd-home);
+}
+.fxd-side-tag--away {
+  background: var(--fxd-away);
+}
+.fxd-side-tag .fxd-side-pos {
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 700;
+}
+
 .fxd-mkt-bars {
   display: inline-flex;
   flex-direction: column;
@@ -22332,6 +22549,75 @@ span.fxd-mh-flag {
   color: var(--fxd-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Condensed actuals mini-tables replacing the market bar graphs — same
+   bordered fxd-table cells as the match-markets tables, just smaller. */
+.fxd-mkt-mini {
+  font-size: 0.62rem;
+  margin: 1px 0 6px;
+}
+.fxd-table.fxd-mkt-mini thead th,
+.fxd-table.fxd-mkt-mini tbody th,
+.fxd-table.fxd-mkt-mini tbody td {
+  padding: 0.14rem 0.32rem;
+  font-variant-numeric: tabular-nums;
+}
+.fxd-table.fxd-mkt-mini tbody th {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--fxd-muted);
+  width: 1.2rem;
+}
+
+/* Head-to-head record strip: verdict + split bar + last-5 form. */
+.fxd-h2h-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 10px;
+}
+.fxd-h2h-verdict {
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.fxd-h2h-verdict .fxd-muted {
+  font-weight: 400;
+}
+.fxd-h2h-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--fxd-surface-2);
+}
+.fxd-h2h-bar--home {
+  background: var(--fxd-home);
+}
+.fxd-h2h-bar--tie {
+  background: var(--fxd-border);
+}
+.fxd-h2h-bar--away {
+  background: var(--fxd-away);
+}
+.fxd-h2h-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 0.68rem;
+}
+.fxd-h2h-form .fxd-side-tag {
+  margin-right: 0;
+}
+.fxd-h2h-tie {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.08rem 0.32rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--fxd-border);
+  color: var(--fxd-muted);
 }
 
 .fxd-mkt-garea {
@@ -22553,6 +22839,34 @@ span.fxd-mh-flag {
   background: rgba(239, 68, 68, 0.22);
   border-radius: 0.25rem;
   font-weight: 800;
+}
+
+/* Hit-rate alerts on the Hit column: red = line looks far off, amber = leaning,
+   faint green = line well set. */
+.fxd-table td.fxd-hit--alert,
+.fxd-table td.fxd-hit--watch,
+.fxd-table td.fxd-hit--good {
+  font-weight: 800;
+  border-radius: 0.25rem;
+}
+.fxd-table td.fxd-hit--alert {
+  background: rgba(239, 68, 68, 0.3);
+}
+.fxd-table td.fxd-hit--watch {
+  background: rgba(245, 158, 11, 0.18);
+}
+.fxd-table td.fxd-hit--good {
+  background: rgba(34, 197, 94, 0.12);
+}
+.fxd-table td.fxd-hit--alert::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f87171;
+  margin-right: 4px;
+  vertical-align: 1px;
 }
 
 .fxd-cell-line {
