@@ -19290,6 +19290,32 @@ html[data-theme="light"] .teams-table-subrow th {
   color: var(--text-muted, #94a3b8);
   font-style: italic;
 }
+/* Trader-input cells: slightly lifted neutral wash (not a tint colour). */
+.tm-rankings-full-table td.tm-rk-cell--input {
+  box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0.045);
+}
+html[data-theme="light"] .tm-rankings-full-table td.tm-rk-cell--input {
+  box-shadow: inset 0 0 0 9999px rgba(255, 255, 255, 0.5);
+}
+/* Stepper + box stay right-aligned; flag arrow keeps fixed width so the box never shifts. */
+.tm-rk-input-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  width: 100%;
+  max-width: 100%;
+}
+.tm-rk-flag-slot {
+  flex: 0 0 0.55rem;
+  width: 0.55rem;
+  text-align: center;
+  line-height: 1;
+}
+.tm-rk-flag-slot .tm-rk-flag {
+  margin-left: 0;
+}
+
 /* Trader input box: plain bordered box, no fill. */
 .tm-rk-box {
   width: 4.4rem;

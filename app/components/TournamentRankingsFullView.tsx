@@ -185,15 +185,26 @@ function RankCellView({
     const key = pendKey(teamId, playerId, cell.field)
     const draft = pending[key]?.value
     return (
-      <td className={'td-num tm-rk-cell' + div + (cell.flag ? ' tm-rk-cell--flag' : '')} title={cell.title}>
-        <RankEditCell
-          value={cell.text}
-          draft={draft}
-          dirty={draft !== undefined && draft !== cell.text}
-          onDraft={(next) => onStage(teamId, playerId, cell.field!, cell.text, next)}
-          onStep={(dir) => onStepEdit(teamId, playerId, cell.field!, cell.text, dir)}
-        />
-        {cell.flag ? <FlagGlyph dir={cell.flagDir} text={cell.flag} /> : null}
+      <td
+        className={
+          'td-num tm-rk-cell tm-rk-cell--input' +
+          div +
+          (cell.flag ? ' tm-rk-cell--flag' : '')
+        }
+        title={cell.title}
+      >
+        <span className="tm-rk-input-slot">
+          <RankEditCell
+            value={cell.text}
+            draft={draft}
+            dirty={draft !== undefined && draft !== cell.text}
+            onDraft={(next) => onStage(teamId, playerId, cell.field!, cell.text, next)}
+            onStep={(dir) => onStepEdit(teamId, playerId, cell.field!, cell.text, dir)}
+          />
+          <span className="tm-rk-flag-slot" aria-hidden={!cell.flag}>
+            {cell.flag ? <FlagGlyph dir={cell.flagDir} text={cell.flag} /> : null}
+          </span>
+        </span>
       </td>
     )
   }
